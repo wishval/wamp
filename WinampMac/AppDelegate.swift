@@ -7,7 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let stateManager = StateManager()
     var mainWindow: MainWindow!
     var statusItem: NSStatusItem!
-    // var hotKeyManager: HotKeyManager! // Task 15 will create HotKeyManager
+    var hotKeyManager: HotKeyManager!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         playlistManager.setAudioEngine(audioEngine)
@@ -50,6 +50,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Setup system tray
         setupStatusItem()
+
+        // Setup media key handling and Now Playing info
+        hotKeyManager = HotKeyManager(audioEngine: audioEngine, playlistManager: playlistManager)
 
         NSApp.activate(ignoringOtherApps: true)
     }
