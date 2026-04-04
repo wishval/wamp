@@ -10,22 +10,24 @@
 		1C49CD9F2F817D2700DB292D /* WinampMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WinampMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1C49CDB02F817D2800DB292D /* Exceptions for "WinampMac" folder in "WinampMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1C49CD9E2F817D2700DB292D /* WinampMac */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1C49CDA12F817D2700DB292D /* WinampMac */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				1C49CDB02F817D2800DB292D /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				1C49CDB02F817D2800DB292D /* Exceptions for "WinampMac" folder in "WinampMac" target */,
 			);
 			path = WinampMac;
 			sourceTree = "<group>";
-		};
-		1C49CDB02F817D2800DB292D /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				WinampMac.entitlements,
-			);
-			target = 1C49CD9E2F817D2700DB292D /* WinampMac */;
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
