@@ -28,7 +28,7 @@ class EQResponseView: NSView {
         for (i, gain) in bands.enumerated() {
             let x = b.width * CGFloat(i) / CGFloat(bands.count - 1)
             let normalized = CGFloat(gain / 12) // -1 to 1
-            let y = b.midY - normalized * (b.height / 2 - 2)
+            let y = b.midY + normalized * (b.height / 2 - 2)
 
             if i == 0 {
                 path.move(to: NSPoint(x: x, y: y))
