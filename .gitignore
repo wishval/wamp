@@ -1,1 +1,33 @@
+# Xcode
+build/
+DerivedData/
+*.xcworkspace
+!*.xcodeproj/project.xcworkspace/
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+*.swp
+*~
+.Trashes
+._*
+
+# App bundles & symbols
+*.app
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xcarchive
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Tools
 .superpowers/
