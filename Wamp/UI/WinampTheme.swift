@@ -96,6 +96,9 @@ enum WinampTheme {
     static let playlistFont = NSFont(name: "ArialMT", size: 8.5) ?? NSFont.systemFont(ofSize: 8.5)
     static let eqLabelFont = NSFont(name: "Tahoma", size: 6) ?? NSFont.systemFont(ofSize: 6)
 
+    // MARK: - Scale
+    static let scale: CGFloat = 1.3
+
     // MARK: - Dimensions
     static let windowWidth: CGFloat = 275
     static let mainPlayerHeight: CGFloat = 126

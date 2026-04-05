@@ -36,7 +36,10 @@ class MainWindow: NSWindow {
 
     init() {
         let height = WinampTheme.mainPlayerHeight + WinampTheme.equalizerHeight + WinampTheme.playlistMinHeight
-        let rect = NSRect(x: 100, y: 100, width: WinampTheme.windowWidth, height: height)
+        let s = WinampTheme.scale
+        let scaledWidth = WinampTheme.windowWidth * s
+        let scaledHeight = height * s
+        let rect = NSRect(x: 100, y: 100, width: scaledWidth, height: scaledHeight)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .miniaturizable],
@@ -52,7 +55,8 @@ class MainWindow: NSWindow {
         isReleasedWhenClosed = false
         collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: WinampTheme.windowWidth, height: height))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight))
+        container.setBoundsSize(NSSize(width: WinampTheme.windowWidth, height: height))
         container.wantsLayer = true
         contentView = container
 
@@ -65,7 +69,7 @@ class MainWindow: NSWindow {
 
     private func layoutSections() {
         let w = WinampTheme.windowWidth
-        let totalHeight = frame.height
+        let totalHeight = contentView?.bounds.height ?? frame.height
         var y = totalHeight
 
         // Main player — always at top
@@ -90,16 +94,21 @@ class MainWindow: NSWindow {
         if showEqualizer { height += WinampTheme.equalizerHeight }
         if showPlaylist { height += WinampTheme.playlistMinHeight }
 
+        let s = WinampTheme.scale
+        let scaledWidth = WinampTheme.windowWidth * s
+        let scaledHeight = height * s
+
         let origin = frame.origin
         let newFrame = NSRect(
             x: origin.x,
-            y: origin.y + frame.height - height,
-            width: WinampTheme.windowWidth,
-            height: height
+            y: origin.y + frame.height - scaledHeight,
+            width: scaledWidth,
+            height: scaledHeight
         )
         setFrame(newFrame, display: true, animate: true)
 
-        contentView?.frame = NSRect(x: 0, y: 0, width: WinampTheme.windowWidth, height: height)
+        contentView?.frame = NSRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight)
+        contentView?.setBoundsSize(NSSize(width: WinampTheme.windowWidth, height: height))
         layoutSections()
     }
 

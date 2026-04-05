@@ -43,6 +43,9 @@ No Electron. No web views. No dependencies. Just pure native macOS.
 - Shuffle and repeat modes (off / track / playlist)
 - Supports MP3, AAC, M4A, FLAC, WAV, and AIFF
 
+**Customization**
+- Adjustable UI scale — change a single value in `WinampTheme.scale` to resize the entire player
+
 **System Integration**
 - Media key support — play/pause, next, previous from your keyboard
 - Now Playing integration with macOS Control Center
