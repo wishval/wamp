@@ -144,7 +144,7 @@ class MainPlayerView: NSView {
         addSubview(shuffleButton)
 
         // Repeat button (loop arrows icon)
-        repeatButton.drawIcon = { rect, active in
+        repeatButton.drawIcon = { [weak self] rect, active in
             let color = active ? WinampTheme.buttonTextActive : WinampTheme.buttonTextInactive
             color.setStroke()
             let path = NSBezierPath()
@@ -173,6 +173,21 @@ class MainPlayerView: NSView {
             arr2.line(to: NSPoint(x: rect.minX + 2, y: rect.midY - 2))
             arr2.line(to: NSPoint(x: rect.minX + 4, y: rect.midY - 4))
             arr2.stroke()
+            // Draw "1" for single-track repeat mode
+            if self?.audioEngine?.repeatMode == .track {
+                let font = NSFont.monospacedSystemFont(ofSize: 5.5, weight: .bold)
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: color
+                ]
+                let str = "1"
+                let size = str.size(withAttributes: attrs)
+                let point = NSPoint(
+                    x: rect.maxX - size.width + 2,
+                    y: rect.minY - 3
+                )
+                str.draw(at: point, withAttributes: attrs)
+            }
         }
         addSubview(repeatButton)
 
@@ -344,6 +359,7 @@ class MainPlayerView: NSView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] mode in
                 self?.repeatButton.isActive = mode != .off
+                self?.repeatButton.needsDisplay = true
             }
             .store(in: &cancellables)
     }
