@@ -199,7 +199,7 @@ class MainPlayerView: NSView {
 
         // Button actions
         shuffleButton.onClick = { [weak self] in
-            self?.playlistManager?.toggleShuffle()
+            self?.playlistManager?.shuffleTracks()
         }
         repeatButton.onClick = { [weak self] in
             guard let engine = self?.audioEngine else { return }
@@ -343,14 +343,6 @@ class MainPlayerView: NSView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] playing in
                 self?.transportBar.playButton.isActive = playing
-            }
-            .store(in: &cancellables)
-
-        // Shuffle state
-        playlistManager.$isShuffled
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] shuffled in
-                self?.shuffleButton.isActive = shuffled
             }
             .store(in: &cancellables)
 

@@ -5,7 +5,6 @@ struct AppState: Codable {
     var volume: Float = 0.75
     var balance: Float = 0
     var repeatMode: Int = 0 // RepeatMode raw value
-    var isShuffled: Bool = false
     var eqEnabled: Bool = true
     var showEqualizer: Bool = true
     var showPlaylist: Bool = true
@@ -55,10 +54,6 @@ class StateManager {
             .sink { [weak self] _ in self?.savePlaylist(playlistManager: playlistManager) }
             .store(in: &cancellables)
 
-        playlistManager.$isShuffled
-            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
-            .sink { [weak self] _ in self?.saveState(audioEngine: audioEngine, playlistManager: playlistManager) }
-            .store(in: &cancellables)
     }
 
     // MARK: - Save
@@ -67,7 +62,7 @@ class StateManager {
         state.volume = audioEngine.volume
         state.balance = audioEngine.balance
         state.repeatMode = audioEngine.repeatMode.rawValue
-        state.isShuffled = playlistManager.isShuffled
+
         state.eqEnabled = audioEngine.eqEnabled
         state.lastTrackIndex = playlistManager.currentIndex
         state.lastPlaybackPosition = audioEngine.currentTime
@@ -99,7 +94,7 @@ class StateManager {
         state.volume = audioEngine.volume
         state.balance = audioEngine.balance
         state.repeatMode = audioEngine.repeatMode.rawValue
-        state.isShuffled = playlistManager.isShuffled
+
         state.eqEnabled = audioEngine.eqEnabled
         state.lastTrackIndex = playlistManager.currentIndex
         state.lastPlaybackPosition = audioEngine.currentTime

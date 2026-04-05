@@ -31,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         audioEngine.balance = appState.balance
         audioEngine.repeatMode = RepeatMode(rawValue: appState.repeatMode) ?? .off
         audioEngine.eqEnabled = appState.eqEnabled
-        playlistManager.isShuffled = appState.isShuffled
+
 
         let eqState = stateManager.loadEQState()
         audioEngine.setAllEQBands(eqState.bands)
@@ -207,7 +207,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         audioEngine.repeatMode = next
     }
 
-    @objc private func toggleShuffle() { playlistManager.toggleShuffle() }
+    @objc private func toggleShuffle() { playlistManager.shuffleTracks() }
 
     @objc private func showPlayerAction() {
         mainWindow.orderFrontRegardless()

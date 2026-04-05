@@ -4,11 +4,8 @@ import Combine
 class PlaylistManager: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var currentIndex: Int = -1
-    @Published var isShuffled = false
     @Published var searchQuery = ""
 
-    private var shuffleOrder: [Int] = []
-    private var shufflePosition = 0
     private var cancellables = Set<AnyCancellable>()
     private weak var audioEngine: AudioEngine?
 
@@ -55,7 +52,6 @@ class PlaylistManager: ObservableObject {
     // MARK: - Track Management
     func addTracks(_ newTracks: [Track]) {
         tracks.append(contentsOf: newTracks)
-        if isShuffled { regenerateShuffleOrder() }
     }
 
     func addURLs(_ urls: [URL]) async {
@@ -102,14 +98,11 @@ class PlaylistManager: ObservableObject {
         } else if index == currentIndex {
             currentIndex = min(currentIndex, tracks.count - 1)
         }
-        if isShuffled { regenerateShuffleOrder() }
     }
 
     func clearPlaylist() {
         tracks.removeAll()
         currentIndex = -1
-        shuffleOrder.removeAll()
-        shufflePosition = 0
     }
 
     // MARK: - Playback Navigation
@@ -124,32 +117,18 @@ class PlaylistManager: ObservableObject {
     }
 
     func playNext() {
-        print("⚡ playNext: currentIndex=\(currentIndex), tracks.count=\(tracks.count), shuffle=\(isShuffled)")
+        print("⚡ playNext: currentIndex=\(currentIndex), tracks.count=\(tracks.count)")
         guard !tracks.isEmpty else { return }
 
-        if isShuffled {
-            shufflePosition += 1
-            if shufflePosition >= shuffleOrder.count {
-                if audioEngine?.repeatMode == .playlist {
-                    regenerateShuffleOrder()
-                    shufflePosition = 0
-                } else {
-                    audioEngine?.stop()
-                    return
-                }
-            }
-            playTrack(at: shuffleOrder[shufflePosition])
-        } else {
-            let nextIndex = currentIndex + 1
-            if nextIndex >= tracks.count {
-                if audioEngine?.repeatMode == .playlist {
-                    playTrack(at: 0)
-                } else {
-                    audioEngine?.stop()
-                }
+        let nextIndex = currentIndex + 1
+        if nextIndex >= tracks.count {
+            if audioEngine?.repeatMode == .playlist {
+                playTrack(at: 0)
             } else {
-                playTrack(at: nextIndex)
+                audioEngine?.stop()
             }
+        } else {
+            playTrack(at: nextIndex)
         }
     }
 
@@ -161,23 +140,20 @@ class PlaylistManager: ObservableObject {
             return
         }
 
-        if isShuffled {
-            shufflePosition = max(0, shufflePosition - 1)
-            playTrack(at: shuffleOrder[shufflePosition])
+        let prevIndex = currentIndex - 1
+        if prevIndex < 0 {
+            playTrack(at: tracks.count - 1)
         } else {
-            let prevIndex = currentIndex - 1
-            if prevIndex < 0 {
-                playTrack(at: tracks.count - 1)
-            } else {
-                playTrack(at: prevIndex)
-            }
+            playTrack(at: prevIndex)
         }
     }
 
-    func toggleShuffle() {
-        isShuffled.toggle()
-        if isShuffled {
-            regenerateShuffleOrder()
+    func shuffleTracks() {
+        guard tracks.count > 1 else { return }
+        let currentTrack = currentIndex >= 0 && currentIndex < tracks.count ? tracks[currentIndex] : nil
+        tracks.shuffle()
+        if let currentTrack = currentTrack {
+            currentIndex = tracks.firstIndex(where: { $0.url == currentTrack.url }) ?? -1
         }
     }
 
@@ -205,12 +181,4 @@ class PlaylistManager: ObservableObject {
         playNext()
     }
 
-    private func regenerateShuffleOrder() {
-        shuffleOrder = Array(tracks.indices).shuffled()
-        shufflePosition = 0
-        // Place current track first if playing
-        if currentIndex >= 0, let idx = shuffleOrder.firstIndex(of: currentIndex) {
-            shuffleOrder.swapAt(0, idx)
-        }
-    }
 }
