@@ -122,13 +122,13 @@ class WinampSlider: NSView {
         tickPath.stroke()
 
         // Fill from center
-        let thumbY = rect.height * (1 - normalizedValue)
+        let thumbY = rect.height * normalizedValue
         if value > 0 {
             let fillGradient = NSGradient(starting: WinampTheme.eqFillStart, ending: WinampTheme.eqFillEnd)
-            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: thumbY, width: 4, height: centerY - thumbY), angle: 90)
+            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: centerY, width: 4, height: thumbY - centerY), angle: 90)
         } else if value < 0 {
             let fillGradient = NSGradient(starting: WinampTheme.eqFillStart, ending: WinampTheme.eqFillEnd)
-            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: centerY, width: 4, height: thumbY - centerY), angle: 270)
+            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: thumbY, width: 4, height: centerY - thumbY), angle: 270)
         }
 
         // Thumb
@@ -201,7 +201,7 @@ class WinampSlider: NSView {
         let normalized: CGFloat
 
         if isVertical {
-            normalized = 1 - max(0, min(1, point.y / bounds.height))
+            normalized = max(0, min(1, point.y / bounds.height))
         } else {
             normalized = max(0, min(1, point.x / bounds.width))
         }

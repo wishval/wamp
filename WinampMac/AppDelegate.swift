@@ -131,6 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let controlsMenu = NSMenu(title: "Controls")
         let playPause = NSMenuItem(title: "Play/Pause", action: #selector(togglePlayPause), keyEquivalent: " ")
         playPause.target = self
+        playPause.keyEquivalentModifierMask = []
         controlsMenu.addItem(playPause)
         let stop = NSMenuItem(title: "Stop", action: #selector(stopAction), keyEquivalent: ".")
         stop.target = self
@@ -194,7 +195,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func togglePlayPause() { audioEngine.togglePlayPause() }
+    @objc func togglePlayPause() { audioEngine.togglePlayPause() }
     @objc private func stopAction() { audioEngine.stop() }
     @objc private func nextAction() { playlistManager.playNext() }
     @objc private func prevAction() { playlistManager.playPrevious() }

@@ -93,6 +93,14 @@ class MainWindow: NSWindow {
         layoutSections()
     }
 
+    override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers == " " {
+            NSApp.sendAction(#selector(AppDelegate.togglePlayPause), to: nil, from: self)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
     func bindToModels(audioEngine: AudioEngine, playlistManager: PlaylistManager) {
         mainPlayerView.bindToModels(audioEngine: audioEngine, playlistManager: playlistManager)
         equalizerView.bindToModel(audioEngine: audioEngine, playlistManager: playlistManager)
