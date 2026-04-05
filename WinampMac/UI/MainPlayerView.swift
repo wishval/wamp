@@ -7,6 +7,15 @@ class MainPlayerView: NSView {
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
 
+    var isEQActive: Bool {
+        get { eqButton.isActive }
+        set { eqButton.isActive = newValue }
+    }
+    var isPLActive: Bool {
+        get { plButton.isActive }
+        set { plButton.isActive = newValue }
+    }
+
     // Subviews
     private let titleBar = TitleBarView()
     private let timeDisplay = SevenSegmentView()
@@ -198,7 +207,8 @@ class MainPlayerView: NSView {
 
         // Time + play state top row (inside left panel area)
         let timeH: CGFloat = 26
-        let specH = displayH - timeH - 2
+        let timeSpecGap: CGFloat = 6
+        let specH = displayH - timeH - timeSpecGap - 2
         timeDisplay.frame = NSRect(x: pad + 2, y: contentTop - timeH - 2, width: leftPanelW - 4, height: timeH)
         spectrumView.frame = NSRect(x: pad + 2, y: contentTop - displayH + 2, width: leftPanelW - 4, height: specH)
 

@@ -10,6 +10,8 @@ class LCDDisplay: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = true
         startScrolling()
     }
 

@@ -10,6 +10,7 @@ class MainWindow: NSWindow {
     var showEqualizer: Bool = true {
         didSet {
             equalizerView.isHidden = !showEqualizer
+            mainPlayerView.isEQActive = showEqualizer
             recalculateSize()
         }
     }
@@ -17,6 +18,7 @@ class MainWindow: NSWindow {
     var showPlaylist: Bool = true {
         didSet {
             playlistView.isHidden = !showPlaylist
+            mainPlayerView.isPLActive = showPlaylist
             recalculateSize()
         }
     }

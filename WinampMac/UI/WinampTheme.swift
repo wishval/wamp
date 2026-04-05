@@ -41,7 +41,7 @@ enum WinampTheme {
     static let buttonBorderLight = NSColor(hex: 0x5A5E68)
     static let buttonBorderDark = NSColor(hex: 0x2A2E38)
     static let buttonTextActive = NSColor(hex: 0x00E000)
-    static let buttonTextInactive = NSColor(hex: 0x4A5A6A)
+    static let buttonTextInactive = NSColor(hex: 0x7A8A9A)
     static let buttonIconDefault = NSColor(hex: 0x8A9AAA)
 
     // MARK: - Seek / Balance Sliders
