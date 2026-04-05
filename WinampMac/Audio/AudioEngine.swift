@@ -51,6 +51,7 @@ class AudioEngine: ObservableObject {
     private var audioLengthFrames: AVAudioFramePosition = 0
     private var timeUpdateTimer: Timer?
     private var needsScheduling = true
+    private var playbackGeneration: UInt64 = 0
 
     private var effectiveVolume: Float {
         isMuted ? 0 : volume
@@ -84,25 +85,33 @@ class AudioEngine: ObservableObject {
 
     // MARK: - Playback Controls
     func loadAndPlay(url: URL) {
+        print("🔵 loadAndPlay: \(url.lastPathComponent), gen=\(playbackGeneration)")
         stop()
+        playbackGeneration &+= 1
+        print("🔵 loadAndPlay: after stop, new gen=\(playbackGeneration)")
 
         do {
             audioFile = try AVAudioFile(forReading: url)
-            guard let file = audioFile else { return }
+            guard let file = audioFile else {
+                print("🔴 loadAndPlay: audioFile is nil after init")
+                return
+            }
 
             audioSampleRate = file.processingFormat.sampleRate
             audioLengthFrames = file.length
             duration = Double(audioLengthFrames) / audioSampleRate
             seekFrame = 0
             needsScheduling = true
+            print("🔵 loadAndPlay: file loaded, sampleRate=\(audioSampleRate), frames=\(audioLengthFrames), duration=\(duration)s")
 
             if !engine.isRunning {
                 try engine.start()
+                print("🔵 loadAndPlay: engine started")
             }
             installSpectrumTap()
             scheduleAndPlay()
         } catch {
-            print("AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
         }
     }
 
@@ -131,6 +140,7 @@ class AudioEngine: ObservableObject {
     }
 
     func stop() {
+        print("🟡 stop() called, gen=\(playbackGeneration), isPlaying=\(isPlaying)")
         playerNode.stop()
         isPlaying = false
         currentTime = 0
@@ -144,7 +154,7 @@ class AudioEngine: ObservableObject {
     }
 
     func seek(to time: TimeInterval) {
-        guard let file = audioFile else { return }
+        guard audioFile != nil else { return }
         let targetFrame = AVAudioFramePosition(time * audioSampleRate)
         seekFrame = max(0, min(targetFrame, audioLengthFrames))
         needsScheduling = true
@@ -185,33 +195,54 @@ class AudioEngine: ObservableObject {
 
     // MARK: - Private Playback
     private func scheduleAndPlay() {
-        guard let file = audioFile else { return }
+        guard let file = audioFile else {
+            print("🔴 scheduleAndPlay: no audioFile")
+            return
+        }
 
         let framesToPlay = audioLengthFrames - seekFrame
+        print("🟢 scheduleAndPlay: framesToPlay=\(framesToPlay), seekFrame=\(seekFrame), totalFrames=\(audioLengthFrames), gen=\(playbackGeneration)")
         guard framesToPlay > 0 else {
+            print("🔴 scheduleAndPlay: no frames to play, calling handleTrackCompletion")
             handleTrackCompletion()
             return
         }
 
         playerNode.stop()
+        let generation = playbackGeneration
         playerNode.scheduleSegment(
             file,
             startingFrame: seekFrame,
             frameCount: AVAudioFrameCount(framesToPlay),
             at: nil
         ) { [weak self] in
+            print("🟠 completion handler fired, captured gen=\(generation)")
             DispatchQueue.main.async {
-                self?.handleTrackCompletion()
+                guard let self else {
+                    print("🟠 completion: self is nil")
+                    return
+                }
+                print("🟠 completion on main: currentGen=\(self.playbackGeneration), capturedGen=\(generation), isPlaying=\(self.isPlaying)")
+                guard self.playbackGeneration == generation else {
+                    print("🟠 completion: STALE generation, ignoring")
+                    return
+                }
+                self.handleTrackCompletion()
             }
         }
         playerNode.play()
         isPlaying = true
         needsScheduling = false
         startTimeUpdates()
+        print("🟢 scheduleAndPlay: playerNode.play() called, isPlaying=true")
     }
 
     private func handleTrackCompletion() {
-        guard isPlaying else { return }
+        print("🔴 handleTrackCompletion: isPlaying=\(isPlaying), repeatMode=\(repeatMode), gen=\(playbackGeneration)")
+        guard isPlaying else {
+            print("🔴 handleTrackCompletion: NOT playing, ignoring")
+            return
+        }
 
         if repeatMode == .track {
             seekFrame = 0
@@ -220,6 +251,7 @@ class AudioEngine: ObservableObject {
         } else {
             isPlaying = false
             stopTimeUpdates()
+            print("🔴 handleTrackCompletion: posting .trackDidFinish")
             NotificationCenter.default.post(name: .trackDidFinish, object: nil)
         }
     }

@@ -5,7 +5,6 @@ class MainWindow: NSWindow {
     let mainPlayerView = MainPlayerView()
     let equalizerView = EqualizerView()
     let playlistView = PlaylistView()
-    private let stackView = NSStackView()
     private var cancellables = Set<AnyCancellable>()
 
     var showEqualizer: Bool = true {
@@ -22,8 +21,12 @@ class MainWindow: NSWindow {
         }
     }
 
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
     init() {
-        let rect = NSRect(x: 100, y: 100, width: WinampTheme.windowWidth, height: 510)
+        let height = WinampTheme.mainPlayerHeight + WinampTheme.equalizerHeight + WinampTheme.playlistMinHeight
+        let rect = NSRect(x: 100, y: 100, width: WinampTheme.windowWidth, height: height)
         super.init(
             contentRect: rect,
             styleMask: .borderless,
@@ -34,43 +37,42 @@ class MainWindow: NSWindow {
         isMovableByWindowBackground = true
         level = .floating
         backgroundColor = WinampTheme.frameBackground
+        isOpaque = true
         hasShadow = true
         isReleasedWhenClosed = false
+        collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
-        setupStackView()
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: WinampTheme.windowWidth, height: height))
+        container.wantsLayer = true
+        contentView = container
+
+        container.addSubview(mainPlayerView)
+        container.addSubview(equalizerView)
+        container.addSubview(playlistView)
+
+        layoutSections()
     }
 
-    private func setupStackView() {
-        stackView.orientation = .vertical
-        stackView.spacing = 0
-        stackView.alignment = .leading
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+    private func layoutSections() {
+        let w = WinampTheme.windowWidth
+        let totalHeight = frame.height
+        var y = totalHeight
 
-        stackView.addArrangedSubview(mainPlayerView)
-        stackView.addArrangedSubview(equalizerView)
-        stackView.addArrangedSubview(playlistView)
+        // Main player — always at top
+        y -= WinampTheme.mainPlayerHeight
+        mainPlayerView.frame = NSRect(x: 0, y: y, width: w, height: WinampTheme.mainPlayerHeight)
 
-        contentView = NSView(frame: .zero)
-        contentView!.addSubview(stackView)
-
-        NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: contentView!.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: contentView!.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: contentView!.trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: contentView!.bottomAnchor),
-        ])
-
-        // Section width constraints
-        for view in [mainPlayerView, equalizerView, playlistView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            view.widthAnchor.constraint(equalToConstant: WinampTheme.windowWidth).isActive = true
+        // Equalizer — below player
+        if showEqualizer {
+            y -= WinampTheme.equalizerHeight
+            equalizerView.frame = NSRect(x: 0, y: y, width: w, height: WinampTheme.equalizerHeight)
         }
 
-        mainPlayerView.heightAnchor.constraint(equalToConstant: WinampTheme.mainPlayerHeight).isActive = true
-        equalizerView.heightAnchor.constraint(equalToConstant: WinampTheme.equalizerHeight).isActive = true
-        playlistView.heightAnchor.constraint(greaterThanOrEqualToConstant: WinampTheme.playlistMinHeight).isActive = true
-
-        recalculateSize()
+        // Playlist — fills remaining space
+        if showPlaylist {
+            let playlistHeight = y
+            playlistView.frame = NSRect(x: 0, y: 0, width: w, height: playlistHeight)
+        }
     }
 
     func recalculateSize() {
@@ -86,6 +88,9 @@ class MainWindow: NSWindow {
             height: height
         )
         setFrame(newFrame, display: true, animate: true)
+
+        contentView?.frame = NSRect(x: 0, y: 0, width: WinampTheme.windowWidth, height: height)
+        layoutSections()
     }
 
     func bindToModels(audioEngine: AudioEngine, playlistManager: PlaylistManager) {
@@ -93,7 +98,6 @@ class MainWindow: NSWindow {
         equalizerView.bindToModel(audioEngine: audioEngine, playlistManager: playlistManager)
         playlistView.bindToModel(playlistManager: playlistManager)
 
-        // EQ/PL toggle callbacks
         mainPlayerView.onToggleEQ = { [weak self] in
             self?.showEqualizer.toggle()
         }

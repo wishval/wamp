@@ -71,12 +71,17 @@ class PlaylistManager: ObservableObject {
     }
 
     func addFolder(_ folderURL: URL) async {
+        let urls = collectAudioURLs(in: folderURL)
+        await addURLs(urls)
+    }
+
+    private func collectAudioURLs(in folderURL: URL) -> [URL] {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey],
             options: [.skipsHiddenFiles]
-        ) else { return }
+        ) else { return [] }
 
         var urls: [URL] = []
         for case let fileURL as URL in enumerator {
@@ -86,7 +91,7 @@ class PlaylistManager: ObservableObject {
             }
         }
         urls.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        await addURLs(urls)
+        return urls
     }
 
     func removeTrack(at index: Int) {
@@ -109,12 +114,17 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Playback Navigation
     func playTrack(at index: Int) {
-        guard index >= 0, index < tracks.count else { return }
+        guard index >= 0, index < tracks.count else {
+            print("⚡ playTrack: invalid index \(index), tracks.count=\(tracks.count)")
+            return
+        }
+        print("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
         currentIndex = index
         audioEngine?.loadAndPlay(url: tracks[index].url)
     }
 
     func playNext() {
+        print("⚡ playNext: currentIndex=\(currentIndex), tracks.count=\(tracks.count), shuffle=\(isShuffled)")
         guard !tracks.isEmpty else { return }
 
         if isShuffled {
@@ -190,6 +200,7 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Private
     private func advanceToNext() {
+        print("⚡ advanceToNext: repeatMode=\(String(describing: audioEngine?.repeatMode))")
         guard audioEngine?.repeatMode != .track else { return }
         playNext()
     }

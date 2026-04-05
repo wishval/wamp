@@ -2,14 +2,27 @@ import Cocoa
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
-    let audioEngine = AudioEngine()
-    let playlistManager = PlaylistManager()
-    let stateManager = StateManager()
+    var audioEngine: AudioEngine!
+    var playlistManager: PlaylistManager!
+    var stateManager: StateManager!
     var mainWindow: MainWindow!
     var statusItem: NSStatusItem!
     var hotKeyManager: HotKeyManager!
 
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+
+        audioEngine = AudioEngine()
+        playlistManager = PlaylistManager()
+        stateManager = StateManager()
+
         playlistManager.setAudioEngine(audioEngine)
 
         // Restore state
@@ -40,6 +53,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let windowOrigin = NSPoint(x: appState.windowX, y: appState.windowY)
         mainWindow.setFrameOrigin(windowOrigin)
+
+        // Ensure window is on a visible screen; center if not
+        let isOnScreen = NSScreen.screens.contains { $0.visibleFrame.intersects(mainWindow.frame) }
+        if !isOnScreen {
+            mainWindow.center()
+        }
+
         mainWindow.makeKeyAndOrderFront(nil)
 
         // Start observing for auto-save
@@ -54,7 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup media key handling and Now Playing info
         hotKeyManager = HotKeyManager(audioEngine: audioEngine, playlistManager: playlistManager)
 
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -62,6 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        guard mainWindow != nil else { return }
         stateManager.saveWindowState(
             x: mainWindow.frame.origin.x,
             y: mainWindow.frame.origin.y,
@@ -186,8 +207,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleShuffle() { playlistManager.toggleShuffle() }
 
     @objc private func showPlayerAction() {
+        mainWindow.orderFrontRegardless()
         mainWindow.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     @objc private func toggleEQ() { mainWindow.showEqualizer.toggle() }

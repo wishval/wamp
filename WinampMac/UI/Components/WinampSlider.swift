@@ -8,7 +8,12 @@ enum WinampSliderStyle {
 }
 
 class WinampSlider: NSView {
-    var value: Float = 0 { didSet { needsDisplay = true; onChange?(value) } }
+    var value: Float = 0 {
+        didSet {
+            needsDisplay = true
+            if isUserInteracting { onChange?(value) }
+        }
+    }
     var minValue: Float = 0
     var maxValue: Float = 1
     var onChange: ((Float) -> Void)?
@@ -16,6 +21,7 @@ class WinampSlider: NSView {
     var isVertical: Bool = false
 
     private var isDragging = false
+    private var isUserInteracting = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -118,7 +124,6 @@ class WinampSlider: NSView {
         // Fill from center
         let thumbY = rect.height * (1 - normalizedValue)
         if value > 0 {
-            let fillRect = NSRect(x: trackRect.minX + 3, y: centerY, width: 4, height: thumbY < centerY ? centerY - thumbY : 0)
             let fillGradient = NSGradient(starting: WinampTheme.eqFillStart, ending: WinampTheme.eqFillEnd)
             fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: thumbY, width: 4, height: centerY - thumbY), angle: 90)
         } else if value < 0 {
@@ -177,6 +182,7 @@ class WinampSlider: NSView {
     // MARK: - Mouse Handling
     override func mouseDown(with event: NSEvent) {
         isDragging = true
+        isUserInteracting = true
         updateValueFromMouse(event)
     }
 
@@ -187,6 +193,7 @@ class WinampSlider: NSView {
 
     override func mouseUp(with event: NSEvent) {
         isDragging = false
+        isUserInteracting = false
     }
 
     private func updateValueFromMouse(_ event: NSEvent) {
