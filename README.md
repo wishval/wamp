@@ -1,16 +1,16 @@
 <div align="center">
 
-# WinampMac
+# Wamp
 
-### It really whips the llama's ass! 🦙
+### A retro audio player for macOS 🦙
 
-A faithful recreation of the legendary **Winamp 2.x** for macOS — built entirely with Swift and AppKit.
+A native macOS audio player inspired by the classic Winamp 2.x era — built entirely with Swift and AppKit.
 
 No Electron. No web views. No dependencies. Just pure native macOS.
 
 <!--
 Add a screenshot here:
-![WinampMac Screenshot](screenshots/preview.png)
+![Wamp Screenshot](screenshots/preview.png)
 -->
 
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org)
@@ -28,7 +28,7 @@ Add a screenshot here:
 - Volume and balance sliders with real-time response
 - Retro LCD time display with seven-segment digits
 - Real-time spectrum analyzer visualization
-- Scrolling track title in the classic Winamp style
+- Scrolling track title display
 
 **10-Band Equalizer**
 - Fully adjustable EQ with preamp control
@@ -88,14 +88,14 @@ Views subscribe to model changes via **Combine** publishers — no delegates, no
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/WinampMac.git
-cd WinampMac
+git clone https://github.com/yourusername/Wamp.git
+cd Wamp
 
 # Build from command line
-xcodebuild -project WinampMac.xcodeproj -scheme WinampMac -configuration Debug build
+xcodebuild -project Wamp.xcodeproj -scheme Wamp -configuration Debug build
 
 # Or just open in Xcode and hit ⌘R
-open WinampMac.xcodeproj
+open Wamp.xcodeproj
 ```
 
 ## Keyboard Shortcuts
@@ -118,6 +118,6 @@ MP3 | AAC | M4A | FLAC | WAV | AIFF
 
 Made with nostalgia and Swift on macOS.
 
-*Winamp is a trademark of Radionomy Group. This project is an independent fan recreation and is not affiliated with or endorsed by the original Winamp.*
+*Inspired by Winamp 2.x. This is an independent project and is not affiliated with or endorsed by the original Winamp authors.*
 
 </div>

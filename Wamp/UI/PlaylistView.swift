@@ -50,6 +50,7 @@ class PlaylistView: NSView {
         tableView.selectionHighlightStyle = .regular
         tableView.gridStyleMask = []
         tableView.onEnter = { [weak self] in self?.playSelectedRow() }
+        tableView.onDelete = { [weak self] in self?.removeSelected() }
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
@@ -183,8 +184,12 @@ class PlaylistView: NSView {
     }
 
     private func removeSelected() {
-        let indices = tableView.selectedRowIndexes.sorted().reversed()
-        for index in indices {
+        let tracks = displayedTracks
+        let realIndices = tableView.selectedRowIndexes.compactMap { row -> Int? in
+            guard row < tracks.count else { return nil }
+            return playlistManager?.tracks.firstIndex(where: { $0.id == tracks[row].id })
+        }.sorted().reversed()
+        for index in realIndices {
             playlistManager?.removeTrack(at: index)
         }
     }
@@ -379,10 +384,13 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
 // MARK: - Custom table view with Enter-to-play
 class PlaylistTableView: NSTableView {
     var onEnter: (() -> Void)?
+    var onDelete: (() -> Void)?
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 { // Return key
             onEnter?()
+        } else if event.keyCode == 51 { // Backspace key
+            onDelete?()
         } else {
             super.keyDown(with: event)
         }

@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Run
 
-This is a macOS app built with Xcode. Open `WinampMac.xcodeproj` and build/run from Xcode, or use:
+This is a macOS app built with Xcode. Open `Wamp.xcodeproj` and build/run from Xcode, or use:
 
 ```bash
-xcodebuild -project WinampMac.xcodeproj -scheme WinampMac -configuration Debug build
+xcodebuild -project Wamp.xcodeproj -scheme Wamp -configuration Debug build
 ```
 
 There are no tests, no linter, and no CI/CD configured.
@@ -19,13 +19,13 @@ Pure Swift/Cocoa (AppKit) macOS audio player replicating classic Winamp 2.x. No 
 ### Project Structure
 
 ```
-WinampMac/
+Wamp/
 ├── AppDelegate.swift        — nib-less bootstrap (static func main()), owns singletons & window
 ├── Audio/
 │   └── AudioEngine.swift    — AVAudioEngine graph: PlayerNode → 10-band EQ → Mixer → Output
 ├── Models/
 │   ├── PlaylistManager.swift — track list, current index, shuffle, repeat, auto-advance
-│   ├── StateManager.swift    — JSON persistence to ~/Library/Application Support/WinampMac/
+│   ├── StateManager.swift    — JSON persistence to ~/Library/Application Support/Wamp/
 │   └── Track.swift           — audio file model with metadata parsing via AVURLAsset
 ├── UI/
 │   ├── MainWindow.swift      — fixed-width (275px) borderless window

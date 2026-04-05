@@ -29,7 +29,7 @@ class StateManager {
 
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        appSupportDir = appSupport.appendingPathComponent("WinampMac")
+        appSupportDir = appSupport.appendingPathComponent("Wamp")
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
     }
 
