@@ -216,7 +216,20 @@ class EqualizerView: NSView {
             item.representedObject = preset
             menu.addItem(item)
         }
+        menu.addItem(NSMenuItem.separator())
+        let resetItem = NSMenuItem(title: "Reset to Default", action: #selector(resetToDefault), keyEquivalent: "")
+        resetItem.target = self
+        menu.addItem(resetItem)
         menu.popUp(positioning: nil, at: NSPoint(x: presetsButton.frame.minX, y: presetsButton.frame.minY), in: self)
+    }
+
+    @objc private func resetToDefault() {
+        guard let flat = EQPreset.presets.first(where: { $0.name == "Flat" }) else { return }
+        audioEngine?.setAllEQBands(flat.bands)
+        for (i, slider) in bandSliders.enumerated() {
+            slider.value = flat.bands[i]
+        }
+        responseView.bands = flat.bands
     }
 
     @objc private func applyPreset(_ sender: NSMenuItem) {

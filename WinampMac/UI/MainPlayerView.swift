@@ -229,7 +229,7 @@ class MainPlayerView: NSView {
         leftPanel.frame = NSRect(x: pad, y: contentTop - displayH, width: leftPanelW, height: displayH)
 
         // Time + play state top row (inside left panel area)
-        let timeH: CGFloat = 26
+        let timeH: CGFloat = 23
         let timeSpecGap: CGFloat = 6
         let specH = displayH - timeH - timeSpecGap - 2
         timeDisplay.frame = NSRect(x: pad + 2, y: contentTop - timeH - 2, width: leftPanelW - 4, height: timeH)
