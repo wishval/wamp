@@ -293,8 +293,9 @@ class MainPlayerView: NSView {
         audioEngine.$currentTime
             .receive(on: DispatchQueue.main)
             .sink { [weak self] time in
-                guard self?.seekSlider.window != nil else { return }
-                self?.seekSlider.value = Float(time)
+                guard let self, self.seekSlider.window != nil else { return }
+                guard !self.seekSlider.isUserInteracting else { return }
+                self.seekSlider.value = Float(time)
             }
             .store(in: &cancellables)
 

@@ -21,7 +21,7 @@ class WinampSlider: NSView {
     var isVertical: Bool = false
 
     private var isDragging = false
-    private var isUserInteracting = false
+    private(set) var isUserInteracting = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)

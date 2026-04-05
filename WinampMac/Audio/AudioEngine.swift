@@ -160,6 +160,7 @@ class AudioEngine: ObservableObject {
         needsScheduling = true
 
         if isPlaying {
+            playbackGeneration &+= 1
             playerNode.stop()
             scheduleAndPlay()
         } else {
