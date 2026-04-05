@@ -100,6 +100,34 @@ class PlaylistManager: ObservableObject {
         }
     }
 
+    func moveTracks(from sourceIndexes: IndexSet, to destinationIndex: Int) {
+        guard !sourceIndexes.isEmpty else { return }
+
+        let currentTrack = currentIndex >= 0 && currentIndex < tracks.count ? tracks[currentIndex] : nil
+
+        // Collect tracks to move
+        let movedTracks = sourceIndexes.map { tracks[$0] }
+
+        // Calculate destination adjustment for indexes before destination
+        let countBefore = sourceIndexes.filter { $0 < destinationIndex }.count
+        let adjustedDestination = destinationIndex - countBefore
+
+        // Remove from original positions (reverse order to preserve indexes)
+        for index in sourceIndexes.reversed() {
+            tracks.remove(at: index)
+        }
+
+        // Insert at destination
+        for (offset, track) in movedTracks.enumerated() {
+            tracks.insert(track, at: adjustedDestination + offset)
+        }
+
+        // Restore currentIndex to follow the playing track
+        if let currentTrack {
+            currentIndex = tracks.firstIndex(where: { $0.id == currentTrack.id }) ?? -1
+        }
+    }
+
     func clearPlaylist() {
         tracks.removeAll()
         currentIndex = -1

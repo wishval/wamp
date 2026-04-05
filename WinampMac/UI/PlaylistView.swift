@@ -3,6 +3,8 @@ import Combine
 import UniformTypeIdentifiers
 
 class PlaylistView: NSView {
+    private static let internalRowType = NSPasteboard.PasteboardType("com.winampmac.playlist.row")
+
     private let titleBar = TitleBarView()
     private let scrollView = NSScrollView()
     private let tableView = PlaylistTableView()
@@ -21,6 +23,9 @@ class PlaylistView: NSView {
         layer?.backgroundColor = WinampTheme.frameBackground.cgColor
         setupSubviews()
         registerForDraggedTypes([.fileURL])
+        tableView.registerForDraggedTypes([PlaylistView.internalRowType, .fileURL])
+        tableView.draggingDestinationFeedbackStyle = .gap
+        tableView.setDraggingSourceOperationMask(.move, forLocal: true)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -312,6 +317,62 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let rowView = WinampRowView()
         return rowView
+    }
+
+    // MARK: - Internal Drag & Drop Reordering
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
+        // Disable reordering while search is active
+        guard playlistManager?.searchQuery.isEmpty == true else { return nil }
+        let item = NSPasteboardItem()
+        item.setString(String(row), forType: PlaylistView.internalRowType)
+        return item
+    }
+
+    func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        // Accept file drops as copy
+        if info.draggingPasteboard.types?.contains(.fileURL) == true,
+           info.draggingSource as? NSTableView !== tableView {
+            return .copy
+        }
+        // Internal reorder: only between rows, not on rows
+        if dropOperation == .above {
+            return .move
+        }
+        return []
+    }
+
+    func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+        // Handle external file drops
+        if let source = info.draggingSource as? NSTableView, source === tableView {
+            // Internal reorder
+            var sourceIndexes = IndexSet()
+            info.enumerateDraggingItems(options: [], for: tableView, classes: [NSPasteboardItem.self], searchOptions: [:]) { item, _, _ in
+                if let pasteboardItem = item.item as? NSPasteboardItem,
+                   let rowStr = pasteboardItem.string(forType: PlaylistView.internalRowType),
+                   let sourceRow = Int(rowStr) {
+                    sourceIndexes.insert(sourceRow)
+                }
+            }
+            playlistManager?.moveTracks(from: sourceIndexes, to: row)
+            return true
+        }
+
+        // External file drop on table
+        guard let items = info.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] else {
+            return false
+        }
+        Task { @MainActor in
+            for url in items {
+                var isDir: ObjCBool = false
+                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+                if isDir.boolValue {
+                    await playlistManager?.addFolder(url)
+                } else {
+                    await playlistManager?.addURLs([url])
+                }
+            }
+        }
+        return true
     }
 }
 
