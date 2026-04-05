@@ -119,7 +119,8 @@ class PlaylistView: NSView {
         let scrollH = scrollTop - bottomBarH - searchH - 2
         scrollView.frame = NSRect(x: pad, y: bottomBarH + searchH + 1, width: w - 2 * pad, height: scrollH)
 
-        tableView.tableColumns.first?.width = scrollView.frame.width - 14
+        let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
+        tableView.tableColumns.first?.width = scrollView.frame.width - scrollerWidth - 2
     }
 
     func bindToModel(playlistManager: PlaylistManager) {
@@ -243,29 +244,23 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         let rowH: CGFloat = 18
         let cellW = tableColumn?.width ?? 200
         let cell = NSView(frame: NSRect(x: 0, y: 0, width: cellW, height: rowH))
+        cell.autoresizesSubviews = true
 
         let font = WinampTheme.playlistFont
         let textH = font.boundingRectForFont.height
         let yOffset = round((rowH - textH) / 2)
 
         // Number
-        let numLabel = NSTextField(labelWithString: "\(row + 1).")
+        let numStr = "\(row + 1)."
+        let numLabel = NSTextField(labelWithString: numStr)
         numLabel.font = font
         numLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
         numLabel.isBezeled = false
         numLabel.drawsBackground = false
-        numLabel.frame = NSRect(x: 4, y: yOffset, width: 20, height: textH)
+        numLabel.sizeToFit()
+        let numWidth = numLabel.frame.width
+        numLabel.frame = NSRect(x: -10, y: yOffset, width: numWidth, height: textH)
         cell.addSubview(numLabel)
-
-        // Track name
-        let nameLabel = NSTextField(labelWithString: track.displayTitle)
-        nameLabel.font = font
-        nameLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenBright
-        nameLabel.isBezeled = false
-        nameLabel.drawsBackground = false
-        nameLabel.lineBreakMode = .byTruncatingTail
-        nameLabel.frame = NSRect(x: 26, y: yOffset, width: cellW - 70, height: textH)
-        cell.addSubview(nameLabel)
 
         // Duration
         let durLabel = NSTextField(labelWithString: track.formattedDuration)
@@ -273,9 +268,22 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         durLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
         durLabel.isBezeled = false
         durLabel.drawsBackground = false
-        durLabel.alignment = .right
-        durLabel.frame = NSRect(x: cellW - 40, y: yOffset, width: 36, height: textH)
+        durLabel.sizeToFit()
+        let durWidth = durLabel.frame.width
+        let rightMargin: CGFloat = 10
+        durLabel.frame = NSRect(x: cellW - durWidth - rightMargin, y: yOffset, width: durWidth, height: textH)
         cell.addSubview(durLabel)
+
+        // Track name
+        let nameX = numWidth - 10 + 4
+        let nameLabel = NSTextField(labelWithString: track.displayTitle)
+        nameLabel.font = font
+        nameLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenBright
+        nameLabel.isBezeled = false
+        nameLabel.drawsBackground = false
+        nameLabel.lineBreakMode = .byTruncatingTail
+        nameLabel.frame = NSRect(x: nameX, y: yOffset, width: cellW - nameX - durWidth - rightMargin - 4, height: textH)
+        cell.addSubview(nameLabel)
 
         return cell
     }

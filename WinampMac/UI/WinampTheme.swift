@@ -98,8 +98,8 @@ enum WinampTheme {
 
     // MARK: - Dimensions
     static let windowWidth: CGFloat = 275
-    static let mainPlayerHeight: CGFloat = 148
-    static let equalizerHeight: CGFloat = 130
+    static let mainPlayerHeight: CGFloat = 126
+    static let equalizerHeight: CGFloat = 112
     static let playlistMinHeight: CGFloat = 232
     static let titleBarHeight: CGFloat = 16
     static let transportButtonSize = NSSize(width: 22, height: 18)
