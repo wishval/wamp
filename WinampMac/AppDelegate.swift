@@ -197,7 +197,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func togglePlayPause() { audioEngine.togglePlayPause() }
+    @objc func togglePlayPause() {
+        if !audioEngine.isPlaying && audioEngine.currentTime == 0 && audioEngine.duration == 0,
+           let track = playlistManager.currentTrack {
+            audioEngine.loadAndPlay(url: track.url)
+        } else {
+            audioEngine.togglePlayPause()
+        }
+    }
     @objc private func stopAction() { audioEngine.stop() }
     @objc private func nextAction() { playlistManager.playNext() }
     @objc private func prevAction() { playlistManager.playPrevious() }

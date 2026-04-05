@@ -136,7 +136,18 @@ class PlaylistView: NSView {
 
         playlistManager.$currentIndex
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.tableView.reloadData() }
+            .sink { [weak self] index in
+                guard let self, let pm = self.playlistManager else { return }
+                self.tableView.reloadData()
+                if index >= 0, index < pm.tracks.count {
+                    let currentTrack = pm.tracks[index]
+                    let displayed = pm.filteredTracks
+                    if let displayRow = displayed.firstIndex(where: { $0.id == currentTrack.id }) {
+                        self.tableView.selectRowIndexes(IndexSet(integer: displayRow), byExtendingSelection: false)
+                        self.tableView.scrollRowToVisible(displayRow)
+                    }
+                }
+            }
             .store(in: &cancellables)
     }
 
