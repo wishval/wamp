@@ -181,9 +181,19 @@ class WinampSlider: NSView {
 
     // MARK: - Mouse Handling
     override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            resetToCenter()
+            return
+        }
         isDragging = true
         isUserInteracting = true
         updateValueFromMouse(event)
+    }
+
+    private func resetToCenter() {
+        isUserInteracting = true
+        value = (minValue + maxValue) / 2
+        isUserInteracting = false
     }
 
     override func mouseDragged(with event: NSEvent) {
