@@ -6,6 +6,7 @@ class MainWindow: NSWindow {
     let equalizerView = EqualizerView()
     let playlistView = PlaylistView()
     private var cancellables = Set<AnyCancellable>()
+    private weak var audioEngine: AudioEngine?
 
     var showEqualizer: Bool = true {
         didSet {
@@ -107,10 +108,28 @@ class MainWindow: NSWindow {
             NSApp.sendAction(#selector(AppDelegate.togglePlayPause), to: nil, from: self)
             return
         }
+        if event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty {
+            let seekStep: TimeInterval = 5
+            switch event.keyCode {
+            case 123: // left arrow
+                if let engine = audioEngine {
+                    engine.seek(to: max(0, engine.currentTime - seekStep))
+                }
+                return
+            case 124: // right arrow
+                if let engine = audioEngine {
+                    engine.seek(to: min(engine.duration, engine.currentTime + seekStep))
+                }
+                return
+            default:
+                break
+            }
+        }
         super.keyDown(with: event)
     }
 
     func bindToModels(audioEngine: AudioEngine, playlistManager: PlaylistManager) {
+        self.audioEngine = audioEngine
         mainPlayerView.bindToModels(audioEngine: audioEngine, playlistManager: playlistManager)
         equalizerView.bindToModel(audioEngine: audioEngine, playlistManager: playlistManager)
         playlistView.bindToModel(playlistManager: playlistManager)
