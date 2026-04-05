@@ -23,6 +23,13 @@ class MainWindow: NSWindow {
         }
     }
 
+    var alwaysOnTop: Bool = true {
+        didSet {
+            level = alwaysOnTop ? .floating : .normal
+            mainPlayerView.isPinned = alwaysOnTop
+        }
+    }
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
@@ -31,7 +38,7 @@ class MainWindow: NSWindow {
         let rect = NSRect(x: 100, y: 100, width: WinampTheme.windowWidth, height: height)
         super.init(
             contentRect: rect,
-            styleMask: .borderless,
+            styleMask: [.borderless, .miniaturizable],
             backing: .buffered,
             defer: false
         )
@@ -113,6 +120,9 @@ class MainWindow: NSWindow {
         }
         mainPlayerView.onTogglePL = { [weak self] in
             self?.showPlaylist.toggle()
+        }
+        mainPlayerView.onTogglePin = { [weak self] in
+            self?.alwaysOnTop.toggle()
         }
     }
 }

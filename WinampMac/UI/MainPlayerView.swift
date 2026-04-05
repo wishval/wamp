@@ -6,6 +6,7 @@ class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
+    var onTogglePin: (() -> Void)?
 
     var isEQActive: Bool {
         get { eqButton.isActive }
@@ -14,6 +15,10 @@ class MainPlayerView: NSView {
     var isPLActive: Bool {
         get { plButton.isActive }
         set { plButton.isActive = newValue }
+    }
+    var isPinned: Bool {
+        get { titleBar.isPinned }
+        set { titleBar.isPinned = newValue }
     }
 
     // Subviews
@@ -65,7 +70,8 @@ class MainPlayerView: NSView {
         titleBar.titleText = "WAMP"
         titleBar.showButtons = true
         titleBar.onClose = { NSApp.terminate(nil) }
-        titleBar.onMinimize = { NSApp.mainWindow?.miniaturize(nil) }
+        titleBar.onMinimize = { [weak self] in self?.window?.miniaturize(nil) }
+        titleBar.onTogglePin = { [weak self] in self?.onTogglePin?() }
         addSubview(titleBar)
 
         // Left display panel background

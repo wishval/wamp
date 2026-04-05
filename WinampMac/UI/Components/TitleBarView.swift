@@ -5,6 +5,8 @@ class TitleBarView: NSView {
     var showButtons: Bool = true
     var onClose: (() -> Void)?
     var onMinimize: (() -> Void)?
+    var onTogglePin: (() -> Void)?
+    var isPinned: Bool = true { didSet { needsDisplay = true } }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -42,7 +44,7 @@ class TitleBarView: NSView {
 
         // Right stripes
         let rightStart = textX + textSize.width + stripeGap
-        let rightEnd = showButtons ? b.width - 30 : b.width - stripeMargin
+        let rightEnd = showButtons ? b.width - 41 : b.width - stripeMargin
         if rightEnd > rightStart {
             drawStripes(in: NSRect(
                 x: rightStart,
@@ -60,6 +62,10 @@ class TitleBarView: NSView {
             let btnSize: CGFloat = 9
             let btnY = (b.height - btnSize) / 2
 
+            drawPinButton(
+                NSRect(x: b.width - 33, y: btnY, width: btnSize, height: btnSize),
+                pinned: isPinned
+            )
             drawWindowButton(
                 NSRect(x: b.width - 22, y: btnY, width: btnSize, height: btnSize),
                 symbol: "−"
@@ -124,6 +130,50 @@ class TitleBarView: NSView {
         )
     }
 
+    private func drawPinButton(_ rect: NSRect, pinned: Bool) {
+        NSColor(hex: 0x3A4060).setFill()
+        rect.fill()
+
+        // 3D border
+        WinampTheme.buttonBorderLight.setStroke()
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: rect.minX, y: rect.minY))
+        path.line(to: NSPoint(x: rect.minX, y: rect.maxY))
+        path.line(to: NSPoint(x: rect.maxX, y: rect.maxY))
+        path.lineWidth = 1
+        path.stroke()
+
+        WinampTheme.buttonBorderDark.setStroke()
+        let path2 = NSBezierPath()
+        path2.move(to: NSPoint(x: rect.maxX, y: rect.maxY))
+        path2.line(to: NSPoint(x: rect.maxX, y: rect.minY))
+        path2.line(to: NSPoint(x: rect.minX, y: rect.minY))
+        path2.lineWidth = 1
+        path2.stroke()
+
+        // Draw pin icon: a small diamond/dot when pinned, hollow when not
+        let color = pinned ? WinampTheme.greenBright : NSColor(hex: 0xA0A8C0)
+        color.setStroke()
+        color.setFill()
+        let pinPath = NSBezierPath()
+        pinPath.lineWidth = 1.0
+        let cx = rect.midX
+        let cy = rect.midY
+        // Draw a pushpin shape: vertical line with a circle on top
+        pinPath.move(to: NSPoint(x: cx, y: cy - 3))
+        pinPath.line(to: NSPoint(x: cx, y: cy + 1))
+        pinPath.stroke()
+        let dotSize: CGFloat = pinned ? 3 : 2.5
+        let dotRect = NSRect(x: cx - dotSize / 2, y: cy + 0.5, width: dotSize, height: dotSize)
+        if pinned {
+            NSBezierPath(ovalIn: dotRect).fill()
+        } else {
+            let oval = NSBezierPath(ovalIn: dotRect)
+            oval.lineWidth = 0.8
+            oval.stroke()
+        }
+    }
+
     // MARK: - Window dragging
     private var dragOrigin: NSPoint?
 
@@ -132,10 +182,11 @@ class TitleBarView: NSView {
         let b = bounds
         let btnSize: CGFloat = 9
         let btnY = (b.height - btnSize) / 2
+        let pinRect = NSRect(x: b.width - 33, y: btnY, width: btnSize, height: btnSize)
         let minimizeRect = NSRect(x: b.width - 22, y: btnY, width: btnSize, height: btnSize)
         let closeRect = NSRect(x: b.width - 11, y: btnY, width: btnSize, height: btnSize)
 
-        if showButtons && (closeRect.contains(point) || minimizeRect.contains(point)) {
+        if showButtons && (closeRect.contains(point) || minimizeRect.contains(point) || pinRect.contains(point)) {
             super.mouseDown(with: event)
             return
         }
@@ -162,6 +213,7 @@ class TitleBarView: NSView {
         let btnSize: CGFloat = 9
         let btnY = (b.height - btnSize) / 2
 
+        let pinRect = NSRect(x: b.width - 33, y: btnY, width: btnSize, height: btnSize)
         let minimizeRect = NSRect(x: b.width - 22, y: btnY, width: btnSize, height: btnSize)
         let closeRect = NSRect(x: b.width - 11, y: btnY, width: btnSize, height: btnSize)
 
@@ -169,6 +221,8 @@ class TitleBarView: NSView {
             onClose?()
         } else if minimizeRect.contains(point) {
             onMinimize?()
+        } else if pinRect.contains(point) {
+            onTogglePin?()
         }
     }
 }

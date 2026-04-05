@@ -50,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow.bindToModels(audioEngine: audioEngine, playlistManager: playlistManager)
         mainWindow.showEqualizer = appState.showEqualizer
         mainWindow.showPlaylist = appState.showPlaylist
+        mainWindow.alwaysOnTop = appState.alwaysOnTop
 
         let windowOrigin = NSPoint(x: appState.windowX, y: appState.windowY)
         mainWindow.setFrameOrigin(windowOrigin)
@@ -88,6 +89,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             y: mainWindow.frame.origin.y,
             showEQ: mainWindow.showEqualizer,
             showPlaylist: mainWindow.showPlaylist,
+            alwaysOnTop: mainWindow.alwaysOnTop,
             audioEngine: audioEngine,
             playlistManager: playlistManager
         )
