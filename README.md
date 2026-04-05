@@ -9,7 +9,8 @@ A native macOS audio player inspired by the classic Winamp 2.x era — built ent
 No Electron. No web views. No dependencies. Just pure native macOS.
 
 
-<img width="411" height="606" alt="image" src="https://github.com/user-attachments/assets/183b318a-6e4f-4bb6-9d86-eec0240505c1" />
+<img width="411" height="605" alt="image" src="https://github.com/user-attachments/assets/25b475ea-65ab-4307-a4ce-843adb048fa8" />
+
 
 
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org)
