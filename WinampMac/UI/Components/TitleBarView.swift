@@ -124,8 +124,38 @@ class TitleBarView: NSView {
         )
     }
 
+    // MARK: - Window dragging
+    private var dragOrigin: NSPoint?
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let b = bounds
+        let btnSize: CGFloat = 9
+        let btnY = (b.height - btnSize) / 2
+        let minimizeRect = NSRect(x: b.width - 22, y: btnY, width: btnSize, height: btnSize)
+        let closeRect = NSRect(x: b.width - 11, y: btnY, width: btnSize, height: btnSize)
+
+        if showButtons && (closeRect.contains(point) || minimizeRect.contains(point)) {
+            super.mouseDown(with: event)
+            return
+        }
+        dragOrigin = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else { return }
+        let current = event.locationInWindow
+        let dx = current.x - origin.x
+        let dy = current.y - origin.y
+        var frame = win.frame
+        frame.origin.x += dx
+        frame.origin.y += dy
+        win.setFrameOrigin(frame.origin)
+    }
+
     // MARK: - Click handling for window buttons
     override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
         guard showButtons else { return }
         let point = convert(event.locationInWindow, from: nil)
         let b = bounds

@@ -35,6 +35,8 @@ class MainPlayerView: NSView {
     // Info labels
     private let bitrateLabel = NSTextField(labelWithString: "")
     private let sampleRateLabel = NSTextField(labelWithString: "")
+    private let bitrateUnitLabel = NSTextField(labelWithString: "kbps")
+    private let sampleRateUnitLabel = NSTextField(labelWithString: "khz")
     private let monoLabel = NSTextField(labelWithString: "mono")
     private let stereoLabel = NSTextField(labelWithString: "stereo")
 
@@ -88,7 +90,7 @@ class MainPlayerView: NSView {
         addSubview(lcdDisplay)
 
         // Info labels
-        for label in [bitrateLabel, sampleRateLabel, monoLabel, stereoLabel] {
+        for label in [bitrateLabel, sampleRateLabel, bitrateUnitLabel, sampleRateUnitLabel, monoLabel, stereoLabel] {
             label.isBezeled = false
             label.drawsBackground = false
             label.isEditable = false
@@ -219,8 +221,10 @@ class MainPlayerView: NSView {
         lcdDisplay.frame = NSRect(x: rightPanelX + 4, y: contentTop - 22, width: rightPanelW - 8, height: 16)
 
         // Bitrate info
-        bitrateLabel.frame = NSRect(x: rightPanelX + 4, y: contentTop - 42, width: 30, height: 12)
-        sampleRateLabel.frame = NSRect(x: rightPanelX + 40, y: contentTop - 42, width: 30, height: 12)
+        bitrateLabel.frame = NSRect(x: rightPanelX + 4, y: contentTop - 42, width: 22, height: 12)
+        bitrateUnitLabel.frame = NSRect(x: rightPanelX + 22, y: contentTop - 42, width: 22, height: 12)
+        sampleRateLabel.frame = NSRect(x: rightPanelX + 48, y: contentTop - 42, width: 18, height: 12)
+        sampleRateUnitLabel.frame = NSRect(x: rightPanelX + 63, y: contentTop - 42, width: 20, height: 12)
         monoLabel.frame = NSRect(x: rightPanelX + rightPanelW - 50, y: contentTop - 42, width: 22, height: 12)
         stereoLabel.frame = NSRect(x: rightPanelX + rightPanelW - 28, y: contentTop - 42, width: 28, height: 12)
 

@@ -36,7 +36,7 @@ class MainWindow: NSWindow {
             defer: false
         )
 
-        isMovableByWindowBackground = true
+        isMovableByWindowBackground = false
         level = .floating
         backgroundColor = WinampTheme.frameBackground
         isOpaque = true
