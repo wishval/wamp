@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 class PlaylistView: NSView {
     private let titleBar = TitleBarView()
     private let scrollView = NSScrollView()
-    private let tableView = NSTableView()
+    private let tableView = PlaylistTableView()
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
@@ -44,6 +44,7 @@ class PlaylistView: NSView {
         tableView.target = self
         tableView.selectionHighlightStyle = .regular
         tableView.gridStyleMask = []
+        tableView.onEnter = { [weak self] in self?.playSelectedRow() }
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
@@ -159,9 +160,18 @@ class PlaylistView: NSView {
     @objc private func doubleClickRow() {
         let row = tableView.clickedRow
         guard row >= 0 else { return }
+        playRow(row)
+    }
+
+    private func playSelectedRow() {
+        let row = tableView.selectedRow
+        guard row >= 0 else { return }
+        playRow(row)
+    }
+
+    private func playRow(_ row: Int) {
         let tracks = displayedTracks
         guard row < tracks.count else { return }
-        // Find the actual index in the full playlist
         if let realIndex = playlistManager?.tracks.firstIndex(where: { $0.id == tracks[row].id }) {
             playlistManager?.playTrack(at: realIndex)
         }
@@ -302,6 +312,19 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let rowView = WinampRowView()
         return rowView
+    }
+}
+
+// MARK: - Custom table view with Enter-to-play
+class PlaylistTableView: NSTableView {
+    var onEnter: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 { // Return key
+            onEnter?()
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
