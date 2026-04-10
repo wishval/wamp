@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 
 enum WinampButtonStyle {
     case transport
@@ -14,8 +15,18 @@ class WinampButton: NSView {
     var onClick: (() -> Void)?
     var drawIcon: ((NSRect, Bool) -> Void)? // custom icon drawer (rect, isActive)
 
+    /// Closure that maps (active, pressed) → SpriteKey. Set by parent views.
+    /// When non-nil and the sprite resolves, the button renders the sprite
+    /// instead of the programmatic path.
+    var spriteKeyProvider: ((Bool, Bool) -> SpriteKey)?
+
+    private var skinObserver: AnyCancellable?
+
     override init(frame: NSRect) {
         super.init(frame: frame)
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.needsDisplay = true }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -28,6 +39,20 @@ class WinampButton: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+
+        // Sprite path: if a sprite key provider is set and the sprite resolves,
+        // blit it as the entire button face and skip the programmatic path.
+        if WinampTheme.skinIsActive,
+           let provide = spriteKeyProvider,
+           let sprite = WinampTheme.sprite(provide(isActive, isPressed)) {
+            let ctx = NSGraphicsContext.current
+            let prev = ctx?.imageInterpolation
+            ctx?.imageInterpolation = .none
+            sprite.draw(in: bounds)
+            if let prev = prev { ctx?.imageInterpolation = prev }
+            return
+        }
+
         let b = bounds
 
         // Button face gradient
