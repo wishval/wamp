@@ -47,7 +47,12 @@ class MainPlayerView: NSView {
     // Play state indicator
     private let playIndicator = NSView()
 
+    // Invisible click hit-zones for close/minimize when skinned (replace hidden titleBar)
+    private let closeHitZone = NSView()
+    private let minimizeHitZone = NSView()
+
     private var cancellables = Set<AnyCancellable>()
+    private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
     private weak var playlistManager: PlaylistManager?
 
@@ -56,6 +61,14 @@ class MainPlayerView: NSView {
         wantsLayer = true
         layer?.backgroundColor = WinampTheme.frameBackground.cgColor
         setupSubviews()
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applySkinVisibility()
+                self?.needsDisplay = true
+                self?.needsLayout = true
+            }
+        applySkinVisibility()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -208,6 +221,85 @@ class MainPlayerView: NSView {
         }
         eqButton.onClick = { [weak self] in self?.onToggleEQ?() }
         plButton.onClick = { [weak self] in self?.onTogglePL?() }
+
+        // Click hit-zones for close/minimize when skinned (titleBar is hidden then,
+        // so we need invisible NSViews at the locations where main.bmp paints these
+        // buttons so the user can still close/minimize the window).
+        addSubview(closeHitZone)
+        addSubview(minimizeHitZone)
+        let closeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedClose))
+        closeHitZone.addGestureRecognizer(closeClick)
+        let minimizeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMinimize))
+        minimizeHitZone.addGestureRecognizer(minimizeClick)
+    }
+
+    @objc private func handleSkinnedClose() { NSApp.terminate(nil) }
+    @objc private func handleSkinnedMinimize() { window?.miniaturize(nil) }
+
+    /// Hides NSTextField labels and helper NSViews whose visual content is baked
+    /// into main.bmp / monoster.bmp / text.bmp when a skin is loaded. See spec §8.
+    private func applySkinVisibility() {
+        let active = WinampTheme.skinIsActive
+        titleBar.isHidden = active
+        leftPanel.isHidden = active
+        rightPanel.isHidden = active
+        bitrateLabel.isHidden = active
+        sampleRateLabel.isHidden = active
+        bitrateUnitLabel.isHidden = active
+        sampleRateUnitLabel.isHidden = active
+        monoLabel.isHidden = active
+        stereoLabel.isHidden = active
+        playIndicator.isHidden = active
+        closeHitZone.isHidden = !active
+        minimizeHitZone.isHidden = !active
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard WinampTheme.skinIsActive else { return }
+        drawSkinned()
+    }
+
+    private func drawSkinned() {
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        // main.bmp (275×116) covers the bottom 116 px of the view. The view height
+        // includes the title bar area on top, but we hide titleBar when skinned so
+        // there's nothing visible above the sprite.
+        let mainHeight: CGFloat = 116
+        let mainRect = NSRect(x: 0, y: 0, width: bounds.width, height: mainHeight)
+        if let bg = WinampTheme.sprite(.mainBackground) {
+            bg.draw(in: mainRect)
+        }
+
+        // Mono / stereo sprites at fixed Webamp coordinates.
+        // Webamp positions (top-down): stereo at (212, 41), mono at (239, 41), 12 px tall.
+        // Convert to AppKit (bottom-up): y_appkit = mainHeight - 41 - 12 = 63
+        let isStereo = playlistManager?.currentTrack?.isStereo ?? false
+        let monoY: CGFloat = mainHeight - 41 - 12
+        if let stereoSprite = WinampTheme.sprite(.stereo(active: isStereo)) {
+            stereoSprite.draw(in: NSRect(x: 212, y: monoY, width: 29, height: 12))
+        }
+        if let monoSprite = WinampTheme.sprite(.mono(active: !isStereo)) {
+            monoSprite.draw(in: NSRect(x: 239, y: monoY, width: 27, height: 12))
+        }
+
+        // Bitrate / sample rate / units via text.bmp.
+        // Webamp positions (top-down): bitrate at (111, 43), sample rate at (156, 43).
+        // y_appkit = mainHeight - 43 - 6 (glyphs are 6 px tall) = 67
+        if let textSheet = WinampTheme.provider.textSheet,
+           let track = playlistManager?.currentTrack {
+            let textY: CGFloat = mainHeight - 43 - 6
+            let bitrateStr = track.bitrate > 0 ? String(format: "%3d", track.bitrate) : "   "
+            let sampleStr = track.sampleRate > 0 ? String(format: "%2d", track.sampleRate / 1000) : "  "
+            TextSpriteRenderer.draw(bitrateStr, at: NSPoint(x: 111, y: textY), sheet: textSheet)
+            TextSpriteRenderer.draw("kbps",     at: NSPoint(x: 128, y: textY), sheet: textSheet)
+            TextSpriteRenderer.draw(sampleStr,  at: NSPoint(x: 156, y: textY), sheet: textSheet)
+            TextSpriteRenderer.draw("khz",      at: NSPoint(x: 168, y: textY), sheet: textSheet)
+        }
     }
 
     override func layout() {
@@ -274,6 +366,14 @@ class MainPlayerView: NSView {
         repeatButton.frame = NSRect(x: toggleX + btnW + 1, y: toggleY, width: btnW, height: btnH)
         eqButton.frame = NSRect(x: toggleX + (btnW + 1) * 2, y: toggleY, width: btnW, height: btnH)
         plButton.frame = NSRect(x: toggleX + (btnW + 1) * 3, y: toggleY, width: btnW, height: btnH)
+
+        // Click hit-zones at the locations where main.bmp paints close/minimize.
+        // Webamp positions (top-down): close at (264, 3), minimize at (244, 3), 9×9.
+        // y_appkit = 116 - 3 - 9 = 104. Made slightly larger for easier clicking.
+        let hitSize: CGFloat = 11
+        let hitY: CGFloat = 116 - 3 - hitSize
+        closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
+        minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
     }
 
     // MARK: - Binding
