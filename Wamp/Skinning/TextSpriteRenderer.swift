@@ -70,11 +70,9 @@ enum TextSpriteRenderer {
                 x += glyphWidth
                 continue
             }
-            // text.bmp coordinates are top-down (Winamp); CGImage is bottom-up.
-            // Flip Y to source the correct pixels from the CGImage.
-            let cgY = CGFloat(cg.height) - rect.origin.y - rect.height
-            let sourceRect = CGRect(x: rect.origin.x, y: cgY, width: rect.width, height: rect.height)
-            if let cropped = cg.cropping(to: sourceRect) {
+            // CGImage.cropping(to:) uses a top-left pixel origin (same as the
+            // Winamp sheet coordinates), so pass the rect through unchanged.
+            if let cropped = cg.cropping(to: rect) {
                 let dest = NSRect(x: x, y: origin.y, width: glyphWidth, height: glyphHeight)
                 NSImage(cgImage: cropped, size: dest.size).draw(in: dest)
             }
