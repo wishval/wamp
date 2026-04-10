@@ -13,6 +13,7 @@ class PlaylistView: NSView {
     private let remButton = WinampButton(title: "REM", style: .action)
     private let remAllButton = WinampButton(title: "REM ALL", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
+    private let skinScroller = PlaylistSkinScroller()
 
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
@@ -64,6 +65,11 @@ class PlaylistView: NSView {
         // Custom scroller appearance
         scrollView.verticalScroller?.controlSize = .small
         addSubview(scrollView)
+
+        // Skinned scroll handle (lives in the right-tile area; hidden when unskinned).
+        skinScroller.attach(to: scrollView)
+        skinScroller.isHidden = true
+        addSubview(skinScroller)
 
         // Search field
         searchField.placeholderString = "Search playlist..."
@@ -128,6 +134,9 @@ class PlaylistView: NSView {
         tableView.rowHeight = active ? 13 : 18
         tableView.backgroundColor = active ? WinampTheme.provider.playlistStyle.normalBG : .black
         scrollView.backgroundColor = tableView.backgroundColor
+        // Skinned playlists draw their own scroll thumb in the right-tile area.
+        scrollView.hasVerticalScroller = !active
+        skinScroller.isHidden = !active
         tableView.reloadData()
         needsLayout = true
     }
@@ -246,16 +255,20 @@ class PlaylistView: NSView {
         remAllButton.frame = .zero
         infoLabel.frame = .zero
 
-        let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
-        let newWidth = scrollView.frame.width - scrollerWidth - 2
+        // Native scroller is hidden in skinned mode — full column width.
+        let newWidth = scrollView.frame.width - 2
         tableView.tableColumns.first?.width = newWidth
-        // Cells captured tableColumn?.width at construction time. If the column
-        // width changed since the last layout, rebuild rows so the duration label
-        // re-anchors to the new right edge instead of getting clipped by the scroller.
         if abs(newWidth - lastColumnWidth) > 0.5 {
             lastColumnWidth = newWidth
             tableView.reloadData()
         }
+
+        // Skin scroll thumb sits in the right-tile area, centered horizontally
+        // within the 20px tile. Track height matches the right-tile vertical span.
+        let trackTop = h - topH
+        let trackBottom = bottomH
+        let trackH = max(0, trackTop - trackBottom)
+        skinScroller.frame = NSRect(x: w - 20 + 6, y: trackBottom, width: 8, height: trackH)
     }
 
     private func layoutUnskinned() {
@@ -476,7 +489,9 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         durLabel.isBezeled = false
         durLabel.drawsBackground = false
         durLabel.sizeToFit()
-        let durWidth = durLabel.frame.width
+        // sizeToFit underestimates width for small Arial — pad the label so the
+        // trailing digit isn't clipped inside its own frame.
+        let durWidth = durLabel.frame.width + 3
         let rightMargin: CGFloat = 10
         durLabel.frame = NSRect(x: cellW - durWidth - rightMargin, y: yOffset, width: durWidth, height: textH)
         cell.addSubview(durLabel)
