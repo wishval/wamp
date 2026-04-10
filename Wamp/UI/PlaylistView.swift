@@ -123,6 +123,11 @@ class PlaylistView: NSView {
         addButton.isHidden = active
         remButton.isHidden = active
         remAllButton.isHidden = active
+        // Classic Winamp playlist rows are tight — text.bmp glyphs are 6 px tall.
+        tableView.rowHeight = active ? 13 : 18
+        tableView.backgroundColor = active ? WinampTheme.provider.playlistStyle.normalBG : .black
+        scrollView.backgroundColor = tableView.backgroundColor
+        tableView.reloadData()
         needsLayout = true
     }
 
@@ -420,21 +425,29 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         guard row < tracks.count else { return nil }
         let track = tracks[row]
         let isPlaying = playlistManager?.currentTrack?.id == track.id
+        let skinned = WinampTheme.skinIsActive
 
-        let rowH: CGFloat = 18
+        let rowH: CGFloat = tableView.rowHeight
         let cellW = tableColumn?.width ?? 200
         let cell = NSView(frame: NSRect(x: 0, y: 0, width: cellW, height: rowH))
         cell.autoresizesSubviews = true
 
-        let font = WinampTheme.playlistFont
+        let font: NSFont = skinned
+            ? (NSFont(name: WinampTheme.provider.playlistStyle.font, size: 7) ?? NSFont.systemFont(ofSize: 7))
+            : WinampTheme.playlistFont
         let textH = font.boundingRectForFont.height
         let yOffset = round((rowH - textH) / 2)
+
+        let style = WinampTheme.provider.playlistStyle
+        let normalColor = skinned ? style.normal  : WinampTheme.greenBright
+        let currentColor = skinned ? style.current : WinampTheme.white
+        let secondaryColor = skinned ? style.normal : WinampTheme.greenSecondary
 
         // Number
         let numStr = "\(row + 1)."
         let numLabel = NSTextField(labelWithString: numStr)
         numLabel.font = font
-        numLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
+        numLabel.textColor = isPlaying ? currentColor : secondaryColor
         numLabel.isBezeled = false
         numLabel.drawsBackground = false
         numLabel.sizeToFit()
@@ -445,7 +458,7 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         // Duration
         let durLabel = NSTextField(labelWithString: track.formattedDuration)
         durLabel.font = font
-        durLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
+        durLabel.textColor = isPlaying ? currentColor : secondaryColor
         durLabel.isBezeled = false
         durLabel.drawsBackground = false
         durLabel.sizeToFit()
@@ -458,7 +471,7 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         let nameX = numWidth - 10 + 4
         let nameLabel = NSTextField(labelWithString: track.displayTitle)
         nameLabel.font = font
-        nameLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenBright
+        nameLabel.textColor = isPlaying ? currentColor : normalColor
         nameLabel.isBezeled = false
         nameLabel.drawsBackground = false
         nameLabel.lineBreakMode = .byTruncatingTail
