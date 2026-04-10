@@ -40,8 +40,8 @@ class WinampSlider: NSView {
         self.isVertical = isVertical
         if style == .eqBand {
             self.isVertical = true
-            self.minValue = -12
-            self.maxValue = 12
+            self.minValue = -20
+            self.maxValue = 20
         }
     }
 

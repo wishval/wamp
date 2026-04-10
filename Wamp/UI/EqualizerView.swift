@@ -6,16 +6,24 @@ struct EQPreset {
     let bands: [Float]
 
     nonisolated static let presets: [EQPreset] = [
-        EQPreset(name: "Flat", bands: [0,0,0,0,0,0,0,0,0,0]),
-        EQPreset(name: "Rock", bands: [5,4,3,1,-1,-1,0,2,3,4]),
-        EQPreset(name: "Pop", bands: [-1,2,4,5,3,0,-1,-2,-1,0]),
-        EQPreset(name: "Jazz", bands: [4,3,1,2,-2,-2,0,1,3,4]),
-        EQPreset(name: "Classical", bands: [5,4,3,2,-1,-1,0,2,3,4]),
-        EQPreset(name: "Bass Boost", bands: [8,6,4,2,0,0,0,0,0,0]),
-        EQPreset(name: "Treble Boost", bands: [0,0,0,0,0,1,3,5,7,8]),
-        EQPreset(name: "Vocal", bands: [-2,-1,0,3,5,5,3,1,0,-2]),
-        EQPreset(name: "Electronic", bands: [6,4,1,0,-2,2,1,2,5,6]),
-        EQPreset(name: "Loudness", bands: [6,4,0,-2,-1,0,-1,-2,5,2]),
+        EQPreset(name: "Flat",                       bands: [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0]),
+        EQPreset(name: "Classical",                  bands: [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -8.1, -8.1, -8.1,-10.6]),
+        EQPreset(name: "Club",                       bands: [ 0.0,  0.0,  3.1,  5.6,  5.6,  5.6,  3.1,  0.0,  0.0,  0.0]),
+        EQPreset(name: "Dance",                      bands: [ 9.4,  6.9,  1.9, -0.6, -0.6, -6.9, -8.1, -8.1, -0.6, -0.6]),
+        EQPreset(name: "Laptop speakers/headphones", bands: [ 4.4, 10.6,  5.0, -4.4, -3.1,  1.3,  4.4,  9.4, 12.5, 14.4]),
+        EQPreset(name: "Large hall",                 bands: [10.0, 10.0,  5.6,  5.6,  0.0, -5.6, -5.6, -5.6,  0.0,  0.0]),
+        EQPreset(name: "Party",                      bands: [ 6.9,  6.9,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  6.9,  6.9]),
+        EQPreset(name: "Pop",                        bands: [-2.5,  4.4,  6.9,  7.5,  5.0, -1.9, -3.1, -3.1, -2.5, -2.5]),
+        EQPreset(name: "Reggae",                     bands: [ 0.0,  0.0, -1.3, -6.9,  0.0,  6.3,  6.3,  0.0,  0.0,  0.0]),
+        EQPreset(name: "Rock",                       bands: [ 7.5,  4.4, -6.3, -8.8, -4.4,  3.8,  8.8, 10.6, 10.6, 10.6]),
+        EQPreset(name: "Soft",                       bands: [ 4.4,  1.3, -1.9, -3.1, -1.9,  3.8,  8.1,  9.4, 10.6, 11.9]),
+        EQPreset(name: "Ska",                        bands: [-3.1, -5.6, -5.0, -1.3,  3.8,  5.6,  8.8,  9.4, 10.6,  9.4]),
+        EQPreset(name: "Full Bass",                  bands: [ 9.4,  9.4,  9.4,  5.6,  1.3, -5.0, -9.4,-11.3,-11.9,-11.9]),
+        EQPreset(name: "Soft Rock",                  bands: [ 3.8,  3.8,  1.9, -1.3, -5.0, -6.3, -4.4, -1.3,  2.5,  8.8]),
+        EQPreset(name: "Full Treble",                bands: [-10.6,-10.6,-10.6, -5.0,  2.5, 10.6, 15.6, 15.6, 15.6, 16.9]),
+        EQPreset(name: "Full Bass & Treble",         bands: [ 6.9,  5.6,  0.0, -8.1, -5.6,  1.3,  8.1, 10.6, 11.9, 11.9]),
+        EQPreset(name: "Live",                       bands: [-5.6,  0.0,  3.8,  5.0,  5.6,  5.6,  3.8,  2.5,  2.5,  1.9]),
+        EQPreset(name: "Techno",                     bands: [ 7.5,  5.6,  0.0, -6.3, -5.6,  0.0,  7.5,  9.4,  9.4,  8.8]),
     ]
 }
 
@@ -253,9 +261,11 @@ class EqualizerView: NSView {
     private func autoApplyPreset(for track: Track?) {
         guard autoButton.isActive, let genre = track?.genre.lowercased(), !genre.isEmpty else { return }
         let genrePresetMap: [String: String] = [
-            "rock": "Rock", "pop": "Pop", "jazz": "Jazz",
-            "classical": "Classical", "electronic": "Electronic",
-            "dance": "Electronic", "hip-hop": "Bass Boost", "r&b": "Vocal"
+            "rock": "Rock", "pop": "Pop", "classical": "Classical",
+            "electronic": "Techno", "techno": "Techno", "dance": "Dance",
+            "hip-hop": "Dance", "reggae": "Reggae", "ska": "Ska",
+            "club": "Club", "party": "Party", "live": "Live",
+            "jazz": "Live", "orchestral": "Classical"
         ]
         let presetName = genrePresetMap.first { genre.contains($0.key) }?.value ?? "Flat"
         if let preset = EQPreset.presets.first(where: { $0.name == presetName }) {
