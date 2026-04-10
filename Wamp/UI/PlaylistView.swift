@@ -17,6 +17,7 @@ class PlaylistView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
+    private var lastColumnWidth: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -246,7 +247,15 @@ class PlaylistView: NSView {
         infoLabel.frame = .zero
 
         let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
-        tableView.tableColumns.first?.width = scrollView.frame.width - scrollerWidth - 2
+        let newWidth = scrollView.frame.width - scrollerWidth - 2
+        tableView.tableColumns.first?.width = newWidth
+        // Cells captured tableColumn?.width at construction time. If the column
+        // width changed since the last layout, rebuild rows so the duration label
+        // re-anchors to the new right edge instead of getting clipped by the scroller.
+        if abs(newWidth - lastColumnWidth) > 0.5 {
+            lastColumnWidth = newWidth
+            tableView.reloadData()
+        }
     }
 
     private func layoutUnskinned() {
@@ -281,7 +290,12 @@ class PlaylistView: NSView {
         scrollView.frame = NSRect(x: pad, y: bottomBarH + searchH + 1, width: w - 2 * pad, height: scrollH)
 
         let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
-        tableView.tableColumns.first?.width = scrollView.frame.width - scrollerWidth - 2
+        let newWidth = scrollView.frame.width - scrollerWidth - 2
+        tableView.tableColumns.first?.width = newWidth
+        if abs(newWidth - lastColumnWidth) > 0.5 {
+            lastColumnWidth = newWidth
+            tableView.reloadData()
+        }
     }
 
     func bindToModel(playlistManager: PlaylistManager) {
