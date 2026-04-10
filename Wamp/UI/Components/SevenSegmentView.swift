@@ -1,7 +1,17 @@
 import Cocoa
+import Combine
 
 class SevenSegmentView: NSView {
     var timeInSeconds: TimeInterval = 0 { didSet { needsDisplay = true } }
+    private var skinObserver: AnyCancellable?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.needsDisplay = true }
+    }
+    required init?(coder: NSCoder) { fatalError() }
 
     // Segment layout: 7 segments per digit (a-g), standard arrangement
     // a=top, b=topRight, c=bottomRight, d=bottom, e=bottomLeft, f=topLeft, g=middle
@@ -57,6 +67,15 @@ class SevenSegmentView: NSView {
 
     private func drawDigit(_ digit: Int, at rect: NSRect) {
         guard digit >= 0, digit <= 9 else { return }
+        // Sprite path: blit numbers.bmp glyph if a skin is loaded.
+        if WinampTheme.skinIsActive, let sprite = WinampTheme.sprite(.digit(digit)) {
+            let ctx = NSGraphicsContext.current
+            let prev = ctx?.imageInterpolation
+            ctx?.imageInterpolation = .none
+            sprite.draw(in: rect)
+            if let prev = prev { ctx?.imageInterpolation = prev }
+            return
+        }
         let segs = digitSegments[digit]
         let w = rect.width - 2
         let h = rect.height - 2
