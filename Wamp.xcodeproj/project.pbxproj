@@ -29,6 +29,11 @@
 			path = Wamp;
 			sourceTree = "<group>";
 		};
+		1CBE1BF22F895EF2004EA23A /* skins */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = skins;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,6 +52,7 @@
 			children = (
 				1C49CDA12F817D2700DB292D /* Wamp */,
 				1C49CDA02F817D2700DB292D /* Products */,
+				1CBE1BF22F895EF2004EA23A /* skins */,
 			);
 			sourceTree = "<group>";
 		};
@@ -75,6 +81,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				1C49CDA12F817D2700DB292D /* Wamp */,
+				1CBE1BF22F895EF2004EA23A /* skins */,
 			);
 			name = Wamp;
 			packageProductDependencies = (
