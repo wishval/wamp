@@ -24,11 +24,14 @@ enum SpriteKey: Hashable {
     case mono(active: Bool)
     case stereo(active: Bool)
 
-    // titlebar (used by EQ + Playlist windows)
+    // titlebar (main window title, from titlebar.bmp)
     case titleBarActive
     case titleBarInactive
     case titleBarCloseButton(pressed: Bool)
     case titleBarShadeButton(pressed: Bool)
+
+    // EQ title bar (lives inside eqmain.bmp, not titlebar.bmp)
+    case eqTitleBar(active: Bool)
 
     // posbar
     case seekBackground
@@ -120,6 +123,10 @@ enum SpriteCoordinates {
             return SpriteInfo(sheet: "titlebar", rect: CGRect(x: 18, y: pressed ? 9 : 0, width: 9, height: 9))
         case .titleBarShadeButton(let pressed):
             return SpriteInfo(sheet: "titlebar", rect: CGRect(x:  0, y: pressed ? 27 : 18, width: 9, height: 9))
+
+        // MARK: eq titlebar — lives inside eqmain.bmp
+        case .eqTitleBar(let active):
+            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 0, y: active ? 134 : 149, width: 275, height: 14))
 
         // MARK: posbar
         case .seekBackground:

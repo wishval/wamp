@@ -282,6 +282,13 @@ class MainPlayerView: NSView {
             bg.draw(in: bounds)
         }
 
+        // Title bar overlay (main.bmp leaves the top 14px empty for this).
+        // Webamp y=0..14 (top-down) → AppKit y = mainHeight - 14.
+        let isActive = window?.isKeyWindow ?? true
+        if let tb = WinampTheme.sprite(isActive ? .titleBarActive : .titleBarInactive) {
+            tb.draw(in: NSRect(x: 0, y: mainHeight - 14, width: bounds.width, height: 14))
+        }
+
         // Mono / stereo sprites at fixed Webamp coordinates.
         // Webamp positions (top-down): stereo at (212, 41), mono at (239, 41), 12 px tall.
         // Convert to AppKit (bottom-up): y_appkit = mainHeight - 41 - 12 = 63

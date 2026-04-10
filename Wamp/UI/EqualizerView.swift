@@ -37,6 +37,13 @@ class EqualizerView: NSView {
 
     private let bandNames = ["70", "180", "320", "600", "1K", "3K", "6K", "12K", "14K", "16K"]
 
+    /// View height in logical points. eqmain.bmp is 116 px tall, so when a skin
+    /// is active we shrink the view to match and draw the sprite 1:1. Without a
+    /// skin we use Wamp's original 112 px layout.
+    var desiredHeight: CGFloat {
+        WinampTheme.skinIsActive ? 116 : WinampTheme.equalizerHeight
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -169,8 +176,15 @@ class EqualizerView: NSView {
         defer { if let prev = prev { ctx?.imageInterpolation = prev } }
 
         if let bg = WinampTheme.sprite(.eqBackground) {
-            // eqmain.bmp is 275×116. Draw bottom-aligned to preserve sprite proportions.
-            bg.draw(in: NSRect(x: 0, y: 0, width: bounds.width, height: 116))
+            // eqmain.bmp is 275×116; view is resized to 116 when skinned so the
+            // sprite fills bounds exactly and sub-sprite coords match Webamp.
+            bg.draw(in: bounds)
+        }
+
+        // Title bar overlay (y=0..14 of the EQ body is left empty for this).
+        let isActive = window?.isKeyWindow ?? true
+        if let tb = WinampTheme.sprite(.eqTitleBar(active: isActive)) {
+            tb.draw(in: NSRect(x: 0, y: bounds.height - 14, width: bounds.width, height: 14))
         }
     }
 
