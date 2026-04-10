@@ -1,7 +1,17 @@
 import Cocoa
+import Combine
 
 class SevenSegmentView: NSView {
     var timeInSeconds: TimeInterval = 0 { didSet { needsDisplay = true } }
+    private var skinObserver: AnyCancellable?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.needsDisplay = true }
+    }
+    required init?(coder: NSCoder) { fatalError() }
 
     // Segment layout: 7 segments per digit (a-g), standard arrangement
     // a=top, b=topRight, c=bottomRight, d=bottom, e=bottomLeft, f=topLeft, g=middle
@@ -24,6 +34,11 @@ class SevenSegmentView: NSView {
         let totalSeconds = Int(max(0, timeInSeconds))
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
+
+        if WinampTheme.skinIsActive {
+            drawSkinned(minutes: minutes, seconds: seconds)
+            return
+        }
 
         let digitWidth: CGFloat = 14
         let colonWidth: CGFloat = 6
@@ -55,8 +70,36 @@ class SevenSegmentView: NSView {
         drawDigit(seconds % 10, at: NSRect(x: x, y: 0, width: digitWidth, height: digitHeight))
     }
 
+    /// Skinned path: always MM:SS, native 9×13 digit sprites at the exact
+    /// Webamp positions inside the #time container. The colon is baked into
+    /// main.bmp at the gap between the minute and second digits.
+    private func drawSkinned(minutes: Int, seconds: Int) {
+        let mm = min(99, minutes)
+        let digits = [mm / 10, mm % 10, seconds / 10, seconds % 10]
+        // Local x offsets inside a 59-wide #time container (Webamp CSS).
+        let xs: [CGFloat] = [9, 21, 39, 51]
+        let size = NSSize(width: 9, height: 13)
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+        for (i, d) in digits.enumerated() {
+            guard let sprite = WinampTheme.sprite(.digit(d)) else { continue }
+            sprite.draw(in: NSRect(x: xs[i], y: 0, width: size.width, height: size.height))
+        }
+    }
+
     private func drawDigit(_ digit: Int, at rect: NSRect) {
         guard digit >= 0, digit <= 9 else { return }
+        // Sprite path: blit numbers.bmp glyph if a skin is loaded.
+        if WinampTheme.skinIsActive, let sprite = WinampTheme.sprite(.digit(digit)) {
+            let ctx = NSGraphicsContext.current
+            let prev = ctx?.imageInterpolation
+            ctx?.imageInterpolation = .none
+            sprite.draw(in: rect)
+            if let prev = prev { ctx?.imageInterpolation = prev }
+            return
+        }
         let segs = digitSegments[digit]
         let w = rect.width - 2
         let h = rect.height - 2

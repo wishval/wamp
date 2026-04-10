@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var mainWindow: MainWindow!
     var statusItem: NSStatusItem!
     var hotKeyManager: HotKeyManager!
+    private weak var alwaysOnTopMenuItem: NSMenuItem?
 
     static func main() {
         let app = NSApplication.shared
@@ -45,6 +47,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Restore saved skin (synchronous to avoid window flicker)
+        if let path = appState.skinPath, FileManager.default.fileExists(atPath: path) {
+            try? SkinManager.shared.loadSkinSync(from: URL(fileURLWithPath: path))
+        }
+
         // Create window
         mainWindow = MainWindow()
         mainWindow.bindToModels(audioEngine: audioEngine, playlistManager: playlistManager)
@@ -62,6 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         mainWindow.makeKeyAndOrderFront(nil)
+        mainWindow.applyRegionMaskFromCurrentSkin()
 
         // Start observing for auto-save
         stateManager.observe(audioEngine: audioEngine, playlistManager: playlistManager)
@@ -168,6 +176,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let showPL = NSMenuItem(title: "Show Playlist", action: #selector(togglePL), keyEquivalent: "3")
         showPL.target = self
         viewMenu.addItem(showPL)
+
+        viewMenu.addItem(.separator())
+
+        // Always-on-top moved here from the (deleted) pin button in TitleBarView.
+        let alwaysOnTop = NSMenuItem(title: "Always on Top", action: #selector(toggleAlwaysOnTop), keyEquivalent: "t")
+        alwaysOnTop.keyEquivalentModifierMask = [.command, .shift]
+        alwaysOnTop.target = self
+        alwaysOnTop.state = mainWindow.alwaysOnTop ? .on : .off
+        self.alwaysOnTopMenuItem = alwaysOnTop
+        viewMenu.addItem(alwaysOnTop)
+
+        viewMenu.addItem(.separator())
+
+        let loadSkin = NSMenuItem(title: "Load Skin...", action: #selector(loadSkinAction), keyEquivalent: "S")
+        loadSkin.keyEquivalentModifierMask = [.command, .shift]
+        loadSkin.target = self
+        viewMenu.addItem(loadSkin)
+
+        let unloadSkin = NSMenuItem(title: "Unload Skin", action: #selector(unloadSkinAction), keyEquivalent: "")
+        unloadSkin.target = self
+        viewMenu.addItem(unloadSkin)
+
         let viewMenuItem = NSMenuItem()
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
@@ -224,6 +254,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleEQ() { mainWindow.showEqualizer.toggle() }
     @objc private func togglePL() { mainWindow.showPlaylist.toggle() }
+
+    @objc private func toggleAlwaysOnTop() {
+        mainWindow.alwaysOnTop.toggle()
+        alwaysOnTopMenuItem?.state = mainWindow.alwaysOnTop ? .on : .off
+
+        var state = stateManager.loadAppState()
+        state.alwaysOnTop = mainWindow.alwaysOnTop
+        stateManager.saveAppState(state)
+    }
+
+    @objc private func loadSkinAction() {
+        let panel = NSOpenPanel()
+        if let wsz = UTType(filenameExtension: "wsz") {
+            panel.allowedContentTypes = [wsz, .zip]
+        } else {
+            panel.allowedContentTypes = [.zip]
+        }
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        Task { @MainActor [weak self] in
+            do {
+                try await SkinManager.shared.loadSkin(from: url)
+                guard let self else { return }
+                var state = self.stateManager.loadAppState()
+                state.skinPath = url.path
+                self.stateManager.saveAppState(state)
+                self.mainWindow.recalculateSize()
+                self.mainWindow.applyRegionMaskFromCurrentSkin()
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Failed to load skin"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+    }
+
+    @objc private func unloadSkinAction() {
+        SkinManager.shared.unloadSkin()
+        var state = stateManager.loadAppState()
+        state.skinPath = nil
+        stateManager.saveAppState(state)
+        mainWindow.recalculateSize()
+        mainWindow.applyRegionMaskFromCurrentSkin()
+    }
 
     // MARK: - System Tray
     private func setupStatusItem() {

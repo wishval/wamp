@@ -28,16 +28,34 @@ class EqualizerView: NSView {
     private let responseView = EQResponseView()
     private var bandSliders: [WinampSlider] = []
     private var bandLabels: [NSTextField] = []
+    private var dbLabels: [NSTextField] = []
+    private var preLabel: NSTextField?
+    private var dbUnitLabel: NSTextField?
     private var cancellables = Set<AnyCancellable>()
+    private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
 
     private let bandNames = ["70", "180", "320", "600", "1K", "3K", "6K", "12K", "14K", "16K"]
+
+    /// View height in logical points. eqmain.bmp is 116 px tall, so when a skin
+    /// is active we shrink the view to match and draw the sprite 1:1. Without a
+    /// skin we use Wamp's original 112 px layout.
+    var desiredHeight: CGFloat {
+        WinampTheme.skinIsActive ? 116 : WinampTheme.equalizerHeight
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = WinampTheme.frameBackground.cgColor
         setupSubviews()
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applySkinVisibility()
+                self?.needsDisplay = true
+            }
+        applySkinVisibility()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -106,27 +124,68 @@ class EqualizerView: NSView {
             label.alignment = .right
             label.tag = tag
             addSubview(label)
+            dbLabels.append(label)
         }
 
         // Preamp label
-        let preLabel = NSTextField(labelWithString: "PRE")
-        preLabel.font = WinampTheme.eqLabelFont
-        preLabel.textColor = WinampTheme.eqBandLabelColor
-        preLabel.isBezeled = false
-        preLabel.drawsBackground = false
-        preLabel.alignment = .center
-        preLabel.tag = 210
-        addSubview(preLabel)
+        let pre = NSTextField(labelWithString: "PRE")
+        pre.font = WinampTheme.eqLabelFont
+        pre.textColor = WinampTheme.eqBandLabelColor
+        pre.isBezeled = false
+        pre.drawsBackground = false
+        pre.alignment = .center
+        pre.tag = 210
+        addSubview(pre)
+        preLabel = pre
 
         // dB label under response
-        let dbLabel = NSTextField(labelWithString: "dB")
-        dbLabel.font = WinampTheme.eqLabelFont
-        dbLabel.textColor = WinampTheme.eqBandLabelColor
-        dbLabel.isBezeled = false
-        dbLabel.drawsBackground = false
-        dbLabel.alignment = .center
-        dbLabel.tag = 211
-        addSubview(dbLabel)
+        let dbU = NSTextField(labelWithString: "dB")
+        dbU.font = WinampTheme.eqLabelFont
+        dbU.textColor = WinampTheme.eqBandLabelColor
+        dbU.isBezeled = false
+        dbU.drawsBackground = false
+        dbU.alignment = .center
+        dbU.tag = 211
+        addSubview(dbU)
+        dbUnitLabel = dbU
+
+        // Wire EQ button sprite providers (sprites from eqmain.bmp)
+        onButton.spriteKeyProvider = { active, pressed in .eqOnButton(active: active, pressed: pressed) }
+        autoButton.spriteKeyProvider = { active, pressed in .eqAutoButton(active: active, pressed: pressed) }
+        presetsButton.spriteKeyProvider = { _, pressed in .eqPresetsButton(pressed: pressed) }
+    }
+
+    /// Hides freq/dB/PRE/dB-unit labels and the title bar when a skin is loaded.
+    /// All these labels are baked into eqmain.bmp; the title bar is replaced by
+    /// the eqmain title strip.
+    private func applySkinVisibility() {
+        let active = WinampTheme.skinIsActive
+        titleBar.isHidden = active
+        for label in bandLabels { label.isHidden = active }
+        for label in dbLabels { label.isHidden = active }
+        preLabel?.isHidden = active
+        dbUnitLabel?.isHidden = active
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard WinampTheme.skinIsActive else { return }
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        if let bg = WinampTheme.sprite(.eqBackground) {
+            // eqmain.bmp is 275×116; view is resized to 116 when skinned so the
+            // sprite fills bounds exactly and sub-sprite coords match Webamp.
+            bg.draw(in: bounds)
+        }
+
+        // Title bar overlay (y=0..14 of the EQ body is left empty for this).
+        let isActive = window?.isKeyWindow ?? true
+        if let tb = WinampTheme.sprite(.eqTitleBar(active: isActive)) {
+            tb.draw(in: NSRect(x: 0, y: bounds.height - 14, width: bounds.width, height: 14))
+        }
     }
 
     override func layout() {

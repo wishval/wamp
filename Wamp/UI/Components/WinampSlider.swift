@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 
 enum WinampSliderStyle {
     case seek       // olive-green, horizontal
@@ -22,9 +23,13 @@ class WinampSlider: NSView {
 
     private var isDragging = false
     private(set) var isUserInteracting = false
+    private var skinObserver: AnyCancellable?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.needsDisplay = true }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -47,12 +52,68 @@ class WinampSlider: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        if WinampTheme.skinIsActive {
+            drawSkinned()
+            return
+        }
         let b = bounds
-
         if isVertical {
             drawVerticalSlider(in: b)
         } else {
             drawHorizontalSlider(in: b)
+        }
+    }
+
+    private func drawSkinned() {
+        let n = normalizedValue
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        switch style {
+        case .seek:
+            if let bg = WinampTheme.sprite(.seekBackground) {
+                bg.draw(in: bounds)
+            }
+            let thumbW: CGFloat = 29
+            let thumbX = n * (bounds.width - thumbW)
+            if let thumb = WinampTheme.sprite(.seekThumb(pressed: isUserInteracting)) {
+                thumb.draw(in: NSRect(x: thumbX, y: (bounds.height - 10) / 2, width: thumbW, height: 10))
+            }
+
+        case .volume:
+            let position = Int((n * 27).rounded())
+            if let bg = WinampTheme.sprite(.volumeBackground(position: position)) {
+                bg.draw(in: bounds)
+            }
+            let thumbW: CGFloat = 14
+            let thumbX = n * (bounds.width - thumbW)
+            if let thumb = WinampTheme.sprite(.volumeThumb(pressed: isUserInteracting)) {
+                thumb.draw(in: NSRect(x: thumbX, y: (bounds.height - 11) / 2, width: thumbW, height: 11))
+            }
+
+        case .balance:
+            let position = Int((n * 27).rounded())
+            if let bg = WinampTheme.sprite(.balanceBackground(position: position)) {
+                bg.draw(in: bounds)
+            }
+            let thumbW: CGFloat = 14
+            let thumbX = n * (bounds.width - thumbW)
+            if let thumb = WinampTheme.sprite(.balanceThumb(pressed: isUserInteracting)) {
+                thumb.draw(in: NSRect(x: thumbX, y: (bounds.height - 11) / 2, width: thumbW, height: 11))
+            }
+
+        case .eqBand:
+            if let bg = WinampTheme.sprite(.eqSliderBackground) {
+                bg.draw(in: bounds)
+            }
+            // 14 thumb positions: 0 = bottom (-12 dB), 13 = top (+12 dB)
+            let thumbPos = Int((n * 13).rounded())
+            let thumbY = n * (bounds.height - 11)
+            if let thumb = WinampTheme.sprite(.eqSliderThumb(position: thumbPos, pressed: isUserInteracting)) {
+                thumb.draw(in: NSRect(x: (bounds.width - 11) / 2, y: thumbY, width: 11, height: 11))
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 
 class LCDDisplay: NSView {
     var text: String = "" { didSet { scrollOffset = 0; needsDisplay = true } }
@@ -7,12 +8,16 @@ class LCDDisplay: NSView {
     private var scrollOffset: CGFloat = 0
     private var scrollTimer: Timer?
     private let scrollSpeed: CGFloat = 0.5
+    private var skinObserver: AnyCancellable?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = true
         startScrolling()
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.needsDisplay = true }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -39,7 +44,28 @@ class LCDDisplay: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        if WinampTheme.skinIsActive {
+            drawSkinned()
+        } else {
+            drawBuiltIn()
+        }
+    }
 
+    private func drawSkinned() {
+        guard let textSheet = WinampTheme.provider.textSheet, !text.isEmpty else { return }
+        let textWidth = TextSpriteRenderer.width(of: text)
+        let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
+
+        if textWidth <= bounds.width || !isScrolling {
+            TextSpriteRenderer.draw(text, at: NSPoint(x: 2, y: y), sheet: textSheet)
+        } else {
+            let separator = "   *   "
+            let combined = text + separator + text
+            TextSpriteRenderer.draw(combined, at: NSPoint(x: -scrollOffset, y: y), sheet: textSheet)
+        }
+    }
+
+    private func drawBuiltIn() {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: WinampTheme.trackTitleFont,
             .foregroundColor: WinampTheme.greenBright

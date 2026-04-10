@@ -6,7 +6,6 @@ class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
-    var onTogglePin: (() -> Void)?
 
     var isEQActive: Bool {
         get { eqButton.isActive }
@@ -15,10 +14,6 @@ class MainPlayerView: NSView {
     var isPLActive: Bool {
         get { plButton.isActive }
         set { plButton.isActive = newValue }
-    }
-    var isPinned: Bool {
-        get { titleBar.isPinned }
-        set { titleBar.isPinned = newValue }
     }
 
     // Subviews
@@ -52,15 +47,36 @@ class MainPlayerView: NSView {
     // Play state indicator
     private let playIndicator = NSView()
 
+    // Invisible click hit-zones for close/minimize when skinned (replace hidden titleBar)
+    private let closeHitZone = NSView()
+    private let minimizeHitZone = NSView()
+
     private var cancellables = Set<AnyCancellable>()
+    private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
     private weak var playlistManager: PlaylistManager?
+
+    /// View height in logical (pre-scale) points. Winamp's main.bmp is exactly
+    /// 116 px tall, so when a skin is active we shrink the view to match and
+    /// lay out subviews at the sprite's native pixel coordinates. When no skin
+    /// is loaded, we use Wamp's original 126 px layout.
+    var desiredHeight: CGFloat {
+        WinampTheme.skinIsActive ? 116 : WinampTheme.mainPlayerHeight
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = WinampTheme.frameBackground.cgColor
         setupSubviews()
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applySkinVisibility()
+                self?.needsDisplay = true
+                self?.needsLayout = true
+            }
+        applySkinVisibility()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -71,7 +87,6 @@ class MainPlayerView: NSView {
         titleBar.showButtons = true
         titleBar.onClose = { NSApp.terminate(nil) }
         titleBar.onMinimize = { [weak self] in self?.window?.miniaturize(nil) }
-        titleBar.onTogglePin = { [weak self] in self?.onTogglePin?() }
         addSubview(titleBar)
 
         // Left display panel background
@@ -197,6 +212,12 @@ class MainPlayerView: NSView {
         addSubview(eqButton)
         addSubview(plButton)
 
+        // Wire skin sprite keys for the four toggle buttons
+        shuffleButton.spriteKeyProvider = { active, pressed in .shuffleButton(active: active, pressed: pressed) }
+        repeatButton.spriteKeyProvider  = { active, pressed in .repeatButton(active: active, pressed: pressed) }
+        eqButton.spriteKeyProvider      = { active, pressed in .eqToggleButton(active: active, pressed: pressed) }
+        plButton.spriteKeyProvider      = { active, pressed in .plToggleButton(active: active, pressed: pressed) }
+
         // Button actions
         shuffleButton.onClick = { [weak self] in
             self?.playlistManager?.shuffleTracks()
@@ -208,10 +229,150 @@ class MainPlayerView: NSView {
         }
         eqButton.onClick = { [weak self] in self?.onToggleEQ?() }
         plButton.onClick = { [weak self] in self?.onTogglePL?() }
+
+        // Click hit-zones for close/minimize when skinned (titleBar is hidden then,
+        // so we need invisible NSViews at the locations where main.bmp paints these
+        // buttons so the user can still close/minimize the window).
+        addSubview(closeHitZone)
+        addSubview(minimizeHitZone)
+        let closeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedClose))
+        closeHitZone.addGestureRecognizer(closeClick)
+        let minimizeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMinimize))
+        minimizeHitZone.addGestureRecognizer(minimizeClick)
+    }
+
+    @objc private func handleSkinnedClose() { NSApp.terminate(nil) }
+    @objc private func handleSkinnedMinimize() { window?.miniaturize(nil) }
+
+    /// Hides NSTextField labels and helper NSViews whose visual content is baked
+    /// into main.bmp / monoster.bmp / text.bmp when a skin is loaded. See spec §8.
+    private func applySkinVisibility() {
+        let active = WinampTheme.skinIsActive
+        titleBar.isHidden = active
+        leftPanel.isHidden = active
+        rightPanel.isHidden = active
+        bitrateLabel.isHidden = active
+        sampleRateLabel.isHidden = active
+        bitrateUnitLabel.isHidden = active
+        sampleRateUnitLabel.isHidden = active
+        monoLabel.isHidden = active
+        stereoLabel.isHidden = active
+        playIndicator.isHidden = active
+        closeHitZone.isHidden = !active
+        minimizeHitZone.isHidden = !active
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard WinampTheme.skinIsActive else { return }
+        drawSkinned()
+    }
+
+    private func drawSkinned() {
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        // View is resized to 116 px (native main.bmp height) when skinned,
+        // so the sprite fills bounds exactly and sub-sprite coordinates are
+        // in the same space as Webamp's main-window.css.
+        let mainHeight: CGFloat = bounds.height
+        if let bg = WinampTheme.sprite(.mainBackground) {
+            bg.draw(in: bounds)
+        }
+
+        // Title bar overlay (main.bmp leaves the top 14px empty for this).
+        // Webamp y=0..14 (top-down) → AppKit y = mainHeight - 14.
+        let isActive = window?.isKeyWindow ?? true
+        if let tb = WinampTheme.sprite(isActive ? .titleBarActive : .titleBarInactive) {
+            tb.draw(in: NSRect(x: 0, y: mainHeight - 14, width: bounds.width, height: 14))
+        }
+
+        // Mono / stereo sprites at fixed Webamp coordinates.
+        // Webamp positions (top-down): mono at (212, 41) 27w, stereo at (239, 41) 29w, 12 px tall.
+        // Convert to AppKit (bottom-up): y_appkit = mainHeight - 41 - 12
+        let isStereo = playlistManager?.currentTrack?.isStereo ?? false
+        let monoY: CGFloat = mainHeight - 41 - 12
+        if let monoSprite = WinampTheme.sprite(.mono(active: !isStereo)) {
+            monoSprite.draw(in: NSRect(x: 212, y: monoY, width: 27, height: 12))
+        }
+        if let stereoSprite = WinampTheme.sprite(.stereo(active: isStereo)) {
+            stereoSprite.draw(in: NSRect(x: 239, y: monoY, width: 29, height: 12))
+        }
+
+        // Bitrate / sample rate digits via text.bmp.
+        // The "kbps" and "khz" *labels* are baked into main.bmp, so only draw the numbers.
+        // Webamp positions (top-down): bitrate at (111, 43), sample rate at (156, 43).
+        // y_appkit = mainHeight - 43 - 6 (glyphs are 6 px tall) = 67
+        if let textSheet = WinampTheme.provider.textSheet,
+           let track = playlistManager?.currentTrack {
+            let textY: CGFloat = mainHeight - 43 - 6
+            let bitrateStr = track.bitrate > 0 ? String(format: "%3d", track.bitrate) : "   "
+            let sampleStr = track.sampleRate > 0 ? String(format: "%2d", track.sampleRate / 1000) : "  "
+            TextSpriteRenderer.draw(bitrateStr, at: NSPoint(x: 111, y: textY), sheet: textSheet)
+            TextSpriteRenderer.draw(sampleStr,  at: NSPoint(x: 156, y: textY), sheet: textSheet)
+        }
     }
 
     override func layout() {
         super.layout()
+        if WinampTheme.skinIsActive {
+            layoutSkinned()
+        } else {
+            layoutUnskinned()
+        }
+    }
+
+    /// Exact Winamp 2.x pixel coordinates, ported from Webamp's main-window.css.
+    /// View bounds are 275×116 in this mode; Y is converted from Webamp (top-down)
+    /// to AppKit (bottom-up) as: y_appkit = 116 - y_webamp - height.
+    private func layoutSkinned() {
+        let h: CGFloat = bounds.height  // 116
+
+        // Title bar (hidden, but keep frame valid)
+        titleBar.frame = NSRect(x: 0, y: h - 16, width: bounds.width, height: 16)
+
+        // Close / minimize hit-zones — webamp close(264,3,9×9), min(244,3,9×9)
+        let hitSize: CGFloat = 11
+        let hitY = h - 3 - hitSize
+        closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
+        minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
+
+        // Hidden panels — collapse
+        leftPanel.frame = .zero
+        rightPanel.frame = .zero
+        for label in [bitrateLabel, sampleRateLabel, bitrateUnitLabel, sampleRateUnitLabel, monoLabel, stereoLabel] {
+            label.frame = .zero
+        }
+
+        // 7-segment time (webamp #time at 39,26,59,13 → y=77; widened 1px to fit last digit)
+        timeDisplay.frame = NSRect(x: 39, y: 77, width: 60, height: 13)
+        // Spectrum / visualizer (webamp 24,43,76,16 → y=57)
+        spectrumView.frame = NSRect(x: 24, y: 57, width: 76, height: 16)
+        // Scrolling track-title marquee (webamp 111,27,154,6 → y=83)
+        lcdDisplay.frame = NSRect(x: 111, y: 83, width: 154, height: 6)
+
+        // Seek/posbar (webamp 16,72,248,10 → y=34)
+        seekSlider.frame = NSRect(x: 16, y: 34, width: 248, height: 10)
+
+        // Volume / balance (webamp 107/177,57,68/38,13 → y=46)
+        volumeSlider.frame = NSRect(x: 107, y: 46, width: 68, height: 13)
+        balanceSlider.frame = NSRect(x: 177, y: 46, width: 38, height: 13)
+
+        // EQ / PL toggle buttons (webamp 219/242,58,23,12 → y=46)
+        eqButton.frame = NSRect(x: 219, y: 46, width: 23, height: 12)
+        plButton.frame = NSRect(x: 242, y: 46, width: 23, height: 12)
+
+        // Transport (cbuttons, webamp 16,88,*,18 → y=10). Width = sum of 5 buttons + eject.
+        transportBar.frame = NSRect(x: 16, y: 10, width: transportBar.intrinsicContentSize.width, height: 18)
+
+        // Shuffle / repeat (webamp 164,89,47,15 and 210,89,28,15 → y=12)
+        shuffleButton.frame = NSRect(x: 164, y: 12, width: 47, height: 15)
+        repeatButton.frame = NSRect(x: 210, y: 12, width: 28, height: 15)
+    }
+
+    private func layoutUnskinned() {
         let w = bounds.width
         let pad: CGFloat = 3
 
@@ -274,6 +435,14 @@ class MainPlayerView: NSView {
         repeatButton.frame = NSRect(x: toggleX + btnW + 1, y: toggleY, width: btnW, height: btnH)
         eqButton.frame = NSRect(x: toggleX + (btnW + 1) * 2, y: toggleY, width: btnW, height: btnH)
         plButton.frame = NSRect(x: toggleX + (btnW + 1) * 3, y: toggleY, width: btnW, height: btnH)
+
+        // Click hit-zones at the locations where main.bmp paints close/minimize.
+        // Webamp positions (top-down): close at (264, 3), minimize at (244, 3), 9×9.
+        // y_appkit = 116 - 3 - 9 = 104. Made slightly larger for easier clicking.
+        let hitSize: CGFloat = 11
+        let hitY: CGFloat = 116 - 3 - hitSize
+        closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
+        minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
     }
 
     // MARK: - Binding
@@ -296,7 +465,12 @@ class MainPlayerView: NSView {
         // Track info
         playlistManager.$currentIndex
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateTrackInfo() }
+            .sink { [weak self] _ in
+                self?.updateTrackInfo()
+                // Skinned overlay reads track.bitrate / .sampleRate in drawSkinned —
+                // force a redraw so kbps/khz update on track change.
+                self?.needsDisplay = true
+            }
             .store(in: &cancellables)
 
         // Seek slider

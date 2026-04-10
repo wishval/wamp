@@ -11,11 +11,14 @@ class PlaylistView: NSView {
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
-    private let clrButton = WinampButton(title: "CLR", style: .action)
+    private let remAllButton = WinampButton(title: "REM ALL", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
+    private let skinScroller = PlaylistSkinScroller()
 
     private var cancellables = Set<AnyCancellable>()
+    private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
+    private var lastColumnWidth: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -63,6 +66,11 @@ class PlaylistView: NSView {
         scrollView.verticalScroller?.controlSize = .small
         addSubview(scrollView)
 
+        // Skinned scroll handle (lives in the right-tile area; hidden when unskinned).
+        skinScroller.attach(to: scrollView)
+        skinScroller.isHidden = true
+        addSubview(skinScroller)
+
         // Search field
         searchField.placeholderString = "Search playlist..."
         searchField.font = WinampTheme.bitrateFont
@@ -78,10 +86,16 @@ class PlaylistView: NSView {
         // Buttons
         addButton.onClick = { [weak self] in self?.showAddMenu() }
         remButton.onClick = { [weak self] in self?.removeSelected() }
-        clrButton.onClick = { [weak self] in self?.playlistManager?.clearPlaylist() }
+        remAllButton.onClick = { [weak self] in self?.playlistManager?.clearPlaylist() }
+
+        // Sprite providers (pledit.bmp submenu sub-buttons)
+        addButton.spriteKeyProvider    = { _, pressed in .playlistAddFile(pressed: pressed) }
+        remButton.spriteKeyProvider    = { _, pressed in .playlistRemoveSelected(pressed: pressed) }
+        remAllButton.spriteKeyProvider = { _, pressed in .playlistRemoveAll(pressed: pressed) }
+
         addSubview(addButton)
         addSubview(remButton)
-        addSubview(clrButton)
+        addSubview(remAllButton)
 
         // Info label
         infoLabel.font = WinampTheme.bitrateFont
@@ -92,10 +106,172 @@ class PlaylistView: NSView {
         infoLabel.isEditable = false
         infoLabel.alignment = .center
         addSubview(infoLabel)
+
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applySkinVisibility()
+                self?.tableView.reloadData()
+                self?.needsDisplay = true
+            }
+        applySkinVisibility()
+    }
+
+    /// Hides controls baked into pledit.bmp and controls that don't exist in
+    /// classic Winamp (the search field). The ADD/REM buttons are hidden because
+    /// pledit's bottom-left corner sprite already paints them — showing the Wamp
+    /// NSButtons on top would double-render. Classic Winamp had no persistent
+    /// search bar (it used Ctrl+J Jump-To-File), so searchField hides too.
+    private func applySkinVisibility() {
+        let active = WinampTheme.skinIsActive
+        titleBar.isHidden = active
+        infoLabel.isHidden = active
+        searchField.isHidden = active
+        addButton.isHidden = active
+        remButton.isHidden = active
+        remAllButton.isHidden = active
+        // Classic Winamp playlist rows are tight — text.bmp glyphs are 6 px tall.
+        tableView.rowHeight = active ? 13 : 18
+        tableView.backgroundColor = active ? WinampTheme.provider.playlistStyle.normalBG : .black
+        scrollView.backgroundColor = tableView.backgroundColor
+        // Skinned playlists draw their own scroll thumb in the right-tile area.
+        scrollView.hasVerticalScroller = !active
+        skinScroller.isHidden = !active
+        tableView.reloadData()
+        needsLayout = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard WinampTheme.skinIsActive else { return }
+        drawSkinned()
+    }
+
+    private func drawSkinned() {
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        let isActive = window?.isKeyWindow ?? true
+        let w = bounds.width
+        let h = bounds.height
+
+        // Top row: TL corner (25×20) + repeating top tiles + title bar centerpiece + TR corner
+        if let tl = WinampTheme.sprite(.playlistTopLeftCorner(active: isActive)) {
+            tl.draw(in: NSRect(x: 0, y: h - 20, width: 25, height: 20))
+        }
+        if let tr = WinampTheme.sprite(.playlistTopRightCorner(active: isActive)) {
+            tr.draw(in: NSRect(x: w - 25, y: h - 20, width: 25, height: 20))
+        }
+        // Title centerpiece — fills the middle of the top row
+        if let title = WinampTheme.sprite(.playlistTopTitleBar(active: isActive)) {
+            let titleW: CGFloat = 100
+            let titleX = (w - titleW) / 2
+            title.draw(in: NSRect(x: titleX, y: h - 20, width: titleW, height: 20))
+            // Tile the gap between corners and title with .playlistTopTile
+            if let topTile = WinampTheme.sprite(.playlistTopTile(active: isActive)) {
+                var x: CGFloat = 25
+                while x < titleX {
+                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, titleX - x), height: 20))
+                    x += 25
+                }
+                x = titleX + titleW
+                while x < w - 25 {
+                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, w - 25 - x), height: 20))
+                    x += 25
+                }
+            }
+        }
+
+        // Sides: tile vertically
+        if let lt = WinampTheme.sprite(.playlistLeftTile) {
+            var y: CGFloat = 38
+            while y < h - 20 {
+                lt.draw(in: NSRect(x: 0, y: y, width: 12, height: min(29, h - 20 - y)))
+                y += 29
+            }
+        }
+        if let rt = WinampTheme.sprite(.playlistRightTile) {
+            var y: CGFloat = 38
+            while y < h - 20 {
+                rt.draw(in: NSRect(x: w - 20, y: y, width: 20, height: min(29, h - 20 - y)))
+                y += 29
+            }
+        }
+
+        // Bottom row
+        if let bl = WinampTheme.sprite(.playlistBottomLeftCorner) {
+            bl.draw(in: NSRect(x: 0, y: 0, width: 125, height: 38))
+        }
+        if let br = WinampTheme.sprite(.playlistBottomRightCorner) {
+            br.draw(in: NSRect(x: w - 150, y: 0, width: 150, height: 38))
+        }
+
+        // Render "N tracks / total duration" via text.bmp inside the baked
+        // "running time" LCD area of the bottom-right corner sprite.
+        // Webamp positions #playlist-running-time-display at top:10, left:7
+        // inside the 150×38 BR corner, i.e. absolute (w-150+7, corner-top-10).
+        if let textSheet = WinampTheme.provider.textSheet, let pm = playlistManager {
+            let info = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+            let textX = w - 150 + 7
+            let textY: CGFloat = 38 - 10 - TextSpriteRenderer.glyphHeight
+            TextSpriteRenderer.draw(info, at: NSPoint(x: textX, y: textY), sheet: textSheet)
+        }
     }
 
     override func layout() {
         super.layout()
+        if WinampTheme.skinIsActive {
+            layoutSkinned()
+            return
+        }
+        layoutUnskinned()
+    }
+
+    /// Classic-Winamp pledit frame layout: 20px title bar at top, 38px bottom
+    /// corner strip (ADD/REM baked in), 12px left tile, 20px right tile.
+    /// The track list fills the middle.
+    private func layoutSkinned() {
+        let w = bounds.width
+        let h = bounds.height
+        let topH: CGFloat = 20
+        let bottomH: CGFloat = 38
+        let leftW: CGFloat = 12
+        let rightW: CGFloat = 20
+
+        titleBar.frame = NSRect(x: 0, y: h - topH, width: w, height: topH)
+        scrollView.frame = NSRect(
+            x: leftW,
+            y: bottomH,
+            width: w - leftW - rightW,
+            height: h - topH - bottomH
+        )
+
+        // Hidden in skinned mode — collapse frames so they don't intercept hits.
+        searchField.frame = .zero
+        addButton.frame = .zero
+        remButton.frame = .zero
+        remAllButton.frame = .zero
+        infoLabel.frame = .zero
+
+        // Native scroller is hidden in skinned mode — full column width.
+        let newWidth = scrollView.frame.width - 2
+        tableView.tableColumns.first?.width = newWidth
+        if abs(newWidth - lastColumnWidth) > 0.5 {
+            lastColumnWidth = newWidth
+            tableView.reloadData()
+        }
+
+        // Skin scroll thumb sits in the right-tile area, centered horizontally
+        // within the 20px tile. Track height matches the right-tile vertical span.
+        let trackTop = h - topH
+        let trackBottom = bottomH
+        let trackH = max(0, trackTop - trackBottom)
+        skinScroller.frame = NSRect(x: w - 20 + 6, y: trackBottom, width: 8, height: trackH)
+    }
+
+    private func layoutUnskinned() {
         let w = bounds.width
         let pad: CGFloat = 3
 
@@ -110,7 +286,7 @@ class PlaylistView: NSView {
         let btnH: CGFloat = 14
         addButton.frame = NSRect(x: pad, y: 2, width: btnW, height: btnH)
         remButton.frame = NSRect(x: pad + btnW + 1, y: 2, width: btnW, height: btnH)
-        clrButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
+        remAllButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
 
         let infoW: CGFloat = 100
         let infoFont = infoLabel.font ?? NSFont.systemFont(ofSize: 9)
@@ -127,7 +303,12 @@ class PlaylistView: NSView {
         scrollView.frame = NSRect(x: pad, y: bottomBarH + searchH + 1, width: w - 2 * pad, height: scrollH)
 
         let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
-        tableView.tableColumns.first?.width = scrollView.frame.width - scrollerWidth - 2
+        let newWidth = scrollView.frame.width - scrollerWidth - 2
+        tableView.tableColumns.first?.width = newWidth
+        if abs(newWidth - lastColumnWidth) > 0.5 {
+            lastColumnWidth = newWidth
+            tableView.reloadData()
+        }
     }
 
     func bindToModel(playlistManager: PlaylistManager) {
@@ -271,21 +452,29 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         guard row < tracks.count else { return nil }
         let track = tracks[row]
         let isPlaying = playlistManager?.currentTrack?.id == track.id
+        let skinned = WinampTheme.skinIsActive
 
-        let rowH: CGFloat = 18
+        let rowH: CGFloat = tableView.rowHeight
         let cellW = tableColumn?.width ?? 200
         let cell = NSView(frame: NSRect(x: 0, y: 0, width: cellW, height: rowH))
         cell.autoresizesSubviews = true
 
-        let font = WinampTheme.playlistFont
+        let font: NSFont = skinned
+            ? (NSFont(name: WinampTheme.provider.playlistStyle.font, size: 7) ?? NSFont.systemFont(ofSize: 7))
+            : WinampTheme.playlistFont
         let textH = font.boundingRectForFont.height
         let yOffset = round((rowH - textH) / 2)
+
+        let style = WinampTheme.provider.playlistStyle
+        let normalColor = skinned ? style.normal  : WinampTheme.greenBright
+        let currentColor = skinned ? style.current : WinampTheme.white
+        let secondaryColor = skinned ? style.normal : WinampTheme.greenSecondary
 
         // Number
         let numStr = "\(row + 1)."
         let numLabel = NSTextField(labelWithString: numStr)
         numLabel.font = font
-        numLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
+        numLabel.textColor = isPlaying ? currentColor : secondaryColor
         numLabel.isBezeled = false
         numLabel.drawsBackground = false
         numLabel.sizeToFit()
@@ -296,11 +485,13 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         // Duration
         let durLabel = NSTextField(labelWithString: track.formattedDuration)
         durLabel.font = font
-        durLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenSecondary
+        durLabel.textColor = isPlaying ? currentColor : secondaryColor
         durLabel.isBezeled = false
         durLabel.drawsBackground = false
         durLabel.sizeToFit()
-        let durWidth = durLabel.frame.width
+        // sizeToFit underestimates width for small Arial — pad the label so the
+        // trailing digit isn't clipped inside its own frame.
+        let durWidth = durLabel.frame.width + 3
         let rightMargin: CGFloat = 10
         durLabel.frame = NSRect(x: cellW - durWidth - rightMargin, y: yOffset, width: durWidth, height: textH)
         cell.addSubview(durLabel)
@@ -309,7 +500,7 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         let nameX = numWidth - 10 + 4
         let nameLabel = NSTextField(labelWithString: track.displayTitle)
         nameLabel.font = font
-        nameLabel.textColor = isPlaying ? WinampTheme.white : WinampTheme.greenBright
+        nameLabel.textColor = isPlaying ? currentColor : normalColor
         nameLabel.isBezeled = false
         nameLabel.drawsBackground = false
         nameLabel.lineBreakMode = .byTruncatingTail

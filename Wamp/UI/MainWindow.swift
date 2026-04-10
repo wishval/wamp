@@ -1,5 +1,6 @@
 import Cocoa
 import Combine
+import QuartzCore
 
 class MainWindow: NSWindow {
     let mainPlayerView = MainPlayerView()
@@ -27,7 +28,6 @@ class MainWindow: NSWindow {
     var alwaysOnTop: Bool = true {
         didSet {
             level = alwaysOnTop ? .floating : .normal
-            mainPlayerView.isPinned = alwaysOnTop
         }
     }
 
@@ -35,7 +35,7 @@ class MainWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 
     init() {
-        let height = WinampTheme.mainPlayerHeight + WinampTheme.equalizerHeight + WinampTheme.playlistMinHeight
+        let height = mainPlayerView.desiredHeight + equalizerView.desiredHeight + WinampTheme.playlistMinHeight
         let s = WinampTheme.scale
         let scaledWidth = WinampTheme.windowWidth * s
         let scaledHeight = height * s
@@ -73,13 +73,15 @@ class MainWindow: NSWindow {
         var y = totalHeight
 
         // Main player — always at top
-        y -= WinampTheme.mainPlayerHeight
-        mainPlayerView.frame = NSRect(x: 0, y: y, width: w, height: WinampTheme.mainPlayerHeight)
+        let mainH = mainPlayerView.desiredHeight
+        y -= mainH
+        mainPlayerView.frame = NSRect(x: 0, y: y, width: w, height: mainH)
 
         // Equalizer — below player
         if showEqualizer {
-            y -= WinampTheme.equalizerHeight
-            equalizerView.frame = NSRect(x: 0, y: y, width: w, height: WinampTheme.equalizerHeight)
+            let eqH = equalizerView.desiredHeight
+            y -= eqH
+            equalizerView.frame = NSRect(x: 0, y: y, width: w, height: eqH)
         }
 
         // Playlist — fills remaining space
@@ -90,8 +92,8 @@ class MainWindow: NSWindow {
     }
 
     func recalculateSize() {
-        var height: CGFloat = WinampTheme.mainPlayerHeight
-        if showEqualizer { height += WinampTheme.equalizerHeight }
+        var height: CGFloat = mainPlayerView.desiredHeight
+        if showEqualizer { height += equalizerView.desiredHeight }
         if showPlaylist { height += WinampTheme.playlistMinHeight }
 
         let s = WinampTheme.scale
@@ -149,8 +151,21 @@ class MainWindow: NSWindow {
         mainPlayerView.onTogglePL = { [weak self] in
             self?.showPlaylist.toggle()
         }
-        mainPlayerView.onTogglePin = { [weak self] in
-            self?.alwaysOnTop.toggle()
+    }
+
+    /// Applies the non-rectangular window mask from the current skin's region.txt.
+    /// Called by AppDelegate after each skin load/unload.
+    func applyRegionMaskFromCurrentSkin() {
+        guard let contentView = self.contentView else { return }
+        contentView.wantsLayer = true
+
+        if let region = SkinManager.shared.currentSkin.mainWindowRegion {
+            let mask = CAShapeLayer()
+            mask.path = region.cgPath
+            mask.fillColor = NSColor.black.cgColor
+            contentView.layer?.mask = mask
+        } else {
+            contentView.layer?.mask = nil
         }
     }
 }
