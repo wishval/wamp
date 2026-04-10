@@ -301,7 +301,8 @@ class MainPlayerView: NSView {
             stereoSprite.draw(in: NSRect(x: 239, y: monoY, width: 29, height: 12))
         }
 
-        // Bitrate / sample rate / units via text.bmp.
+        // Bitrate / sample rate digits via text.bmp.
+        // The "kbps" and "khz" *labels* are baked into main.bmp, so only draw the numbers.
         // Webamp positions (top-down): bitrate at (111, 43), sample rate at (156, 43).
         // y_appkit = mainHeight - 43 - 6 (glyphs are 6 px tall) = 67
         if let textSheet = WinampTheme.provider.textSheet,
@@ -310,9 +311,7 @@ class MainPlayerView: NSView {
             let bitrateStr = track.bitrate > 0 ? String(format: "%3d", track.bitrate) : "   "
             let sampleStr = track.sampleRate > 0 ? String(format: "%2d", track.sampleRate / 1000) : "  "
             TextSpriteRenderer.draw(bitrateStr, at: NSPoint(x: 111, y: textY), sheet: textSheet)
-            TextSpriteRenderer.draw("kbps",     at: NSPoint(x: 128, y: textY), sheet: textSheet)
             TextSpriteRenderer.draw(sampleStr,  at: NSPoint(x: 156, y: textY), sheet: textSheet)
-            TextSpriteRenderer.draw("khz",      at: NSPoint(x: 168, y: textY), sheet: textSheet)
         }
     }
 
@@ -466,7 +465,12 @@ class MainPlayerView: NSView {
         // Track info
         playlistManager.$currentIndex
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.updateTrackInfo() }
+            .sink { [weak self] _ in
+                self?.updateTrackInfo()
+                // Skinned overlay reads track.bitrate / .sampleRate in drawSkinned —
+                // force a redraw so kbps/khz update on track change.
+                self?.needsDisplay = true
+            }
             .store(in: &cancellables)
 
         // Seek slider
