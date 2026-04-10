@@ -347,8 +347,8 @@ class MainPlayerView: NSView {
             label.frame = .zero
         }
 
-        // 7-segment time (webamp 36,26,99,13 → y=77)
-        timeDisplay.frame = NSRect(x: 36, y: 77, width: 99, height: 13)
+        // 7-segment time (webamp #time at 39,26,59,13 → y=77; widened 1px to fit last digit)
+        timeDisplay.frame = NSRect(x: 39, y: 77, width: 60, height: 13)
         // Spectrum / visualizer (webamp 24,43,76,16 → y=57)
         spectrumView.frame = NSRect(x: 24, y: 57, width: 76, height: 16)
         // Scrolling track-title marquee (webamp 111,27,154,6 → y=83)

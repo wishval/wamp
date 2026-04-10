@@ -35,6 +35,11 @@ class SevenSegmentView: NSView {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
 
+        if WinampTheme.skinIsActive {
+            drawSkinned(minutes: minutes, seconds: seconds)
+            return
+        }
+
         let digitWidth: CGFloat = 14
         let colonWidth: CGFloat = 6
         let digitHeight = bounds.height
@@ -63,6 +68,25 @@ class SevenSegmentView: NSView {
         drawDigit(seconds / 10, at: NSRect(x: x, y: 0, width: digitWidth, height: digitHeight))
         x += digitWidth
         drawDigit(seconds % 10, at: NSRect(x: x, y: 0, width: digitWidth, height: digitHeight))
+    }
+
+    /// Skinned path: always MM:SS, native 9×13 digit sprites at the exact
+    /// Webamp positions inside the #time container. The colon is baked into
+    /// main.bmp at the gap between the minute and second digits.
+    private func drawSkinned(minutes: Int, seconds: Int) {
+        let mm = min(99, minutes)
+        let digits = [mm / 10, mm % 10, seconds / 10, seconds % 10]
+        // Local x offsets inside a 59-wide #time container (Webamp CSS).
+        let xs: [CGFloat] = [9, 21, 39, 51]
+        let size = NSSize(width: 9, height: 13)
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+        for (i, d) in digits.enumerated() {
+            guard let sprite = WinampTheme.sprite(.digit(d)) else { continue }
+            sprite.draw(in: NSRect(x: xs[i], y: 0, width: size.width, height: size.height))
+        }
     }
 
     private func drawDigit(_ digit: Int, at rect: NSRect) {
