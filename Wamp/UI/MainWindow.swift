@@ -1,5 +1,6 @@
 import Cocoa
 import Combine
+import QuartzCore
 
 class MainWindow: NSWindow {
     let mainPlayerView = MainPlayerView()
@@ -147,6 +148,22 @@ class MainWindow: NSWindow {
         }
         mainPlayerView.onTogglePL = { [weak self] in
             self?.showPlaylist.toggle()
+        }
+    }
+
+    /// Applies the non-rectangular window mask from the current skin's region.txt.
+    /// Called by AppDelegate after each skin load/unload.
+    func applyRegionMaskFromCurrentSkin() {
+        guard let contentView = self.contentView else { return }
+        contentView.wantsLayer = true
+
+        if let region = SkinManager.shared.currentSkin.mainWindowRegion {
+            let mask = CAShapeLayer()
+            mask.path = region.cgPath
+            mask.fillColor = NSColor.black.cgColor
+            contentView.layer?.mask = mask
+        } else {
+            contentView.layer?.mask = nil
         }
     }
 }

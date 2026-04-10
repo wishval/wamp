@@ -69,6 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         mainWindow.makeKeyAndOrderFront(nil)
+        mainWindow.applyRegionMaskFromCurrentSkin()
 
         // Start observing for auto-save
         stateManager.observe(audioEngine: audioEngine, playlistManager: playlistManager)
@@ -275,13 +276,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        Task {
+        Task { @MainActor [weak self] in
             do {
                 try await SkinManager.shared.loadSkin(from: url)
-                var state = stateManager.loadAppState()
+                guard let self else { return }
+                var state = self.stateManager.loadAppState()
                 state.skinPath = url.path
-                stateManager.saveAppState(state)
-                // mainWindow.applyRegionMaskFromCurrentSkin()  // wired in Task 14
+                self.stateManager.saveAppState(state)
+                self.mainWindow.applyRegionMaskFromCurrentSkin()
             } catch {
                 let alert = NSAlert()
                 alert.messageText = "Failed to load skin"
@@ -296,7 +298,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var state = stateManager.loadAppState()
         state.skinPath = nil
         stateManager.saveAppState(state)
-        // mainWindow.applyRegionMaskFromCurrentSkin()  // wired in Task 14
+        mainWindow.applyRegionMaskFromCurrentSkin()
     }
 
     // MARK: - System Tray
