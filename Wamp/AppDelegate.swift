@@ -283,6 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 var state = self.stateManager.loadAppState()
                 state.skinPath = url.path
                 self.stateManager.saveAppState(state)
+                self.mainWindow.recalculateSize()
                 self.mainWindow.applyRegionMaskFromCurrentSkin()
             } catch {
                 let alert = NSAlert()
@@ -298,6 +299,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var state = stateManager.loadAppState()
         state.skinPath = nil
         stateManager.saveAppState(state)
+        mainWindow.recalculateSize()
         mainWindow.applyRegionMaskFromCurrentSkin()
     }
 

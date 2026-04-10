@@ -56,6 +56,14 @@ class MainPlayerView: NSView {
     private weak var audioEngine: AudioEngine?
     private weak var playlistManager: PlaylistManager?
 
+    /// View height in logical (pre-scale) points. Winamp's main.bmp is exactly
+    /// 116 px tall, so when a skin is active we shrink the view to match and
+    /// lay out subviews at the sprite's native pixel coordinates. When no skin
+    /// is loaded, we use Wamp's original 126 px layout.
+    var desiredHeight: CGFloat {
+        WinampTheme.skinIsActive ? 116 : WinampTheme.mainPlayerHeight
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -266,13 +274,12 @@ class MainPlayerView: NSView {
         ctx?.imageInterpolation = .none
         defer { if let prev = prev { ctx?.imageInterpolation = prev } }
 
-        // main.bmp (275×116) covers the bottom 116 px of the view. The view height
-        // includes the title bar area on top, but we hide titleBar when skinned so
-        // there's nothing visible above the sprite.
-        let mainHeight: CGFloat = 116
-        let mainRect = NSRect(x: 0, y: 0, width: bounds.width, height: mainHeight)
+        // View is resized to 116 px (native main.bmp height) when skinned,
+        // so the sprite fills bounds exactly and sub-sprite coordinates are
+        // in the same space as Webamp's main-window.css.
+        let mainHeight: CGFloat = bounds.height
         if let bg = WinampTheme.sprite(.mainBackground) {
-            bg.draw(in: mainRect)
+            bg.draw(in: bounds)
         }
 
         // Mono / stereo sprites at fixed Webamp coordinates.
@@ -304,6 +311,62 @@ class MainPlayerView: NSView {
 
     override func layout() {
         super.layout()
+        if WinampTheme.skinIsActive {
+            layoutSkinned()
+        } else {
+            layoutUnskinned()
+        }
+    }
+
+    /// Exact Winamp 2.x pixel coordinates, ported from Webamp's main-window.css.
+    /// View bounds are 275×116 in this mode; Y is converted from Webamp (top-down)
+    /// to AppKit (bottom-up) as: y_appkit = 116 - y_webamp - height.
+    private func layoutSkinned() {
+        let h: CGFloat = bounds.height  // 116
+
+        // Title bar (hidden, but keep frame valid)
+        titleBar.frame = NSRect(x: 0, y: h - 16, width: bounds.width, height: 16)
+
+        // Close / minimize hit-zones — webamp close(264,3,9×9), min(244,3,9×9)
+        let hitSize: CGFloat = 11
+        let hitY = h - 3 - hitSize
+        closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
+        minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
+
+        // Hidden panels — collapse
+        leftPanel.frame = .zero
+        rightPanel.frame = .zero
+        for label in [bitrateLabel, sampleRateLabel, bitrateUnitLabel, sampleRateUnitLabel, monoLabel, stereoLabel] {
+            label.frame = .zero
+        }
+
+        // 7-segment time (webamp 36,26,99,13 → y=77)
+        timeDisplay.frame = NSRect(x: 36, y: 77, width: 99, height: 13)
+        // Spectrum / visualizer (webamp 24,43,76,16 → y=57)
+        spectrumView.frame = NSRect(x: 24, y: 57, width: 76, height: 16)
+        // Scrolling track-title marquee (webamp 111,27,154,6 → y=83)
+        lcdDisplay.frame = NSRect(x: 111, y: 83, width: 154, height: 6)
+
+        // Seek/posbar (webamp 16,72,248,10 → y=34)
+        seekSlider.frame = NSRect(x: 16, y: 34, width: 248, height: 10)
+
+        // Volume / balance (webamp 107/177,57,68/38,13 → y=46)
+        volumeSlider.frame = NSRect(x: 107, y: 46, width: 68, height: 13)
+        balanceSlider.frame = NSRect(x: 177, y: 46, width: 38, height: 13)
+
+        // EQ / PL toggle buttons (webamp 219/242,58,23,12 → y=46)
+        eqButton.frame = NSRect(x: 219, y: 46, width: 23, height: 12)
+        plButton.frame = NSRect(x: 242, y: 46, width: 23, height: 12)
+
+        // Transport (cbuttons, webamp 16,88,*,18 → y=10). Width = sum of 5 buttons + eject.
+        transportBar.frame = NSRect(x: 16, y: 10, width: transportBar.intrinsicContentSize.width, height: 18)
+
+        // Shuffle / repeat (webamp 164,89,47,15 and 210,89,28,15 → y=12)
+        shuffleButton.frame = NSRect(x: 164, y: 12, width: 47, height: 15)
+        repeatButton.frame = NSRect(x: 210, y: 12, width: 28, height: 15)
+    }
+
+    private func layoutUnskinned() {
         let w = bounds.width
         let pad: CGFloat = 3
 

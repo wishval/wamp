@@ -35,7 +35,7 @@ class MainWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 
     init() {
-        let height = WinampTheme.mainPlayerHeight + WinampTheme.equalizerHeight + WinampTheme.playlistMinHeight
+        let height = mainPlayerView.desiredHeight + WinampTheme.equalizerHeight + WinampTheme.playlistMinHeight
         let s = WinampTheme.scale
         let scaledWidth = WinampTheme.windowWidth * s
         let scaledHeight = height * s
@@ -73,8 +73,9 @@ class MainWindow: NSWindow {
         var y = totalHeight
 
         // Main player — always at top
-        y -= WinampTheme.mainPlayerHeight
-        mainPlayerView.frame = NSRect(x: 0, y: y, width: w, height: WinampTheme.mainPlayerHeight)
+        let mainH = mainPlayerView.desiredHeight
+        y -= mainH
+        mainPlayerView.frame = NSRect(x: 0, y: y, width: w, height: mainH)
 
         // Equalizer — below player
         if showEqualizer {
@@ -90,7 +91,7 @@ class MainWindow: NSWindow {
     }
 
     func recalculateSize() {
-        var height: CGFloat = WinampTheme.mainPlayerHeight
+        var height: CGFloat = mainPlayerView.desiredHeight
         if showEqualizer { height += WinampTheme.equalizerHeight }
         if showPlaylist { height += WinampTheme.playlistMinHeight }
 
