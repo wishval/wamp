@@ -13,6 +13,7 @@ struct AppState: Codable {
     var alwaysOnTop: Bool = true
     var lastTrackIndex: Int = -1
     var lastPlaybackPosition: Double = 0
+    var skinPath: String?
 }
 
 struct EQState: Codable {
@@ -98,6 +99,10 @@ class StateManager {
         state.eqEnabled = audioEngine.eqEnabled
         state.lastTrackIndex = playlistManager.currentIndex
         state.lastPlaybackPosition = audioEngine.currentTime
+        write(state, to: "state.json")
+    }
+
+    func saveAppState(_ state: AppState) {
         write(state, to: "state.json")
     }
 
