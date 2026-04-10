@@ -110,12 +110,20 @@ class PlaylistView: NSView {
         applySkinVisibility()
     }
 
-    /// Hides labels whose content is baked into pledit.bmp / text.bmp.
-    /// searchField intentionally stays visible — see spec §8 "searchField exception".
+    /// Hides controls baked into pledit.bmp and controls that don't exist in
+    /// classic Winamp (the search field). The ADD/REM buttons are hidden because
+    /// pledit's bottom-left corner sprite already paints them — showing the Wamp
+    /// NSButtons on top would double-render. Classic Winamp had no persistent
+    /// search bar (it used Ctrl+J Jump-To-File), so searchField hides too.
     private func applySkinVisibility() {
         let active = WinampTheme.skinIsActive
         titleBar.isHidden = active
         infoLabel.isHidden = active
+        searchField.isHidden = active
+        addButton.isHidden = active
+        remButton.isHidden = active
+        remAllButton.isHidden = active
+        needsLayout = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -185,15 +193,58 @@ class PlaylistView: NSView {
             br.draw(in: NSRect(x: w - 150, y: 0, width: 150, height: 38))
         }
 
-        // Render info text via text.bmp at the bottom of the playlist frame
+        // Render "N tracks / total duration" via text.bmp inside the baked
+        // "running time" LCD area of the bottom-right corner sprite.
+        // Webamp positions #playlist-running-time-display at top:10, left:7
+        // inside the 150×38 BR corner, i.e. absolute (w-150+7, corner-top-10).
         if let textSheet = WinampTheme.provider.textSheet, let pm = playlistManager {
-            let info = "\(pm.tracks.count) tracks"
-            TextSpriteRenderer.draw(info, at: NSPoint(x: 10, y: 6), sheet: textSheet)
+            let info = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+            let textX = w - 150 + 7
+            let textY: CGFloat = 38 - 10 - TextSpriteRenderer.glyphHeight
+            TextSpriteRenderer.draw(info, at: NSPoint(x: textX, y: textY), sheet: textSheet)
         }
     }
 
     override func layout() {
         super.layout()
+        if WinampTheme.skinIsActive {
+            layoutSkinned()
+            return
+        }
+        layoutUnskinned()
+    }
+
+    /// Classic-Winamp pledit frame layout: 20px title bar at top, 38px bottom
+    /// corner strip (ADD/REM baked in), 12px left tile, 20px right tile.
+    /// The track list fills the middle.
+    private func layoutSkinned() {
+        let w = bounds.width
+        let h = bounds.height
+        let topH: CGFloat = 20
+        let bottomH: CGFloat = 38
+        let leftW: CGFloat = 12
+        let rightW: CGFloat = 20
+
+        titleBar.frame = NSRect(x: 0, y: h - topH, width: w, height: topH)
+        scrollView.frame = NSRect(
+            x: leftW,
+            y: bottomH,
+            width: w - leftW - rightW,
+            height: h - topH - bottomH
+        )
+
+        // Hidden in skinned mode — collapse frames so they don't intercept hits.
+        searchField.frame = .zero
+        addButton.frame = .zero
+        remButton.frame = .zero
+        remAllButton.frame = .zero
+        infoLabel.frame = .zero
+
+        let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
+        tableView.tableColumns.first?.width = scrollView.frame.width - scrollerWidth - 2
+    }
+
+    private func layoutUnskinned() {
         let w = bounds.width
         let pad: CGFloat = 3
 
