@@ -45,6 +45,14 @@ class TransportBar: NSView {
         nextButton.onClick = { [weak self] in self?.onNext?() }
         ejectButton.onClick = { [weak self] in self?.onEject?() }
 
+        // Wire sprite keys for skin rendering
+        prevButton.spriteKeyProvider   = { _, pressed in .previous(pressed: pressed) }
+        playButton.spriteKeyProvider   = { _, pressed in .play(pressed: pressed) }
+        pauseButton.spriteKeyProvider  = { _, pressed in .pause(pressed: pressed) }
+        stopButton.spriteKeyProvider   = { _, pressed in .stop(pressed: pressed) }
+        nextButton.spriteKeyProvider   = { _, pressed in .next(pressed: pressed) }
+        ejectButton.spriteKeyProvider  = { _, pressed in .eject(pressed: pressed) }
+
         for btn in buttons {
             btn.style = .transport
             addSubview(btn)

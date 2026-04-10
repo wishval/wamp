@@ -6,7 +6,6 @@ class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
-    var onTogglePin: (() -> Void)?
 
     var isEQActive: Bool {
         get { eqButton.isActive }
@@ -15,10 +14,6 @@ class MainPlayerView: NSView {
     var isPLActive: Bool {
         get { plButton.isActive }
         set { plButton.isActive = newValue }
-    }
-    var isPinned: Bool {
-        get { titleBar.isPinned }
-        set { titleBar.isPinned = newValue }
     }
 
     // Subviews
@@ -71,7 +66,6 @@ class MainPlayerView: NSView {
         titleBar.showButtons = true
         titleBar.onClose = { NSApp.terminate(nil) }
         titleBar.onMinimize = { [weak self] in self?.window?.miniaturize(nil) }
-        titleBar.onTogglePin = { [weak self] in self?.onTogglePin?() }
         addSubview(titleBar)
 
         // Left display panel background
@@ -196,6 +190,12 @@ class MainPlayerView: NSView {
         plButton.isActive = true
         addSubview(eqButton)
         addSubview(plButton)
+
+        // Wire skin sprite keys for the four toggle buttons
+        shuffleButton.spriteKeyProvider = { active, pressed in .shuffleButton(active: active, pressed: pressed) }
+        repeatButton.spriteKeyProvider  = { active, pressed in .repeatButton(active: active, pressed: pressed) }
+        eqButton.spriteKeyProvider      = { active, pressed in .eqToggleButton(active: active, pressed: pressed) }
+        plButton.spriteKeyProvider      = { active, pressed in .plToggleButton(active: active, pressed: pressed) }
 
         // Button actions
         shuffleButton.onClick = { [weak self] in

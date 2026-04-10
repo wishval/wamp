@@ -27,7 +27,6 @@ class MainWindow: NSWindow {
     var alwaysOnTop: Bool = true {
         didSet {
             level = alwaysOnTop ? .floating : .normal
-            mainPlayerView.isPinned = alwaysOnTop
         }
     }
 
@@ -148,9 +147,6 @@ class MainWindow: NSWindow {
         }
         mainPlayerView.onTogglePL = { [weak self] in
             self?.showPlaylist.toggle()
-        }
-        mainPlayerView.onTogglePin = { [weak self] in
-            self?.alwaysOnTop.toggle()
         }
     }
 }
