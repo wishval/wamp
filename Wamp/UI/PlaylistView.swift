@@ -11,10 +11,11 @@ class PlaylistView: NSView {
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
-    private let clrButton = WinampButton(title: "CLR", style: .action)
+    private let remAllButton = WinampButton(title: "REM ALL", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
 
     private var cancellables = Set<AnyCancellable>()
+    private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
 
     override init(frame: NSRect) {
@@ -78,10 +79,16 @@ class PlaylistView: NSView {
         // Buttons
         addButton.onClick = { [weak self] in self?.showAddMenu() }
         remButton.onClick = { [weak self] in self?.removeSelected() }
-        clrButton.onClick = { [weak self] in self?.playlistManager?.clearPlaylist() }
+        remAllButton.onClick = { [weak self] in self?.playlistManager?.clearPlaylist() }
+
+        // Sprite providers (pledit.bmp submenu sub-buttons)
+        addButton.spriteKeyProvider    = { _, pressed in .playlistAddFile(pressed: pressed) }
+        remButton.spriteKeyProvider    = { _, pressed in .playlistRemoveSelected(pressed: pressed) }
+        remAllButton.spriteKeyProvider = { _, pressed in .playlistRemoveAll(pressed: pressed) }
+
         addSubview(addButton)
         addSubview(remButton)
-        addSubview(clrButton)
+        addSubview(remAllButton)
 
         // Info label
         infoLabel.font = WinampTheme.bitrateFont
@@ -92,6 +99,97 @@ class PlaylistView: NSView {
         infoLabel.isEditable = false
         infoLabel.alignment = .center
         addSubview(infoLabel)
+
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applySkinVisibility()
+                self?.tableView.reloadData()
+                self?.needsDisplay = true
+            }
+        applySkinVisibility()
+    }
+
+    /// Hides labels whose content is baked into pledit.bmp / text.bmp.
+    /// searchField intentionally stays visible — see spec §8 "searchField exception".
+    private func applySkinVisibility() {
+        let active = WinampTheme.skinIsActive
+        titleBar.isHidden = active
+        infoLabel.isHidden = active
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard WinampTheme.skinIsActive else { return }
+        drawSkinned()
+    }
+
+    private func drawSkinned() {
+        let ctx = NSGraphicsContext.current
+        let prev = ctx?.imageInterpolation
+        ctx?.imageInterpolation = .none
+        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+
+        let isActive = window?.isKeyWindow ?? true
+        let w = bounds.width
+        let h = bounds.height
+
+        // Top row: TL corner (25×20) + repeating top tiles + title bar centerpiece + TR corner
+        if let tl = WinampTheme.sprite(.playlistTopLeftCorner(active: isActive)) {
+            tl.draw(in: NSRect(x: 0, y: h - 20, width: 25, height: 20))
+        }
+        if let tr = WinampTheme.sprite(.playlistTopRightCorner(active: isActive)) {
+            tr.draw(in: NSRect(x: w - 25, y: h - 20, width: 25, height: 20))
+        }
+        // Title centerpiece — fills the middle of the top row
+        if let title = WinampTheme.sprite(.playlistTopTitleBar(active: isActive)) {
+            let titleW: CGFloat = 100
+            let titleX = (w - titleW) / 2
+            title.draw(in: NSRect(x: titleX, y: h - 20, width: titleW, height: 20))
+            // Tile the gap between corners and title with .playlistTopTile
+            if let topTile = WinampTheme.sprite(.playlistTopTile(active: isActive)) {
+                var x: CGFloat = 25
+                while x < titleX {
+                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, titleX - x), height: 20))
+                    x += 25
+                }
+                x = titleX + titleW
+                while x < w - 25 {
+                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, w - 25 - x), height: 20))
+                    x += 25
+                }
+            }
+        }
+
+        // Sides: tile vertically
+        if let lt = WinampTheme.sprite(.playlistLeftTile) {
+            var y: CGFloat = 38
+            while y < h - 20 {
+                lt.draw(in: NSRect(x: 0, y: y, width: 12, height: min(29, h - 20 - y)))
+                y += 29
+            }
+        }
+        if let rt = WinampTheme.sprite(.playlistRightTile) {
+            var y: CGFloat = 38
+            while y < h - 20 {
+                rt.draw(in: NSRect(x: w - 20, y: y, width: 20, height: min(29, h - 20 - y)))
+                y += 29
+            }
+        }
+
+        // Bottom row
+        if let bl = WinampTheme.sprite(.playlistBottomLeftCorner) {
+            bl.draw(in: NSRect(x: 0, y: 0, width: 125, height: 38))
+        }
+        if let br = WinampTheme.sprite(.playlistBottomRightCorner) {
+            br.draw(in: NSRect(x: w - 150, y: 0, width: 150, height: 38))
+        }
+
+        // Render info text via text.bmp at the bottom of the playlist frame
+        if let textSheet = WinampTheme.provider.textSheet, let pm = playlistManager {
+            let info = "\(pm.tracks.count) tracks"
+            TextSpriteRenderer.draw(info, at: NSPoint(x: 10, y: 6), sheet: textSheet)
+        }
     }
 
     override func layout() {
@@ -110,7 +208,7 @@ class PlaylistView: NSView {
         let btnH: CGFloat = 14
         addButton.frame = NSRect(x: pad, y: 2, width: btnW, height: btnH)
         remButton.frame = NSRect(x: pad + btnW + 1, y: 2, width: btnW, height: btnH)
-        clrButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
+        remAllButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
 
         let infoW: CGFloat = 100
         let infoFont = infoLabel.font ?? NSFont.systemFont(ofSize: 9)
