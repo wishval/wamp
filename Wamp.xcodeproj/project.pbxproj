@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1CBE1BFD2F8974A9004EA23A /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 1CBE1BFC2F8974A9004EA23A /* ZIPFoundation */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		1C49CD9F2F817D2700DB292D /* Wamp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wamp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -41,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1CBE1BFD2F8974A9004EA23A /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,6 +90,7 @@
 			);
 			name = Wamp;
 			packageProductDependencies = (
+				1CBE1BFC2F8974A9004EA23A /* ZIPFoundation */,
 			);
 			productName = Wamp;
 			productReference = 1C49CD9F2F817D2700DB292D /* Wamp.app */;
@@ -114,6 +120,9 @@
 			);
 			mainGroup = 1C49CD962F817D2700DB292D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1CBE1BFB2F8974A9004EA23A /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1C49CDA02F817D2700DB292D /* Products */;
 			projectDirPath = "";
@@ -345,6 +354,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		1CBE1BFB2F8974A9004EA23A /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1CBE1BFC2F8974A9004EA23A /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1CBE1BFB2F8974A9004EA23A /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1C49CD972F817D2700DB292D /* Project object */;
 }
