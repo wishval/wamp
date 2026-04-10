@@ -290,15 +290,15 @@ class MainPlayerView: NSView {
         }
 
         // Mono / stereo sprites at fixed Webamp coordinates.
-        // Webamp positions (top-down): stereo at (212, 41), mono at (239, 41), 12 px tall.
-        // Convert to AppKit (bottom-up): y_appkit = mainHeight - 41 - 12 = 63
+        // Webamp positions (top-down): mono at (212, 41) 27w, stereo at (239, 41) 29w, 12 px tall.
+        // Convert to AppKit (bottom-up): y_appkit = mainHeight - 41 - 12
         let isStereo = playlistManager?.currentTrack?.isStereo ?? false
         let monoY: CGFloat = mainHeight - 41 - 12
-        if let stereoSprite = WinampTheme.sprite(.stereo(active: isStereo)) {
-            stereoSprite.draw(in: NSRect(x: 212, y: monoY, width: 29, height: 12))
-        }
         if let monoSprite = WinampTheme.sprite(.mono(active: !isStereo)) {
-            monoSprite.draw(in: NSRect(x: 239, y: monoY, width: 27, height: 12))
+            monoSprite.draw(in: NSRect(x: 212, y: monoY, width: 27, height: 12))
+        }
+        if let stereoSprite = WinampTheme.sprite(.stereo(active: isStereo)) {
+            stereoSprite.draw(in: NSRect(x: 239, y: monoY, width: 29, height: 12))
         }
 
         // Bitrate / sample rate / units via text.bmp.
