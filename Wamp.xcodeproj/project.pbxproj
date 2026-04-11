@@ -33,6 +33,13 @@
 			);
 			target = 1C49CD9E2F817D2700DB292D /* Wamp */;
 		};
+		AAAA00000000000000000001 /* Exceptions for "WampTests" folder in "WampTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Fixtures/generate-sample.swift,
+			);
+			target = 1CC170292F8B04F300BDC56D /* WampTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -51,6 +58,9 @@
 		};
 		1CC1702B2F8B04F300BDC56D /* WampTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AAAA00000000000000000001 /* Exceptions for "WampTests" folder in "WampTests" target */,
+			);
 			path = WampTests;
 			sourceTree = "<group>";
 		};
