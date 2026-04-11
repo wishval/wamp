@@ -108,6 +108,7 @@ class MainPlayerView: NSView {
         titleBar.showButtons = true
         titleBar.onClose = { NSApp.terminate(nil) }
         titleBar.onMinimize = { [weak self] in self?.window?.miniaturize(nil) }
+        titleBar.onMenuClick = { [weak self] in self?.showWindowMenu() }
         addSubview(titleBar)
 
         // Left display panel background
@@ -272,6 +273,7 @@ class MainPlayerView: NSView {
     private func applySkinVisibility() {
         let active = WinampTheme.skinIsActive
         titleBar.isHidden = active
+        titleBar.showMenuIcon = !active
         leftPanel.isHidden = active
         rightPanel.isHidden = active
         bitrateLabel.isHidden = active
@@ -596,6 +598,61 @@ class MainPlayerView: NSView {
         sampleRateLabel.textColor = WinampTheme.greenBright
         stereoLabel.textColor = track.isStereo ? WinampTheme.greenBright : WinampTheme.greenDimText
         monoLabel.textColor = track.isStereo ? WinampTheme.greenDimText : WinampTheme.greenBright
+    }
+
+    private func showWindowMenu() {
+        let menu = NSMenu()
+
+        // Helper: build an item dispatched through the responder chain.
+        func item(_ title: String, _ selectorName: String, state: NSControl.StateValue = .off) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: Selector((selectorName)), keyEquivalent: "")
+            mi.target = nil
+            mi.state = state
+            return mi
+        }
+
+        menu.addItem(NSMenuItem(title: "About Wamp",
+                                action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                                keyEquivalent: ""))
+        menu.addItem(.separator())
+
+        // File
+        menu.addItem(item("Open File…", "openFileAction"))
+        menu.addItem(item("Open Folder…", "openFolderAction"))
+        menu.addItem(.separator())
+
+        // Controls
+        menu.addItem(item("Play / Pause", "togglePlayPause"))
+        menu.addItem(item("Stop", "stopAction"))
+        menu.addItem(item("Next", "nextAction"))
+        menu.addItem(item("Previous", "prevAction"))
+        menu.addItem(.separator())
+        menu.addItem(item("Shuffle", "toggleShuffle"))
+        menu.addItem(item("Repeat", "toggleRepeat"))
+        menu.addItem(.separator())
+
+        // View
+        menu.addItem(item("Show Equalizer", "toggleEQ",
+                          state: isEQActive ? .on : .off))
+        menu.addItem(item("Show Playlist", "togglePL",
+                          state: isPLActive ? .on : .off))
+        menu.addItem(item("Always on Top", "toggleAlwaysOnTop",
+                          state: (window?.level == .floating) ? .on : .off))
+        menu.addItem(item("Double Size", "toggleDoubleSize",
+                          state: WinampTheme.scale > WinampTheme.baseScale + 0.01 ? .on : .off))
+        menu.addItem(.separator())
+
+        // Skin
+        menu.addItem(item("Load Skin…", "loadSkinAction"))
+        menu.addItem(item("Unload Skin", "unloadSkinAction"))
+        menu.addItem(.separator())
+
+        menu.addItem(NSMenuItem(title: "Quit Wamp",
+                                action: #selector(NSApplication.terminate(_:)),
+                                keyEquivalent: ""))
+
+        let anchor = NSPoint(x: titleBar.frame.minX, y: titleBar.frame.minY)
+        menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
     private func showOpenFilePanel() {

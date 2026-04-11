@@ -110,7 +110,8 @@ final class WinampTheme {
     static let eqLabelFont = NSFont(name: "Tahoma", size: 6) ?? NSFont.systemFont(ofSize: 6)
 
     // MARK: - Scale
-    static let scale: CGFloat = 1.3
+    static let baseScale: CGFloat = 1.3
+    static var scale: CGFloat = 1.3
 
     // MARK: - Dimensions
     static let windowWidth: CGFloat = 275
