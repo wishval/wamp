@@ -10,7 +10,13 @@ This is a macOS app built with Xcode. Open `Wamp.xcodeproj` and build/run from X
 xcodebuild -project Wamp.xcodeproj -scheme Wamp -configuration Debug build
 ```
 
-There are no tests, no linter, and no CI/CD configured.
+Run the test suite:
+
+```bash
+xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' test
+```
+
+No linter and no CI/CD are configured. Tests cover `Models/` and a persistence round-trip only — `AudioEngine`, UI views, and `HotKeyManager` are deliberately out of scope (see `docs/superpowers/specs/2026-04-12-testing-design.md`).
 
 ## Architecture
 
@@ -86,6 +92,8 @@ MainWindow stacks three panels vertically in a fixed 275px-wide borderless windo
 - **Multi-task requests (2+ items)** — start with `superpowers:brainstorming`. Save the resulting plan under `docs/superpowers/plans/YYYY-MM-DD-<slug>.md` before writing code.
 - **Branching** — each task list starts on a `feature/<slug>` branch off `main`. If the user is on `main` when a list begins, create the branch first. Never commit a task list directly to `main`.
 - **Commit granularity** — 1 task = 1 commit. Don't batch. The pre-commit hook (`.git/hooks/pre-commit`) handles build verification for Swift changes; doc-only commits skip the build.
+- **TDD for Models/** — any change under `Wamp/Models/` follows red → green → commit using the `superpowers:test-driven-development` skill: write the failing test first, implement until green, commit test and code together.
+- **Test merge gate** — `/wrap-session` runs `xcodebuild ... test` before merging a feature branch. Red tests abort the merge; the session stays open until the suite is green.
 - **Subagent policy** — dispatch independent tasks to parallel subagents (opus for architectural/complex work, sonnet for mechanical edits). Sequential or single tasks stay in the main session. Code exploration and search always go to the `Explore` subagent.
 - **Opus reviews sonnet** — when a sonnet subagent returns, the main (opus) session reviews its diff before marking the task complete. If issues are found, fix them inline in the main session rather than re-dispatching to sonnet.
 - **End-of-list report** — after every task list, post a short report: (1) what was done, (2) non-obvious decisions taken mid-flight, (3) anything skipped and why. Wait for user approval before moving on. Do not request screenshots; the user provides them when they want visual feedback.
