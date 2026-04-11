@@ -2,6 +2,26 @@ import Cocoa
 import Combine
 import UniformTypeIdentifiers
 
+private final class DottedDivider: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // Match the spectrum-bar bottom-row pattern: 3 px on, 1 px off, same green.
+        WinampTheme.spectrumBarBottom.setFill()
+        var y: CGFloat = 0
+        while y < bounds.height {
+            NSRect(x: 0, y: y, width: 1, height: 3).fill()
+            y += 4
+        }
+    }
+}
+
 class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
@@ -43,6 +63,7 @@ class MainPlayerView: NSView {
     // Panel backgrounds
     private let leftPanel = NSView()
     private let rightPanel = NSView()
+    private let leftPanelDivider = DottedDivider()
 
     // Play state indicator
     private let playIndicator = PlayStateIndicator()
@@ -93,6 +114,7 @@ class MainPlayerView: NSView {
         leftPanel.wantsLayer = true
         leftPanel.layer?.backgroundColor = NSColor.black.cgColor
         addSubview(leftPanel)
+        leftPanel.addSubview(leftPanelDivider)
 
         // Time display
         timeDisplay.wantsLayer = true
@@ -394,6 +416,7 @@ class MainPlayerView: NSView {
         let timeH: CGFloat = 23
         let timeSpecGap: CGFloat = 6
         let specH = displayH - timeH - timeSpecGap - 2
+
         let indicatorW: CGFloat = 11
         let indicatorGap: CGFloat = 3
         let indicatorLeftInset: CGFloat = 8
@@ -401,6 +424,9 @@ class MainPlayerView: NSView {
         let timeX = pad + indicatorLeftInset + indicatorW + indicatorGap
         timeDisplay.frame = NSRect(x: timeX, y: contentTop - timeH - 2, width: leftPanelW - (timeX - pad) - 2, height: timeH)
         spectrumView.frame = NSRect(x: pad + 2, y: contentTop - displayH + 2, width: leftPanelW - 4, height: specH)
+        // Match the divider height to the spectrum bar area exactly so the L-corner closes cleanly.
+        leftPanelDivider.frame = NSRect(x: 2, y: 2, width: 1, height: spectrumView.frame.height)
+        leftPanelDivider.needsDisplay = true
 
         // Right panel (black bg)
         rightPanel.frame = NSRect(x: rightPanelX, y: contentTop - displayH, width: rightPanelW, height: displayH)
