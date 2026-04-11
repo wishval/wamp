@@ -89,8 +89,10 @@ final class WinampTheme {
     static let eqThumbBorderDark = NSColor(hex: 0x4A5A18)
     static let eqFillStart = NSColor(hex: 0x2A6A10)
     static let eqFillEnd = NSColor(hex: 0x4A8A20)
+    static let eqTrackBackground = NSColor(hex: 0x0E0F10)
     static let eqBandLabelColor = NSColor(hex: 0x6A8A6A)
     static let eqDbLabelColor = NSColor(hex: 0x6A7A6A)
+    static let preampLabelOrange = NSColor(calibratedRed: 0.85, green: 0.57, blue: 0.32, alpha: 1.0)
 
     // MARK: - Spectrum
     static let spectrumBarBottom = NSColor(hex: 0x00C000)

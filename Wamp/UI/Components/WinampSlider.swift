@@ -40,8 +40,8 @@ class WinampSlider: NSView {
         self.isVertical = isVertical
         if style == .eqBand {
             self.isVertical = true
-            self.minValue = -20
-            self.maxValue = 20
+            self.minValue = -12
+            self.maxValue = 12
         }
     }
 
@@ -155,42 +155,22 @@ class WinampSlider: NSView {
     }
 
     private func drawVerticalSlider(in rect: NSRect) {
-        let trackX = rect.midX - 5
-        let trackRect = NSRect(x: trackX, y: 0, width: 10, height: rect.height)
+        let trackX = rect.midX - 4
+        let trackRect = NSRect(x: trackX, y: 0, width: 8, height: rect.height)
 
-        // Yellow-tinted EQ background
-        let bgGradient = NSGradient(starting: WinampTheme.eqSliderBgTop, ending: WinampTheme.eqSliderBgBottom)
-        bgGradient?.draw(in: trackRect, angle: 90)
+        // Dark solid track background
+        WinampTheme.eqTrackBackground.setFill()
+        NSBezierPath(rect: trackRect).fill()
         drawInsetBorder(trackRect)
 
-        // Center line
-        let centerY = rect.midY
-        WinampTheme.eqSliderCenter.setStroke()
-        let centerLine = NSBezierPath()
-        centerLine.move(to: NSPoint(x: trackRect.minX + 2, y: centerY))
-        centerLine.line(to: NSPoint(x: trackRect.maxX - 2, y: centerY))
-        centerLine.lineWidth = 1
-        centerLine.stroke()
-
-        // Tick marks
-        WinampTheme.eqSliderTick.setStroke()
-        let tickPath = NSBezierPath()
-        for i in stride(from: trackRect.minY + 2, to: trackRect.maxY, by: 3) {
-            tickPath.move(to: NSPoint(x: rect.midX - 1, y: i))
-            tickPath.line(to: NSPoint(x: rect.midX + 1, y: i))
-        }
-        tickPath.lineWidth = 0.5
-        tickPath.stroke()
-
-        // Fill from center
+        // Fill the entire track column, color depends on current value
+        // (green at min, yellow in the middle, red at max — hue interpolation).
         let thumbY = rect.height * normalizedValue
-        if value > 0 {
-            let fillGradient = NSGradient(starting: WinampTheme.eqFillStart, ending: WinampTheme.eqFillEnd)
-            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: centerY, width: 4, height: thumbY - centerY), angle: 90)
-        } else if value < 0 {
-            let fillGradient = NSGradient(starting: WinampTheme.eqFillStart, ending: WinampTheme.eqFillEnd)
-            fillGradient?.draw(in: NSRect(x: trackRect.minX + 3, y: thumbY, width: 4, height: centerY - thumbY), angle: 270)
-        }
+        let fillRect = NSRect(x: trackRect.minX + 1, y: trackRect.minY + 1, width: trackRect.width - 2, height: max(0, trackRect.height - 2))
+        let t = CGFloat((value - minValue) / (maxValue - minValue))
+        let hue = (1 - t) * 120.0 / 360.0
+        NSColor(hue: hue, saturation: 0.90, brightness: 0.92, alpha: 1.0).setFill()
+        fillRect.fill()
 
         // Thumb
         let eqThumbH: CGFloat = 4

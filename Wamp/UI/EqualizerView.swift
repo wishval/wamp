@@ -10,7 +10,7 @@ struct EQPreset {
         EQPreset(name: "Classical",                  bands: [ 0.0,  0.0,  0.0,  0.0,  0.0,  0.0, -8.1, -8.1, -8.1,-10.6]),
         EQPreset(name: "Club",                       bands: [ 0.0,  0.0,  3.1,  5.6,  5.6,  5.6,  3.1,  0.0,  0.0,  0.0]),
         EQPreset(name: "Dance",                      bands: [ 9.4,  6.9,  1.9, -0.6, -0.6, -6.9, -8.1, -8.1, -0.6, -0.6]),
-        EQPreset(name: "Laptop speakers/headphones", bands: [ 4.4, 10.6,  5.0, -4.4, -3.1,  1.3,  4.4,  9.4, 12.5, 14.4]),
+        EQPreset(name: "Laptop speakers/headphones", bands: [ 4.4, 10.6,  5.0, -4.4, -3.1,  1.3,  4.4,  9.4, 12.0, 12.0]),
         EQPreset(name: "Large hall",                 bands: [10.0, 10.0,  5.6,  5.6,  0.0, -5.6, -5.6, -5.6,  0.0,  0.0]),
         EQPreset(name: "Party",                      bands: [ 6.9,  6.9,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  6.9,  6.9]),
         EQPreset(name: "Pop",                        bands: [-2.5,  4.4,  6.9,  7.5,  5.0, -1.9, -3.1, -3.1, -2.5, -2.5]),
@@ -20,7 +20,7 @@ struct EQPreset {
         EQPreset(name: "Ska",                        bands: [-3.1, -5.6, -5.0, -1.3,  3.8,  5.6,  8.8,  9.4, 10.6,  9.4]),
         EQPreset(name: "Full Bass",                  bands: [ 9.4,  9.4,  9.4,  5.6,  1.3, -5.0, -9.4,-11.3,-11.9,-11.9]),
         EQPreset(name: "Soft Rock",                  bands: [ 3.8,  3.8,  1.9, -1.3, -5.0, -6.3, -4.4, -1.3,  2.5,  8.8]),
-        EQPreset(name: "Full Treble",                bands: [-10.6,-10.6,-10.6, -5.0,  2.5, 10.6, 15.6, 15.6, 15.6, 16.9]),
+        EQPreset(name: "Full Treble",                bands: [-10.6,-10.6,-10.6, -5.0,  2.5, 10.6, 12.0, 12.0, 12.0, 12.0]),
         EQPreset(name: "Full Bass & Treble",         bands: [ 6.9,  5.6,  0.0, -8.1, -5.6,  1.3,  8.1, 10.6, 11.9, 11.9]),
         EQPreset(name: "Live",                       bands: [-5.6,  0.0,  3.8,  5.0,  5.6,  5.6,  3.8,  2.5,  2.5,  1.9]),
         EQPreset(name: "Techno",                     bands: [ 7.5,  5.6,  0.0, -6.3, -5.6,  0.0,  7.5,  9.4,  9.4,  8.8]),
@@ -114,7 +114,7 @@ class EqualizerView: NSView {
 
             let label = NSTextField(labelWithString: bandNames[i])
             label.font = WinampTheme.eqLabelFont
-            label.textColor = WinampTheme.eqBandLabelColor
+            label.textColor = NSColor(calibratedRed: 0.90, green: 0.88, blue: 0.75, alpha: 1.0)
             label.isBezeled = false
             label.drawsBackground = false
             label.alignment = .center
@@ -123,10 +123,10 @@ class EqualizerView: NSView {
         }
 
         // dB labels
-        for (text, tag) in [("+20", 200), ("0", 201), ("-20", 202)] {
+        for (text, tag) in [("+12 db", 200), ("0 db", 201), ("-12 db", 202)] {
             let label = NSTextField(labelWithString: text)
             label.font = WinampTheme.eqLabelFont
-            label.textColor = WinampTheme.eqDbLabelColor
+            label.textColor = WinampTheme.preampLabelOrange
             label.isBezeled = false
             label.drawsBackground = false
             label.alignment = .right
@@ -136,7 +136,7 @@ class EqualizerView: NSView {
         }
 
         // Preamp label
-        let pre = NSTextField(labelWithString: "PRE")
+        let pre = NSTextField(labelWithString: "PREAMP")
         pre.font = WinampTheme.eqLabelFont
         pre.textColor = WinampTheme.eqBandLabelColor
         pre.isBezeled = false
@@ -177,6 +177,9 @@ class EqualizerView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        if !WinampTheme.skinIsActive {
+            drawUnskinnedDecorations()
+        }
         guard WinampTheme.skinIsActive else { return }
         let ctx = NSGraphicsContext.current
         let prev = ctx?.imageInterpolation
@@ -193,6 +196,30 @@ class EqualizerView: NSView {
         let isActive = window?.isKeyWindow ?? true
         if let tb = WinampTheme.sprite(.eqTitleBar(active: isActive)) {
             tb.draw(in: NSRect(x: 0, y: bounds.height - 14, width: bounds.width, height: 14))
+        }
+    }
+
+    private func drawUnskinnedDecorations() {
+        let pad: CGFloat = 4
+        let preampX: CGFloat = pad + 6
+        let sliderH: CGFloat = 56
+        let controlsY = bounds.height - WinampTheme.titleBarHeight - 16
+        let sliderAreaTop = controlsY - 10
+        let sliderBottom = sliderAreaTop - sliderH
+
+        // Five pale horizontal stripes running across the full EQ area
+        // (preamp + bands), evenly spaced through the slider track — classic
+        // eqmain.bmp pattern.
+        let stripeColor = NSColor(white: 1.0, alpha: 0.10)
+        stripeColor.setFill()
+        let stripeX = preampX - 2
+        let stripeEnd = bounds.width - pad
+        let stripeW = max(0, stripeEnd - stripeX)
+        let steps = 4
+        for i in 0...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            let y = sliderBottom + t * sliderH
+            NSRect(x: stripeX, y: y - 0.5, width: stripeW, height: 1).fill()
         }
     }
 
@@ -213,20 +240,20 @@ class EqualizerView: NSView {
         let respGap: CGFloat = 6
         let respX = autoButton.frame.maxX + respGap
         let respWidth = presetsButton.frame.minX - respX - respGap
-        let respH: CGFloat = 19
+        let respH: CGFloat = 24
         let respY = controlsY - (respH - 14) / 2
         responseView.frame = NSRect(x: respX, y: respY, width: max(0, respWidth), height: respH)
 
-        let sliderH: CGFloat = 62
-        let sliderAreaTop = controlsY - 4
+        let sliderH: CGFloat = 56
+        let sliderAreaTop = controlsY - 10
 
-        // Preamp on the leftmost column
-        let preampX: CGFloat = pad
+        // Preamp on the leftmost column (right-shifted a few px for breathing room)
+        let preampX: CGFloat = pad + 6
         preampSlider.frame = NSRect(x: preampX, y: sliderAreaTop - sliderH, width: 12, height: sliderH)
-        viewWithTag(210)?.frame = NSRect(x: preampX - 2, y: sliderAreaTop - sliderH - 10, width: 16, height: 10)
+        viewWithTag(210)?.frame = NSRect(x: preampX - 14, y: sliderAreaTop - sliderH - 14, width: 40, height: 10)
 
         // dB labels — right of preamp slider
-        let dbLabelW: CGFloat = 16
+        let dbLabelW: CGFloat = 26
         let dbLabelX = preampX + 14
         viewWithTag(200)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - 10, width: dbLabelW, height: 10)
         viewWithTag(201)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - sliderH / 2 - 5, width: dbLabelW, height: 10)
@@ -241,7 +268,7 @@ class EqualizerView: NSView {
         for i in 0..<10 {
             let x = bandsStart + CGFloat(i) * bandSpacing + (bandSpacing - 12) / 2
             bandSliders[i].frame = NSRect(x: x, y: sliderAreaTop - sliderH, width: 12, height: sliderH)
-            bandLabels[i].frame = NSRect(x: x - 4, y: sliderAreaTop - sliderH - 10, width: 20, height: 10)
+            bandLabels[i].frame = NSRect(x: x - 4, y: sliderAreaTop - sliderH - 14, width: 20, height: 10)
         }
     }
 

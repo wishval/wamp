@@ -68,20 +68,20 @@ class EQResponseView: NSView {
             NSRect(x: x, y: 0, width: 1, height: b.height).fill()
         }
 
-        // Horizontal mid-line — thin opaque white, brighter than the verticals
-        NSColor.white.setFill()
+        // Horizontal mid-line — pale white, matching the verticals
+        NSColor.white.withAlphaComponent(0.35).setFill()
         NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
 
         // Response curve
         guard bands.count >= 10 else { return }
         let path = NSBezierPath()
         WinampTheme.greenBright.setStroke()
-        path.lineWidth = 1.2
+        path.lineWidth = 1.4
 
         for (i, gain) in bands.enumerated() {
             let x = b.width * CGFloat(i) / CGFloat(bands.count - 1)
-            let normalized = CGFloat(gain / 20) // -1 to 1
-            let y = b.midY + normalized * (b.height / 2 - 2)
+            let normalized = CGFloat(gain / 12) // -1 to 1
+            let y = b.midY + normalized * (b.height / 2 - 1)
 
             if i == 0 {
                 path.move(to: NSPoint(x: x, y: y))
