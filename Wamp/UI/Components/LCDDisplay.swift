@@ -9,6 +9,18 @@ class LCDDisplay: NSView {
     private var scrollTimer: Timer?
     private let scrollSpeed: CGFloat = 0.5
     private var skinObserver: AnyCancellable?
+    private var overlayText: String?
+    private var overlayClearTimer: Timer?
+
+    func showOverlay(_ text: String, duration: TimeInterval = 1.0) {
+        overlayText = text
+        needsDisplay = true
+        overlayClearTimer?.invalidate()
+        overlayClearTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+            self?.overlayText = nil
+            self?.needsDisplay = true
+        }
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -52,7 +64,13 @@ class LCDDisplay: NSView {
     }
 
     private func drawSkinned() {
-        guard let textSheet = WinampTheme.provider.textSheet, !text.isEmpty else { return }
+        guard let textSheet = WinampTheme.provider.textSheet else { return }
+        if let overlay = overlayText {
+            let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
+            TextSpriteRenderer.draw(overlay, at: NSPoint(x: 2, y: y), sheet: textSheet)
+            return
+        }
+        guard !text.isEmpty else { return }
         let textWidth = TextSpriteRenderer.width(of: text)
         let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
 
@@ -71,6 +89,13 @@ class LCDDisplay: NSView {
             .foregroundColor: WinampTheme.greenBright
         ]
 
+        if let overlay = overlayText {
+            let size = overlay.size(withAttributes: attrs)
+            let y = (bounds.height - size.height) / 2
+            overlay.draw(at: NSPoint(x: 2, y: y), withAttributes: attrs)
+            return
+        }
+
         let size = text.size(withAttributes: attrs)
         let y = (bounds.height - size.height) / 2
 
@@ -85,5 +110,6 @@ class LCDDisplay: NSView {
 
     deinit {
         scrollTimer?.invalidate()
+        overlayClearTimer?.invalidate()
     }
 }

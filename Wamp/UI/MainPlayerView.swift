@@ -494,8 +494,9 @@ class MainPlayerView: NSView {
 
         // Volume
         volumeSlider.value = audioEngine.volume
-        volumeSlider.onChange = { [weak audioEngine] value in
+        volumeSlider.onChange = { [weak self, weak audioEngine] value in
             audioEngine?.volume = value
+            self?.lcdDisplay.showOverlay("Volume: \(Int(round(value * 100)))%")
         }
 
         // Balance
