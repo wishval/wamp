@@ -9,6 +9,12 @@ enum RepeatMode: Int, Codable {
     case playlist = 2
 }
 
+enum PlayState {
+    case stopped
+    case playing
+    case paused
+}
+
 extension Notification.Name {
     static let trackDidFinish = Notification.Name("trackDidFinish")
 }
@@ -16,6 +22,7 @@ extension Notification.Name {
 class AudioEngine: ObservableObject {
     // MARK: - Published State
     @Published var isPlaying = false
+    @Published var playState: PlayState = .stopped
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
     @Published var volume: Float = 0.75 {
@@ -127,6 +134,7 @@ class AudioEngine: ObservableObject {
                 playerNode.play()
             }
             isPlaying = true
+            playState = .playing
             startTimeUpdates()
         } catch {
             print("AudioEngine: failed to start: \(error)")
@@ -136,6 +144,7 @@ class AudioEngine: ObservableObject {
     func pause() {
         playerNode.pause()
         isPlaying = false
+        playState = .paused
         stopTimeUpdates()
     }
 
@@ -143,6 +152,7 @@ class AudioEngine: ObservableObject {
         print("🟡 stop() called, gen=\(playbackGeneration), isPlaying=\(isPlaying)")
         playerNode.stop()
         isPlaying = false
+        playState = .stopped
         currentTime = 0
         seekFrame = 0
         needsScheduling = true
@@ -233,6 +243,7 @@ class AudioEngine: ObservableObject {
         }
         playerNode.play()
         isPlaying = true
+        playState = .playing
         needsScheduling = false
         startTimeUpdates()
         print("🟢 scheduleAndPlay: playerNode.play() called, isPlaying=true")
@@ -251,6 +262,7 @@ class AudioEngine: ObservableObject {
             scheduleAndPlay()
         } else {
             isPlaying = false
+            playState = .stopped
             stopTimeUpdates()
             print("🔴 handleTrackCompletion: posting .trackDidFinish")
             NotificationCenter.default.post(name: .trackDidFinish, object: nil)
