@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var hotKeyManager: HotKeyManager!
     private weak var alwaysOnTopMenuItem: NSMenuItem?
+    private weak var doubleSizeMenuItem: NSMenuItem?
 
     static func main() {
         let app = NSApplication.shared
@@ -187,6 +188,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.alwaysOnTopMenuItem = alwaysOnTop
         viewMenu.addItem(alwaysOnTop)
 
+        let doubleSize = NSMenuItem(title: "Double Size", action: #selector(toggleDoubleSize), keyEquivalent: "d")
+        doubleSize.keyEquivalentModifierMask = [.command, .shift]
+        doubleSize.target = self
+        doubleSize.state = WinampTheme.scale > WinampTheme.baseScale + 0.01 ? .on : .off
+        self.doubleSizeMenuItem = doubleSize
+        viewMenu.addItem(doubleSize)
+
         viewMenu.addItem(.separator())
 
         let loadSkin = NSMenuItem(title: "Load Skin...", action: #selector(loadSkinAction), keyEquivalent: "S")
@@ -262,6 +270,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var state = stateManager.loadAppState()
         state.alwaysOnTop = mainWindow.alwaysOnTop
         stateManager.saveAppState(state)
+    }
+
+    @objc func toggleDoubleSize() {
+        // Classic Winamp "Double Size" is literally 2× the native 275×116, not 2× the
+        // current base scale. Toggle between baseScale (1.3) and 2.0.
+        let isDouble = WinampTheme.scale > WinampTheme.baseScale + 0.01
+        WinampTheme.scale = isDouble ? WinampTheme.baseScale : 2.0
+        mainWindow.recalculateSize()
+
+        // Clamp the window to the current screen's visible frame so Double Size
+        // can't push it off the edge when it was close to one.
+        if let screen = mainWindow.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            var frame = mainWindow.frame
+            if frame.maxX > visible.maxX { frame.origin.x = visible.maxX - frame.width }
+            if frame.minX < visible.minX { frame.origin.x = visible.minX }
+            if frame.maxY > visible.maxY { frame.origin.y = visible.maxY - frame.height }
+            if frame.minY < visible.minY { frame.origin.y = visible.minY }
+            if frame != mainWindow.frame {
+                mainWindow.setFrameOrigin(frame.origin)
+            }
+        }
+
+        doubleSizeMenuItem?.state = (WinampTheme.scale > WinampTheme.baseScale + 0.01) ? .on : .off
     }
 
     @objc private func loadSkinAction() {

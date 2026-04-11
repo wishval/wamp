@@ -6,6 +6,13 @@ class TitleBarView: NSView {
     var showButtons: Bool = true
     var onClose: (() -> Void)?
     var onMinimize: (() -> Void)?
+    var onMenuClick: (() -> Void)?
+    var showMenuIcon: Bool = false { didSet { needsDisplay = true } }
+
+    private let menuIconSize: CGFloat = 9
+    private var menuIconRect: NSRect {
+        NSRect(x: 3, y: (bounds.height - menuIconSize) / 2, width: menuIconSize, height: menuIconSize)
+    }
 
     private var skinObserver: AnyCancellable?
 
@@ -71,11 +78,12 @@ class TitleBarView: NSView {
         let stripeMargin: CGFloat = 4
         let stripeGap: CGFloat = 4
 
-        // Left stripes
+        // Left stripes — shift start past the menu icon when present
+        let leftStripeStart: CGFloat = showMenuIcon ? (menuIconRect.maxX + 2) : stripeMargin
         drawStripes(in: NSRect(
-            x: stripeMargin,
+            x: leftStripeStart,
             y: (b.height - 8) / 2,
-            width: textX - stripeGap - stripeMargin,
+            width: max(0, textX - stripeGap - leftStripeStart),
             height: 8
         ))
 
@@ -108,6 +116,36 @@ class TitleBarView: NSView {
                 NSRect(x: b.width - 11, y: btnY, width: btnSize, height: btnSize),
                 symbol: "×"
             )
+        }
+
+        // Top-left menu icon (hamburger)
+        if showMenuIcon {
+            let iconRect = menuIconRect
+            NSColor(hex: 0x3A4060).setFill()
+            iconRect.fill()
+
+            WinampTheme.buttonBorderLight.setStroke()
+            let lightPath = NSBezierPath()
+            lightPath.move(to: NSPoint(x: iconRect.minX, y: iconRect.minY))
+            lightPath.line(to: NSPoint(x: iconRect.minX, y: iconRect.maxY))
+            lightPath.line(to: NSPoint(x: iconRect.maxX, y: iconRect.maxY))
+            lightPath.lineWidth = 1
+            lightPath.stroke()
+
+            WinampTheme.buttonBorderDark.setStroke()
+            let darkPath = NSBezierPath()
+            darkPath.move(to: NSPoint(x: iconRect.maxX, y: iconRect.maxY))
+            darkPath.line(to: NSPoint(x: iconRect.maxX, y: iconRect.minY))
+            darkPath.line(to: NSPoint(x: iconRect.minX, y: iconRect.minY))
+            darkPath.lineWidth = 1
+            darkPath.stroke()
+
+            WinampTheme.titleBarText.setFill()
+            let barH: CGFloat = 1
+            for i in 0..<3 {
+                let by = iconRect.minY + 2 + CGFloat(i) * 3
+                NSRect(x: iconRect.minX + 2, y: by, width: menuIconSize - 4, height: barH).fill()
+            }
         }
 
         // Bottom border
@@ -175,6 +213,10 @@ class TitleBarView: NSView {
         let minimizeRect = NSRect(x: b.width - 22, y: btnY, width: btnSize, height: btnSize)
         let closeRect = NSRect(x: b.width - 11, y: btnY, width: btnSize, height: btnSize)
 
+        if showMenuIcon && menuIconRect.contains(point) {
+            onMenuClick?()
+            return
+        }
         if showButtons && (closeRect.contains(point) || minimizeRect.contains(point)) {
             super.mouseDown(with: event)
             return

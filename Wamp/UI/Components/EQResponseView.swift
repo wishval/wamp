@@ -60,13 +60,17 @@ class EQResponseView: NSView {
         let bgGradient = NSGradient(starting: WinampTheme.eqSliderBgTop, ending: WinampTheme.eqSliderBgBottom)
         bgGradient?.draw(in: b, angle: 90)
 
-        // Center line
-        WinampTheme.eqSliderCenter.setStroke()
-        let centerPath = NSBezierPath()
-        centerPath.move(to: NSPoint(x: 0, y: b.midY))
-        centerPath.line(to: NSPoint(x: b.width, y: b.midY))
-        centerPath.lineWidth = 0.5
-        centerPath.stroke()
+        // Grid: 10 pale vertical guides (one per EQ band)
+        let bandCount = 10
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        for i in 0..<bandCount {
+            let x = round(b.width * (CGFloat(i) + 0.5) / CGFloat(bandCount))
+            NSRect(x: x, y: 0, width: 1, height: b.height).fill()
+        }
+
+        // Horizontal mid-line — thin opaque white, brighter than the verticals
+        NSColor.white.setFill()
+        NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
 
         // Response curve
         guard bands.count >= 10 else { return }

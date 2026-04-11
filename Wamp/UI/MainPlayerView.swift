@@ -2,6 +2,26 @@ import Cocoa
 import Combine
 import UniformTypeIdentifiers
 
+private final class DottedDivider: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // Match the spectrum-bar bottom-row pattern: 3 px on, 1 px off, same green.
+        WinampTheme.spectrumBarBottom.setFill()
+        var y: CGFloat = 0
+        while y < bounds.height {
+            NSRect(x: 0, y: y, width: 1, height: 3).fill()
+            y += 4
+        }
+    }
+}
+
 class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
@@ -43,6 +63,7 @@ class MainPlayerView: NSView {
     // Panel backgrounds
     private let leftPanel = NSView()
     private let rightPanel = NSView()
+    private let leftPanelDivider = DottedDivider()
 
     // Play state indicator
     private let playIndicator = PlayStateIndicator()
@@ -87,12 +108,14 @@ class MainPlayerView: NSView {
         titleBar.showButtons = true
         titleBar.onClose = { NSApp.terminate(nil) }
         titleBar.onMinimize = { [weak self] in self?.window?.miniaturize(nil) }
+        titleBar.onMenuClick = { [weak self] in self?.showWindowMenu() }
         addSubview(titleBar)
 
         // Left display panel background
         leftPanel.wantsLayer = true
         leftPanel.layer?.backgroundColor = NSColor.black.cgColor
         addSubview(leftPanel)
+        leftPanel.addSubview(leftPanelDivider)
 
         // Time display
         timeDisplay.wantsLayer = true
@@ -250,6 +273,7 @@ class MainPlayerView: NSView {
     private func applySkinVisibility() {
         let active = WinampTheme.skinIsActive
         titleBar.isHidden = active
+        titleBar.showMenuIcon = !active
         leftPanel.isHidden = active
         rightPanel.isHidden = active
         bitrateLabel.isHidden = active
@@ -394,12 +418,17 @@ class MainPlayerView: NSView {
         let timeH: CGFloat = 23
         let timeSpecGap: CGFloat = 6
         let specH = displayH - timeH - timeSpecGap - 2
+
         let indicatorW: CGFloat = 11
         let indicatorGap: CGFloat = 3
-        playIndicator.frame = NSRect(x: pad + 3, y: contentTop - timeH + (timeH - indicatorW) / 2 - 2, width: indicatorW, height: indicatorW)
-        let timeX = pad + 3 + indicatorW + indicatorGap
+        let indicatorLeftInset: CGFloat = 8
+        playIndicator.frame = NSRect(x: pad + indicatorLeftInset, y: contentTop - timeH + (timeH - indicatorW) / 2 - 2, width: indicatorW, height: indicatorW)
+        let timeX = pad + indicatorLeftInset + indicatorW + indicatorGap
         timeDisplay.frame = NSRect(x: timeX, y: contentTop - timeH - 2, width: leftPanelW - (timeX - pad) - 2, height: timeH)
         spectrumView.frame = NSRect(x: pad + 2, y: contentTop - displayH + 2, width: leftPanelW - 4, height: specH)
+        // Match the divider height to the spectrum bar area exactly so the L-corner closes cleanly.
+        leftPanelDivider.frame = NSRect(x: 2, y: 2, width: 1, height: spectrumView.frame.height)
+        leftPanelDivider.needsDisplay = true
 
         // Right panel (black bg)
         rightPanel.frame = NSRect(x: rightPanelX, y: contentTop - displayH, width: rightPanelW, height: displayH)
@@ -420,26 +449,37 @@ class MainPlayerView: NSView {
         // Seek bar
         seekSlider.frame = NSRect(x: pad, y: controlsTop - 10, width: w - 2 * pad, height: 10)
 
-        // Volume + Balance
+        // Volume + Balance (balance ~half the width of volume) with a right-side EQ/PL strip
         let sliderTop = controlsTop - 14
-        let halfW = (w - 2 * pad - 4) / 2
-        volumeSlider.frame = NSRect(x: pad, y: sliderTop - 8, width: halfW, height: 8)
-        balanceSlider.frame = NSRect(x: pad + halfW + 4, y: sliderTop - 8, width: halfW, height: 8)
+        let eqPlBtnW: CGFloat = 22
+        let eqPlBtnH: CGFloat = 12
+        let eqPlGap: CGFloat = 2
+        let eqPlStripW = eqPlBtnW * 2 + eqPlGap
+        let slidersRightEdge = w - pad - eqPlStripW - 4
+        let slidersAvailW = slidersRightEdge - pad
+        let sliderGap: CGFloat = 4
+        let volumeW = floor((slidersAvailW - sliderGap) * 2 / 3)
+        let balanceW = slidersAvailW - sliderGap - volumeW
+        volumeSlider.frame = NSRect(x: pad, y: sliderTop - 8, width: volumeW, height: 8)
+        balanceSlider.frame = NSRect(x: pad + volumeW + sliderGap, y: sliderTop - 8, width: balanceW, height: 8)
+
+        // EQ / PL right-aligned on the slider row, vertically centered on the 8px slider strip
+        let eqPlY = sliderTop - 8 + (8 - eqPlBtnH) / 2
+        eqButton.frame = NSRect(x: w - pad - eqPlStripW, y: eqPlY, width: eqPlBtnW, height: eqPlBtnH)
+        plButton.frame = NSRect(x: w - pad - eqPlBtnW,   y: eqPlY, width: eqPlBtnW, height: eqPlBtnH)
 
         // Transport row
         let transportTop = sliderTop - 12
         transportBar.frame = NSRect(x: pad, y: transportTop - 18, width: transportBar.intrinsicContentSize.width, height: 18)
 
-        // Right side: shuffle, repeat, EQ, PL
+        // Right side of transport row: shuffle, repeat only (EQ/PL moved up to the slider row)
         let btnH: CGFloat = 16
         let btnW: CGFloat = 20
-        let toggleX = w - pad - (btnW * 4 + 3)
+        let toggleX = w - pad - (btnW * 2 + 1)
         let toggleY = transportTop - btnH - 1
 
         shuffleButton.frame = NSRect(x: toggleX, y: toggleY, width: btnW, height: btnH)
         repeatButton.frame = NSRect(x: toggleX + btnW + 1, y: toggleY, width: btnW, height: btnH)
-        eqButton.frame = NSRect(x: toggleX + (btnW + 1) * 2, y: toggleY, width: btnW, height: btnH)
-        plButton.frame = NSRect(x: toggleX + (btnW + 1) * 3, y: toggleY, width: btnW, height: btnH)
 
         // Click hit-zones at the locations where main.bmp paints close/minimize.
         // Webamp positions (top-down): close at (264, 3), minimize at (244, 3), 9×9.
@@ -558,6 +598,61 @@ class MainPlayerView: NSView {
         sampleRateLabel.textColor = WinampTheme.greenBright
         stereoLabel.textColor = track.isStereo ? WinampTheme.greenBright : WinampTheme.greenDimText
         monoLabel.textColor = track.isStereo ? WinampTheme.greenDimText : WinampTheme.greenBright
+    }
+
+    private func showWindowMenu() {
+        let menu = NSMenu()
+
+        // Helper: build an item dispatched through the responder chain.
+        func item(_ title: String, _ selectorName: String, state: NSControl.StateValue = .off) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: Selector((selectorName)), keyEquivalent: "")
+            mi.target = nil
+            mi.state = state
+            return mi
+        }
+
+        menu.addItem(NSMenuItem(title: "About Wamp",
+                                action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                                keyEquivalent: ""))
+        menu.addItem(.separator())
+
+        // File
+        menu.addItem(item("Open File…", "openFileAction"))
+        menu.addItem(item("Open Folder…", "openFolderAction"))
+        menu.addItem(.separator())
+
+        // Controls
+        menu.addItem(item("Play / Pause", "togglePlayPause"))
+        menu.addItem(item("Stop", "stopAction"))
+        menu.addItem(item("Next", "nextAction"))
+        menu.addItem(item("Previous", "prevAction"))
+        menu.addItem(.separator())
+        menu.addItem(item("Shuffle", "toggleShuffle"))
+        menu.addItem(item("Repeat", "toggleRepeat"))
+        menu.addItem(.separator())
+
+        // View
+        menu.addItem(item("Show Equalizer", "toggleEQ",
+                          state: isEQActive ? .on : .off))
+        menu.addItem(item("Show Playlist", "togglePL",
+                          state: isPLActive ? .on : .off))
+        menu.addItem(item("Always on Top", "toggleAlwaysOnTop",
+                          state: (window?.level == .floating) ? .on : .off))
+        menu.addItem(item("Double Size", "toggleDoubleSize",
+                          state: WinampTheme.scale > WinampTheme.baseScale + 0.01 ? .on : .off))
+        menu.addItem(.separator())
+
+        // Skin
+        menu.addItem(item("Load Skin…", "loadSkinAction"))
+        menu.addItem(item("Unload Skin", "unloadSkinAction"))
+        menu.addItem(.separator())
+
+        menu.addItem(NSMenuItem(title: "Quit Wamp",
+                                action: #selector(NSApplication.terminate(_:)),
+                                keyEquivalent: ""))
+
+        let anchor = NSPoint(x: titleBar.frame.minX, y: titleBar.frame.minY)
+        menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
     private func showOpenFilePanel() {
