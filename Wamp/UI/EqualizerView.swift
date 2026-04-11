@@ -123,7 +123,7 @@ class EqualizerView: NSView {
         }
 
         // dB labels
-        for (text, tag) in [("+12", 200), ("0", 201), ("-12", 202)] {
+        for (text, tag) in [("+20", 200), ("0", 201), ("-20", 202)] {
             let label = NSTextField(labelWithString: text)
             label.font = WinampTheme.eqLabelFont
             label.textColor = WinampTheme.eqDbLabelColor
@@ -209,28 +209,30 @@ class EqualizerView: NSView {
         autoButton.frame = NSRect(x: pad + 28, y: controlsY, width: 30, height: 14)
         presetsButton.frame = NSRect(x: w - pad - 50, y: controlsY, width: 50, height: 14)
 
+        // Response view lives in the controls row, between AUTO and PRESETS.
+        let respGap: CGFloat = 6
+        let respX = autoButton.frame.maxX + respGap
+        let respWidth = presetsButton.frame.minX - respX - respGap
+        responseView.frame = NSRect(x: respX, y: controlsY, width: max(0, respWidth), height: 14)
+
         let sliderH: CGFloat = 62
         let sliderAreaTop = controlsY - 4
 
-        // dB labels
-        let dbLabelX: CGFloat = pad
-        let dbLabelW: CGFloat = 16
-        viewWithTag(200)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - 10, width: dbLabelW, height: 10)
-        viewWithTag(201)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - sliderH / 2 - 5, width: dbLabelW, height: 10)
-        viewWithTag(202)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - sliderH, width: dbLabelW, height: 10)
-
-        // Preamp
-        let preampX = dbLabelX + dbLabelW + 2
+        // Preamp on the leftmost column
+        let preampX: CGFloat = pad
         preampSlider.frame = NSRect(x: preampX, y: sliderAreaTop - sliderH, width: 12, height: sliderH)
         viewWithTag(210)?.frame = NSRect(x: preampX - 2, y: sliderAreaTop - sliderH - 10, width: 16, height: 10)
 
-        // Response view
-        let respX = preampX + 16
-        responseView.frame = NSRect(x: respX, y: sliderAreaTop - sliderH, width: 30, height: sliderH)
-        viewWithTag(211)?.frame = NSRect(x: respX + 8, y: sliderAreaTop - sliderH - 10, width: 16, height: 10)
+        // dB labels — right of preamp slider
+        let dbLabelW: CGFloat = 16
+        let dbLabelX = preampX + 14
+        viewWithTag(200)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - 10, width: dbLabelW, height: 10)
+        viewWithTag(201)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - sliderH / 2 - 5, width: dbLabelW, height: 10)
+        viewWithTag(202)?.frame = NSRect(x: dbLabelX, y: sliderAreaTop - sliderH, width: dbLabelW, height: 10)
+        viewWithTag(211)?.frame = .zero
 
         // Band sliders
-        let bandsStart = respX + 36
+        let bandsStart = dbLabelX + dbLabelW + 2
         let bandsWidth = w - bandsStart - pad
         let bandSpacing = bandsWidth / CGFloat(10)
 
