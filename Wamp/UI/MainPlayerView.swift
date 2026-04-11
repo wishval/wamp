@@ -421,26 +421,37 @@ class MainPlayerView: NSView {
         // Seek bar
         seekSlider.frame = NSRect(x: pad, y: controlsTop - 10, width: w - 2 * pad, height: 10)
 
-        // Volume + Balance
+        // Volume + Balance (balance ~half the width of volume) with a right-side EQ/PL strip
         let sliderTop = controlsTop - 14
-        let halfW = (w - 2 * pad - 4) / 2
-        volumeSlider.frame = NSRect(x: pad, y: sliderTop - 8, width: halfW, height: 8)
-        balanceSlider.frame = NSRect(x: pad + halfW + 4, y: sliderTop - 8, width: halfW, height: 8)
+        let eqPlBtnW: CGFloat = 22
+        let eqPlBtnH: CGFloat = 12
+        let eqPlGap: CGFloat = 2
+        let eqPlStripW = eqPlBtnW * 2 + eqPlGap
+        let slidersRightEdge = w - pad - eqPlStripW - 4
+        let slidersAvailW = slidersRightEdge - pad
+        let sliderGap: CGFloat = 4
+        let volumeW = floor((slidersAvailW - sliderGap) * 2 / 3)
+        let balanceW = slidersAvailW - sliderGap - volumeW
+        volumeSlider.frame = NSRect(x: pad, y: sliderTop - 8, width: volumeW, height: 8)
+        balanceSlider.frame = NSRect(x: pad + volumeW + sliderGap, y: sliderTop - 8, width: balanceW, height: 8)
+
+        // EQ / PL right-aligned on the slider row, vertically centered on the 8px slider strip
+        let eqPlY = sliderTop - 8 + (8 - eqPlBtnH) / 2
+        eqButton.frame = NSRect(x: w - pad - eqPlStripW, y: eqPlY, width: eqPlBtnW, height: eqPlBtnH)
+        plButton.frame = NSRect(x: w - pad - eqPlBtnW,   y: eqPlY, width: eqPlBtnW, height: eqPlBtnH)
 
         // Transport row
         let transportTop = sliderTop - 12
         transportBar.frame = NSRect(x: pad, y: transportTop - 18, width: transportBar.intrinsicContentSize.width, height: 18)
 
-        // Right side: shuffle, repeat, EQ, PL
+        // Right side of transport row: shuffle, repeat only (EQ/PL moved up to the slider row)
         let btnH: CGFloat = 16
         let btnW: CGFloat = 20
-        let toggleX = w - pad - (btnW * 4 + 3)
+        let toggleX = w - pad - (btnW * 2 + 1)
         let toggleY = transportTop - btnH - 1
 
         shuffleButton.frame = NSRect(x: toggleX, y: toggleY, width: btnW, height: btnH)
         repeatButton.frame = NSRect(x: toggleX + btnW + 1, y: toggleY, width: btnW, height: btnH)
-        eqButton.frame = NSRect(x: toggleX + (btnW + 1) * 2, y: toggleY, width: btnW, height: btnH)
-        plButton.frame = NSRect(x: toggleX + (btnW + 1) * 3, y: toggleY, width: btnW, height: btnH)
 
         // Click hit-zones at the locations where main.bmp paints close/minimize.
         // Webamp positions (top-down): close at (264, 3), minimize at (244, 3), 9×9.
