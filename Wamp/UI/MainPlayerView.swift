@@ -396,8 +396,9 @@ class MainPlayerView: NSView {
         let specH = displayH - timeH - timeSpecGap - 2
         let indicatorW: CGFloat = 11
         let indicatorGap: CGFloat = 3
-        playIndicator.frame = NSRect(x: pad + 3, y: contentTop - timeH + (timeH - indicatorW) / 2 - 2, width: indicatorW, height: indicatorW)
-        let timeX = pad + 3 + indicatorW + indicatorGap
+        let indicatorLeftInset: CGFloat = 8
+        playIndicator.frame = NSRect(x: pad + indicatorLeftInset, y: contentTop - timeH + (timeH - indicatorW) / 2 - 2, width: indicatorW, height: indicatorW)
+        let timeX = pad + indicatorLeftInset + indicatorW + indicatorGap
         timeDisplay.frame = NSRect(x: timeX, y: contentTop - timeH - 2, width: leftPanelW - (timeX - pad) - 2, height: timeH)
         spectrumView.frame = NSRect(x: pad + 2, y: contentTop - displayH + 2, width: leftPanelW - 4, height: specH)
 
