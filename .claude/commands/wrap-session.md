@@ -14,15 +14,22 @@ Execute these steps in order. Do not skip steps. Do not parallelize.
 - If you have not already posted an end-of-list report in this session, post one now (format: what was done / decisions taken mid-flight / what was skipped and why).
 - Ask explicitly: "Ready to merge `<branch>` into main?" — wait for the user's "yes" or equivalent. Do NOT proceed on implicit approval. This is the hard-to-reverse gate.
 
-## 3. Merge to main
-- Only after explicit approval:
+## 3. Run tests before merge
+- Run the full suite:
+  `xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' test`
+- If the run ends with `** TEST SUCCEEDED **`, proceed to step 4.
+- If the run fails: **abort `/wrap-session`**. Report the failing tests to the user, keep the feature branch checked out, and stop. The session stays open until the suite is green — do not merge a red branch.
+- Doc-only feature branches (no Swift changes) may skip this step; verify via `git diff --name-only main...HEAD` showing only non-`.swift` files.
+
+## 4. Merge to main
+- Only after explicit approval AND a green test run:
   - `git checkout main`
   - `git pull --ff-only` if a remote is configured (skip silently if none).
   - `git merge --no-ff <feature-branch> -m "Merge branch '<feature-branch>'"`
   - Do NOT delete the feature branch automatically. Ask the user if they want it deleted; default to keeping it.
 - If merge conflicts occur: stop, surface them, let the user resolve. Do not attempt auto-resolution.
 
-## 4. Generate the next-session starter prompt
+## 5. Generate the next-session starter prompt
 Compose a prompt that lets a fresh session pick up where this one left off. Include:
 - **Project context** — one sentence: "Wamp, macOS/Swift/AppKit, Winamp clone, working directory `/Users/valerijbakalenko/Documents/Stranger/Code/AI/WinampMac`".
 - **What just shipped** — 2-3 bullets summarizing the merged work (from the report in step 2).
@@ -31,10 +38,10 @@ Compose a prompt that lets a fresh session pick up where this one left off. Incl
 
 Keep the whole prompt under 200 words. Plain text, no code blocks nested inside it.
 
-## 5. Persist and surface the prompt
+## 6. Persist and surface the prompt
 - Write the prompt to `docs/superpowers/next-session.md`, overwriting any previous content. Include a header line with the current date (`# Next session — YYYY-MM-DD`).
 - Print the exact same prompt in the chat, wrapped in a single fenced code block so the user can copy it cleanly.
 
-## 6. Signal completion
+## 7. Signal completion
 - Tell the user: "Wrap-up complete. You can `/clear` and start a new session with the prompt above (or read it from `docs/superpowers/next-session.md`)."
 - Do not take any further actions. Stop.
