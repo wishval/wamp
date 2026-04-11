@@ -213,7 +213,9 @@ class EqualizerView: NSView {
         let respGap: CGFloat = 6
         let respX = autoButton.frame.maxX + respGap
         let respWidth = presetsButton.frame.minX - respX - respGap
-        responseView.frame = NSRect(x: respX, y: controlsY, width: max(0, respWidth), height: 14)
+        let respH: CGFloat = 19
+        let respY = controlsY - (respH - 14) / 2
+        responseView.frame = NSRect(x: respX, y: respY, width: max(0, respWidth), height: respH)
 
         let sliderH: CGFloat = 62
         let sliderAreaTop = controlsY - 4
