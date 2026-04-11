@@ -28,9 +28,13 @@ class StateManager {
     private var cancellables = Set<AnyCancellable>()
     private var saveWorkItem: DispatchWorkItem?
 
-    init() {
+    static var defaultDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        appSupportDir = appSupport.appendingPathComponent("Wamp")
+        return appSupport.appendingPathComponent("Wamp")
+    }
+
+    init(directory: URL = StateManager.defaultDirectory) {
+        appSupportDir = directory
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
     }
 
@@ -78,6 +82,10 @@ class StateManager {
             autoMode: autoMode
         )
         write(eqState, to: "equalizer.json")
+    }
+
+    func saveEQState(_ state: EQState) {
+        write(state, to: "equalizer.json")
     }
 
     func savePlaylist(playlistManager: PlaylistManager) {
