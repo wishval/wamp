@@ -611,9 +611,7 @@ class MainPlayerView: NSView {
             return mi
         }
 
-        menu.addItem(NSMenuItem(title: "About Wamp",
-                                action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-                                keyEquivalent: ""))
+        menu.addItem(item("About Wamp", "showAboutPanel"))
         menu.addItem(.separator())
 
         // File

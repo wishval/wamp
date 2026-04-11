@@ -118,7 +118,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // App menu
         let appMenu = NSMenu()
-        appMenu.addItem(NSMenuItem(title: "About Wamp", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        let aboutItem = NSMenuItem(title: "About Wamp", action: #selector(showAboutPanel), keyEquivalent: "")
+        aboutItem.target = self
+        appMenu.addItem(aboutItem)
         appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(title: "Quit Wamp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let appMenuItem = NSMenuItem()
@@ -214,6 +216,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Menu Actions
+    @objc func showAboutPanel() {
+        let credits = NSMutableAttributedString()
+        let body: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11),
+            .foregroundColor: NSColor.labelColor
+        ]
+        credits.append(NSAttributedString(
+            string: "A modern macOS media player inspired by the classic Winamp experience.\n\n",
+            attributes: body
+        ))
+        credits.append(NSAttributedString(string: "Built with Swift\n\n", attributes: body))
+        let linkAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11),
+            .link: URL(string: "https://github.com/wishval/wamp") as Any,
+            .foregroundColor: NSColor.linkColor
+        ]
+        credits.append(NSAttributedString(string: "GitHub: https://github.com/wishval/wamp",
+                                          attributes: linkAttrs))
+
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "Wamp",
+            .applicationVersion: "1.1.0",
+            .version: "",
+            .credits: credits,
+            NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "© 2026 Valerii Bakalenko."
+        ])
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @objc private func openFileAction() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
