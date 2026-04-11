@@ -202,6 +202,48 @@ class PlaylistManager: ObservableObject {
         await addURLs(urls)
     }
 
+    /// Write the current playlist as an M3U file (one track URL/path per line).
+    func savePlaylistM3U(to fileURL: URL) {
+        var lines: [String] = ["#EXTM3U"]
+        for track in tracks {
+            lines.append("#EXTINF:\(Int(track.duration.rounded())),\(track.displayTitle)")
+            lines.append(track.url.path)
+        }
+        let text = lines.joined(separator: "\n") + "\n"
+        try? text.write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
+    /// Load an M3U/M3U8/PLS playlist, replacing the current track list.
+    func loadPlaylistM3U(from fileURL: URL) async {
+        guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
+        let baseDir = fileURL.deletingLastPathComponent()
+        var urls: [URL] = []
+        let ext = fileURL.pathExtension.lowercased()
+        if ext == "pls" {
+            for line in text.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.lowercased().hasPrefix("file"),
+                      let eq = trimmed.firstIndex(of: "=") else { continue }
+                let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+                urls.append(resolvePlaylistEntry(value, baseDir: baseDir))
+            }
+        } else {
+            for line in text.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+                urls.append(resolvePlaylistEntry(trimmed, baseDir: baseDir))
+            }
+        }
+        clearPlaylist()
+        await addURLs(urls)
+    }
+
+    private func resolvePlaylistEntry(_ entry: String, baseDir: URL) -> URL {
+        if let url = URL(string: entry), url.scheme != nil { return url }
+        if entry.hasPrefix("/") { return URL(fileURLWithPath: entry) }
+        return baseDir.appendingPathComponent(entry)
+    }
+
     // MARK: - Private
     private func advanceToNext() {
         print("⚡ advanceToNext: repeatMode=\(String(describing: audioEngine?.repeatMode))")

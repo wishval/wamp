@@ -45,7 +45,7 @@ class MainPlayerView: NSView {
     private let rightPanel = NSView()
 
     // Play state indicator
-    private let playIndicator = NSView()
+    private let playIndicator = PlayStateIndicator()
 
     // Invisible click hit-zones for close/minimize when skinned (replace hidden titleBar)
     private let closeHitZone = NSView()
@@ -97,6 +97,7 @@ class MainPlayerView: NSView {
         // Time display
         timeDisplay.wantsLayer = true
         addSubview(timeDisplay)
+        addSubview(playIndicator)
 
         // Spectrum
         spectrumView.wantsLayer = true
@@ -393,7 +394,11 @@ class MainPlayerView: NSView {
         let timeH: CGFloat = 23
         let timeSpecGap: CGFloat = 6
         let specH = displayH - timeH - timeSpecGap - 2
-        timeDisplay.frame = NSRect(x: pad + 2, y: contentTop - timeH - 2, width: leftPanelW - 4, height: timeH)
+        let indicatorW: CGFloat = 11
+        let indicatorGap: CGFloat = 3
+        playIndicator.frame = NSRect(x: pad + 3, y: contentTop - timeH + (timeH - indicatorW) / 2 - 2, width: indicatorW, height: indicatorW)
+        let timeX = pad + 3 + indicatorW + indicatorGap
+        timeDisplay.frame = NSRect(x: timeX, y: contentTop - timeH - 2, width: leftPanelW - (timeX - pad) - 2, height: timeH)
         spectrumView.frame = NSRect(x: pad + 2, y: contentTop - displayH + 2, width: leftPanelW - 4, height: specH)
 
         // Right panel (black bg)
@@ -494,8 +499,9 @@ class MainPlayerView: NSView {
 
         // Volume
         volumeSlider.value = audioEngine.volume
-        volumeSlider.onChange = { [weak audioEngine] value in
+        volumeSlider.onChange = { [weak self, weak audioEngine] value in
             audioEngine?.volume = value
+            self?.lcdDisplay.showOverlay("Volume: \(Int(round(value * 100)))%")
         }
 
         // Balance
@@ -517,6 +523,13 @@ class MainPlayerView: NSView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] playing in
                 self?.transportBar.playButton.isActive = playing
+            }
+            .store(in: &cancellables)
+
+        audioEngine.$playState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.playIndicator.state = state
             }
             .store(in: &cancellables)
 

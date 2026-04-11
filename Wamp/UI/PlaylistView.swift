@@ -12,6 +12,7 @@ class PlaylistView: NSView {
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
     private let remAllButton = WinampButton(title: "REM ALL", style: .action)
+    private let listOptsButton = WinampButton(title: "LIST OPTS", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
     private let skinScroller = PlaylistSkinScroller()
 
@@ -97,6 +98,9 @@ class PlaylistView: NSView {
         addSubview(remButton)
         addSubview(remAllButton)
 
+        listOptsButton.onClick = { [weak self] in self?.showListOptsMenu() }
+        addSubview(listOptsButton)
+
         // Info label
         infoLabel.font = WinampTheme.bitrateFont
         infoLabel.textColor = WinampTheme.greenBright
@@ -130,6 +134,7 @@ class PlaylistView: NSView {
         addButton.isHidden = active
         remButton.isHidden = active
         remAllButton.isHidden = active
+        listOptsButton.isHidden = active
         // Classic Winamp playlist rows are tight — text.bmp glyphs are 6 px tall.
         tableView.rowHeight = active ? 13 : 18
         tableView.backgroundColor = active ? WinampTheme.provider.playlistStyle.normalBG : .black
@@ -288,11 +293,14 @@ class PlaylistView: NSView {
         remButton.frame = NSRect(x: pad + btnW + 1, y: 2, width: btnW, height: btnH)
         remAllButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
 
-        let infoW: CGFloat = 100
+        let listOptsW: CGFloat = 52
+        listOptsButton.frame = NSRect(x: w - pad - listOptsW, y: 2, width: listOptsW, height: btnH)
+
+        let infoW: CGFloat = 90
         let infoFont = infoLabel.font ?? NSFont.systemFont(ofSize: 9)
         let infoTextH = infoFont.boundingRectForFont.height
         let infoY = round((bottomBarH - infoTextH) / 2)
-        infoLabel.frame = NSRect(x: w - pad - infoW, y: infoY, width: infoW, height: infoTextH)
+        infoLabel.frame = NSRect(x: w - pad - listOptsW - 4 - infoW, y: infoY, width: infoW, height: infoTextH)
 
         // Search
         searchField.frame = NSRect(x: pad, y: bottomBarH, width: w - 2 * pad, height: searchH)
@@ -397,6 +405,50 @@ class PlaylistView: NSView {
             Task { @MainActor in
                 await self?.playlistManager?.addURLs(panel.urls)
             }
+        }
+    }
+
+    private func showListOptsMenu() {
+        let menu = NSMenu()
+        let newItem = NSMenuItem(title: "New list", action: #selector(listOptsNew), keyEquivalent: "")
+        newItem.target = self
+        let loadItem = NSMenuItem(title: "Load list…", action: #selector(listOptsLoad), keyEquivalent: "")
+        loadItem.target = self
+        let saveItem = NSMenuItem(title: "Save list…", action: #selector(listOptsSave), keyEquivalent: "")
+        saveItem.target = self
+        menu.addItem(newItem)
+        menu.addItem(loadItem)
+        menu.addItem(saveItem)
+        menu.popUp(positioning: nil, at: NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY), in: self)
+    }
+
+    @objc private func listOptsNew() {
+        playlistManager?.clearPlaylist()
+    }
+
+    @objc private func listOptsLoad() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "m3u"),
+                                     UTType(filenameExtension: "m3u8"),
+                                     UTType(filenameExtension: "pls")].compactMap { $0 }
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                await self?.playlistManager?.loadPlaylistM3U(from: url)
+            }
+        }
+    }
+
+    @objc private func listOptsSave() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "m3u")].compactMap { $0 }
+        panel.nameFieldStringValue = "playlist.m3u"
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.playlistManager?.savePlaylistM3U(to: url)
         }
     }
 
