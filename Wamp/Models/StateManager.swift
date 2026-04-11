@@ -84,6 +84,10 @@ class StateManager {
         write(eqState, to: "equalizer.json")
     }
 
+    func saveEQState(_ state: EQState) {
+        write(state, to: "equalizer.json")
+    }
+
     func savePlaylist(playlistManager: PlaylistManager) {
         let trackData = playlistManager.tracks.map { $0 }
         write(trackData, to: "playlist.json")
