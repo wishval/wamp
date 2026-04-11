@@ -31,3 +31,6 @@ playground.xcworkspace
 
 # Tools
 .superpowers/
+
+# Claude Code workflow artifacts
+docs/superpowers/next-session.md
