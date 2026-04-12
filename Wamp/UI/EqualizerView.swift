@@ -43,6 +43,11 @@ class EqualizerView: NSView {
     private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
 
+    var autoMode: Bool {
+        get { autoButton.isActive }
+        set { autoButton.isActive = newValue }
+    }
+
     private let bandNames = ["70", "180", "320", "600", "1K", "3K", "6K", "12K", "14K", "16K"]
 
     /// View height in logical points. eqmain.bmp is 116 px tall, so when a skin
