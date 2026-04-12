@@ -240,8 +240,9 @@ class EqualizerView: NSView {
         let respGap: CGFloat = 6
         let respX = autoButton.frame.maxX + respGap
         let respWidth = presetsButton.frame.minX - respX - respGap
-        let respH: CGFloat = 24
-        let respY = controlsY - (respH - 14) / 2
+        let respH: CGFloat = 19
+        let titleBottom = bounds.height - WinampTheme.titleBarHeight
+        let respY = titleBottom - 3 - respH
         responseView.frame = NSRect(x: respX, y: respY, width: max(0, respWidth), height: respH)
 
         let sliderH: CGFloat = 56
@@ -275,9 +276,22 @@ class EqualizerView: NSView {
     func bindToModel(audioEngine: AudioEngine, playlistManager: PlaylistManager? = nil) {
         self.audioEngine = audioEngine
 
+        // Sync sliders and response curve from the audio engine's current state
+        for (i, slider) in bandSliders.enumerated() {
+            slider.value = audioEngine.eqBands[i]
+        }
+        preampSlider.value = audioEngine.preampGain
+        responseView.bands = audioEngine.eqBands
+
         audioEngine.$eqEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in self?.onButton.isActive = enabled }
+            .store(in: &cancellables)
+
+        // Keep response curve in sync with any band changes (presets, external updates)
+        audioEngine.$eqBands
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] bands in self?.responseView.bands = bands }
             .store(in: &cancellables)
 
         // AUTO mode: match genre to preset when track changes
