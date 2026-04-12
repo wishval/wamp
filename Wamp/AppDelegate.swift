@@ -59,6 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow.showEqualizer = appState.showEqualizer
         mainWindow.showPlaylist = appState.showPlaylist
         mainWindow.alwaysOnTop = appState.alwaysOnTop
+        mainWindow.equalizerView.autoMode = eqState.autoMode
 
         let windowOrigin = NSPoint(x: appState.windowX, y: appState.windowY)
         mainWindow.setFrameOrigin(windowOrigin)
@@ -102,7 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             audioEngine: audioEngine,
             playlistManager: playlistManager
         )
-        stateManager.saveEQState(audioEngine: audioEngine)
+        stateManager.saveEQState(audioEngine: audioEngine, autoMode: mainWindow.equalizerView.autoMode)
         stateManager.savePlaylist(playlistManager: playlistManager)
     }
 
