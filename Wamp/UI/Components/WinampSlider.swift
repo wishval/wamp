@@ -171,18 +171,11 @@ class WinampSlider: NSView {
         NSBezierPath(rect: trackRect).fill()
         drawInsetBorder(trackRect)
 
-        // Full-height gradient using exact colors from Winamp 2.x volume.bmp
-        // (green at bottom / -12dB, red at top / +12dB).
+        // Single flat color based on slider position, from Winamp 2.x skin palette.
         let thumbY = rect.height * normalizedValue
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackRect.minY + 1, width: trackRect.width - 2, height: max(0, trackRect.height - 2))
-        let skinGradient = NSGradient(colorsAndLocations:
-            (NSColor(hex: 0x18920B), 0.0),    // dark green (bottom, -12dB)
-            (NSColor(hex: 0x81E230), 0.19),   // bright green
-            (NSColor(hex: 0xC6DA30), 0.44),   // yellow
-            (NSColor(hex: 0xE0B228), 0.67),   // orange
-            (NSColor(hex: 0xE00E15), 1.0)     // red (top, +12dB)
-        )
-        skinGradient?.draw(in: fillRect, angle: 90)
+        Self.skinColor(at: normalizedValue).setFill()
+        fillRect.fill()
 
         // Thumb
         let eqThumbH: CGFloat = 4
@@ -212,6 +205,32 @@ class WinampSlider: NSView {
         let path = NSBezierPath(roundedRect: rect, xRadius: 1, yRadius: 1)
         path.lineWidth = 0.5
         path.stroke()
+    }
+
+    /// Interpolates between Winamp 2.x volume.bmp skin colors for a given 0..1 position.
+    private static func skinColor(at t: CGFloat) -> NSColor {
+        let stops: [(CGFloat, UInt32)] = [
+            (0.0,  0x18920B),  // dark green
+            (0.19, 0x81E230),  // bright green
+            (0.44, 0xC6DA30),  // yellow
+            (0.67, 0xE0B228),  // orange
+            (1.0,  0xE00E15),  // red
+        ]
+        // Find the two stops that bracket t
+        var lo = 0
+        for i in 1..<stops.count {
+            if stops[i].0 >= t { lo = i - 1; break }
+            lo = i - 1
+        }
+        let hi = min(lo + 1, stops.count - 1)
+        let range = stops[hi].0 - stops[lo].0
+        let frac = range > 0 ? (t - stops[lo].0) / range : 0
+        let c1 = stops[lo].1
+        let c2 = stops[hi].1
+        let r = CGFloat((c1 >> 16) & 0xFF) + frac * (CGFloat((c2 >> 16) & 0xFF) - CGFloat((c1 >> 16) & 0xFF))
+        let g = CGFloat((c1 >> 8) & 0xFF) + frac * (CGFloat((c2 >> 8) & 0xFF) - CGFloat((c1 >> 8) & 0xFF))
+        let b = CGFloat(c1 & 0xFF) + frac * (CGFloat(c2 & 0xFF) - CGFloat(c1 & 0xFF))
+        return NSColor(red: r / 255, green: g / 255, blue: b / 255, alpha: 1)
     }
 
     private func drawInsetBorder(_ rect: NSRect) {
