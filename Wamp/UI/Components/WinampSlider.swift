@@ -217,7 +217,10 @@ class WinampSlider: NSView {
     private static func skinColor(at t: CGFloat) -> NSColor {
         let index = max(0, min(18, Int(round(t * 18))))
         let hex = sliderPalette[index]
-        return NSColor(hex: hex)
+        return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+                       green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+                       blue: CGFloat(hex & 0xFF) / 255.0,
+                       alpha: 1.0)
     }
 
     private func drawInsetBorder(_ rect: NSRect) {
