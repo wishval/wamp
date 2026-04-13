@@ -34,22 +34,38 @@ class EQResponseView: NSView {
         }
 
         // Draw response curve using the 19 line colors sampled from eqmain.bmp.
-        // The colors are top→bottom = +12dB→-12dB. We render at 1px thickness per dB row.
+        // Colors are row 0 = +12dB (top) → row 18 = -12dB (bottom).
         let lines = WinampTheme.provider.eqGraphLineColors
-        guard lines.count == 19, !bands.isEmpty else { return }
+        guard lines.count == 19, bands.count >= 2 else { return }
 
-        // Interpolate band values across the bounds width and pick the corresponding color row.
         let cols = max(1, Int(bounds.width))
-        let rowHeight = bounds.height / 19
+        let h = bounds.height
+        var prevY: CGFloat = 0
+
         for col in 0..<cols {
-            let bandIndex = min(bands.count - 1, Int(Double(col) / Double(cols) * Double(bands.count)))
-            let band = bands[bandIndex]
-            // band is in -12...+12; row 0 = +12dB (top), row 18 = -12dB (bottom)
-            let row = Int(round(9 - Double(band) * 9 / 12))
-            let clampedRow = max(0, min(18, row))
-            lines[clampedRow].setFill()
-            let y = bounds.height - CGFloat(clampedRow + 1) * rowHeight
-            NSRect(x: CGFloat(col), y: y, width: 1, height: max(1, rowHeight)).fill()
+            // Map column to fractional band index and linearly interpolate gain
+            let t = Double(col) / Double(cols - 1) * Double(bands.count - 1)
+            let i = min(Int(t), bands.count - 2)
+            let frac = t - Double(i)
+            let gain = Double(bands[i]) * (1 - frac) + Double(bands[i + 1]) * frac
+
+            // Map gain (-12…+12) to pixel Y (0 = bottom, h-1 = top)
+            let normalized = CGFloat((gain + 12) / 24)
+            let curveY = round(normalized * (h - 1))
+
+            // Color by row: row 0 = +12dB (top), row 18 = -12dB (bottom)
+            let row = max(0, min(18, Int(round((1 - normalized) * 18))))
+            lines[row].setFill()
+
+            if col == 0 {
+                NSRect(x: CGFloat(col), y: curveY, width: 1, height: 1).fill()
+            } else {
+                // Fill vertical span between previous and current Y to avoid gaps
+                let minY = min(prevY, curveY)
+                let maxY = max(prevY, curveY)
+                NSRect(x: CGFloat(col), y: minY, width: 1, height: maxY - minY + 1).fill()
+            }
+            prevY = curveY
         }
     }
 
