@@ -84,7 +84,7 @@ class EQResponseView: NSView {
             points.append(NSPoint(x: x, y: y))
         }
 
-        // Draw segments between each pair of points, colored by average gain
+        // Draw Catmull-Rom spline segments for smooth curves, colored by average gain
         for i in 0..<(points.count - 1) {
             let avgGain = (bands[i] + bands[i + 1]) / 2.0
             let t = CGFloat((avgGain - (-12)) / 24.0) // 0..1
@@ -92,10 +92,18 @@ class EQResponseView: NSView {
             let color = NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
             color.setStroke()
 
+            let p0 = i > 0 ? points[i - 1] : points[i]
+            let p1 = points[i]
+            let p2 = points[i + 1]
+            let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
+
+            let cp1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
+            let cp2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+
             let segment = NSBezierPath()
             segment.lineWidth = lineWidth
-            segment.move(to: points[i])
-            segment.line(to: points[i + 1])
+            segment.move(to: p1)
+            segment.curve(to: p2, controlPoint1: cp1, controlPoint2: cp2)
             segment.stroke()
         }
     }
