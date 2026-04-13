@@ -139,16 +139,8 @@ class WinampSlider: NSView {
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
         switch style {
         case .volume:
-            // Full-width gradient using exact colors from Winamp 2.x volume.bmp.
-            let fullFillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: trackRect.width - 2, height: 4)
-            let skinGradient = NSGradient(colorsAndLocations:
-                (NSColor(hex: 0x18920B), 0.0),    // pos 0  — dark green
-                (NSColor(hex: 0x81E230), 0.19),   // pos 5  — bright green
-                (NSColor(hex: 0xC6DA30), 0.44),   // pos 12 — yellow
-                (NSColor(hex: 0xE0B228), 0.67),   // pos 18 — orange
-                (NSColor(hex: 0xE00E15), 1.0)     // pos 27 — red
-            )
-            skinGradient?.draw(in: fullFillRect, angle: 0)
+            Self.skinColor(at: normalizedValue).setFill()
+            fillRect.fill()
         default:
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
             gradient?.draw(in: fillRect, angle: 90)
