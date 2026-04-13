@@ -12,11 +12,14 @@ private final class DottedDivider: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // Match the spectrum-bar bottom-row pattern: 3 px on, 1 px off, same green.
-        WinampTheme.spectrumBarBottom.setFill()
+        // Vertical dotted line matching the spectrum bar gradient:
+        // each dot is 3px tall (2px green bottom + 1px yellow top), 1px gap.
         var y: CGFloat = 0
         while y < bounds.height {
-            NSRect(x: 0, y: y, width: 1, height: 3).fill()
+            WinampTheme.spectrumBarBottom.setFill()
+            NSRect(x: 0, y: y, width: 1, height: 2).fill()
+            WinampTheme.spectrumBarTop.setFill()
+            NSRect(x: 0, y: y + 2, width: 1, height: 1).fill()
             y += 4
         }
     }
@@ -552,7 +555,15 @@ class MainPlayerView: NSView {
 
         // Transport
         transportBar.onPrevious = { [weak playlistManager] in playlistManager?.playPrevious() }
-        transportBar.onPlay = { [weak audioEngine] in audioEngine?.play() }
+        transportBar.onPlay = { [weak self] in
+            guard let self, let engine = self.audioEngine else { return }
+            if engine.playState == .stopped,
+               let track = self.playlistManager?.currentTrack {
+                engine.loadAndPlay(url: track.url)
+            } else {
+                engine.play()
+            }
+        }
         transportBar.onPause = { [weak audioEngine] in audioEngine?.pause() }
         transportBar.onStop = { [weak audioEngine] in audioEngine?.stop() }
         transportBar.onNext = { [weak playlistManager] in playlistManager?.playNext() }

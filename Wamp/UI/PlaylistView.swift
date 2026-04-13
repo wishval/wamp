@@ -11,8 +11,8 @@ class PlaylistView: NSView {
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
-    private let remAllButton = WinampButton(title: "REM ALL", style: .action)
-    private let listOptsButton = WinampButton(title: "LIST OPTS", style: .action)
+    private let remAllButton = WinampButton(title: "CLEAR", style: .action)
+    private let listOptsButton = WinampButton(title: "LISTS", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
     private let skinScroller = PlaylistSkinScroller()
 
@@ -93,6 +93,7 @@ class PlaylistView: NSView {
         addButton.spriteKeyProvider    = { _, pressed in .playlistAddFile(pressed: pressed) }
         remButton.spriteKeyProvider    = { _, pressed in .playlistRemoveSelected(pressed: pressed) }
         remAllButton.spriteKeyProvider = { _, pressed in .playlistRemoveAll(pressed: pressed) }
+        listOptsButton.spriteKeyProvider = { _, pressed in .playlistMiscOpts(pressed: pressed) }
 
         addSubview(addButton)
         addSubview(remButton)
@@ -293,7 +294,7 @@ class PlaylistView: NSView {
         remButton.frame = NSRect(x: pad + btnW + 1, y: 2, width: btnW, height: btnH)
         remAllButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
 
-        let listOptsW: CGFloat = 52
+        let listOptsW: CGFloat = 36
         listOptsButton.frame = NSRect(x: w - pad - listOptsW, y: 2, width: listOptsW, height: btnH)
 
         let infoW: CGFloat = 90

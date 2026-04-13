@@ -215,7 +215,7 @@ class EqualizerView: NSView {
         // Five pale horizontal stripes running across the full EQ area
         // (preamp + bands), evenly spaced through the slider track — classic
         // eqmain.bmp pattern.
-        let stripeColor = NSColor(white: 1.0, alpha: 0.10)
+        let stripeColor = NSColor(white: 1.0, alpha: 0.08)
         stripeColor.setFill()
         let stripeX = preampX - 2
         let stripeEnd = bounds.width - pad

@@ -74,6 +74,8 @@ enum SpriteKey: Hashable {
     case playlistAddFile(pressed: Bool)
     case playlistRemoveSelected(pressed: Bool)
     case playlistRemoveAll(pressed: Bool)
+    case playlistSelectAll(pressed: Bool)
+    case playlistMiscOpts(pressed: Bool)
 }
 
 struct SpriteInfo {
@@ -225,6 +227,10 @@ enum SpriteCoordinates {
             return SpriteInfo(sheet: "pledit", rect: CGRect(x: p ? 77 : 54, y: 149, width: 22, height: 18))
         case .playlistRemoveAll(let p):
             return SpriteInfo(sheet: "pledit", rect: CGRect(x: p ? 77 : 54, y: 111, width: 22, height: 18))
+        case .playlistSelectAll(let p):
+            return SpriteInfo(sheet: "pledit", rect: CGRect(x: p ? 23 : 0, y: 111, width: 22, height: 18))
+        case .playlistMiscOpts(let p):
+            return SpriteInfo(sheet: "pledit", rect: CGRect(x: p ? 23 : 0, y: 130, width: 22, height: 18))
         }
     }
 }

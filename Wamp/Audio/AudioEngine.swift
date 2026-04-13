@@ -91,6 +91,19 @@ class AudioEngine: ObservableObject {
     }
 
     // MARK: - Playback Controls
+
+    /// Loads an audio file and prepares duration/metadata without starting playback.
+    func load(url: URL) {
+        stop()
+        playbackGeneration &+= 1
+
+        do {
+            try loadFile(url: url)
+        } catch {
+            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+        }
+    }
+
     func loadAndPlay(url: URL) {
         print("🔵 loadAndPlay: \(url.lastPathComponent), gen=\(playbackGeneration)")
         stop()
@@ -98,18 +111,7 @@ class AudioEngine: ObservableObject {
         print("🔵 loadAndPlay: after stop, new gen=\(playbackGeneration)")
 
         do {
-            audioFile = try AVAudioFile(forReading: url)
-            guard let file = audioFile else {
-                print("🔴 loadAndPlay: audioFile is nil after init")
-                return
-            }
-
-            audioSampleRate = file.processingFormat.sampleRate
-            audioLengthFrames = file.length
-            duration = Double(audioLengthFrames) / audioSampleRate
-            seekFrame = 0
-            needsScheduling = true
-            print("🔵 loadAndPlay: file loaded, sampleRate=\(audioSampleRate), frames=\(audioLengthFrames), duration=\(duration)s")
+            try loadFile(url: url)
 
             if !engine.isRunning {
                 try engine.start()
@@ -120,6 +122,22 @@ class AudioEngine: ObservableObject {
         } catch {
             print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
         }
+    }
+
+    /// Shared helper: opens the audio file and sets duration/sample-rate metadata.
+    private func loadFile(url: URL) throws {
+        audioFile = try AVAudioFile(forReading: url)
+        guard let file = audioFile else {
+            print("🔴 loadFile: audioFile is nil after init")
+            return
+        }
+
+        audioSampleRate = file.processingFormat.sampleRate
+        audioLengthFrames = file.length
+        duration = Double(audioLengthFrames) / audioSampleRate
+        seekFrame = 0
+        needsScheduling = true
+        print("🔵 loadFile: file loaded, sampleRate=\(audioSampleRate), frames=\(audioLengthFrames), duration=\(duration)s")
     }
 
     func play() {
