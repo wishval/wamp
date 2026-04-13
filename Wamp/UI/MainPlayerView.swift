@@ -58,6 +58,9 @@ class MainPlayerView: NSView {
     private weak var audioEngine: AudioEngine?
     private weak var playlistManager: PlaylistManager?
 
+    // Window dragging state for skinned mode (titleBar is hidden)
+    private var dragOrigin: NSPoint?
+
     /// View height in logical (pre-scale) points. Winamp's main.bmp is exactly
     /// 116 px tall, so when a skin is active we shrink the view to match and
     /// lay out subviews at the sprite's native pixel coordinates. When no skin
@@ -660,5 +663,36 @@ class MainPlayerView: NSView {
                 }
             }
         }
+    }
+
+    // MARK: - Window dragging (skinned mode)
+    // When skinned, TitleBarView is hidden so we handle dragging from the title
+    // bar area (top 14px of the 116px skin) directly in MainPlayerView.
+
+    override func mouseDown(with event: NSEvent) {
+        guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        let titleBarMinY = bounds.height - 14
+        guard point.y >= titleBarMinY else { super.mouseDown(with: event); return }
+        // Don't drag from close/minimize hit-zones
+        if closeHitZone.frame.contains(point) || minimizeHitZone.frame.contains(point) {
+            super.mouseDown(with: event)
+            return
+        }
+        dragOrigin = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else { return }
+        let current = event.locationInWindow
+        var frame = win.frame
+        frame.origin.x += current.x - origin.x
+        frame.origin.y += current.y - origin.y
+        win.setFrameOrigin(frame.origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        super.mouseUp(with: event)
     }
 }

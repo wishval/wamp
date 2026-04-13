@@ -20,6 +20,7 @@ class PlaylistView: NSView {
     private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
     private var lastColumnWidth: CGFloat = 0
+    private var dragOrigin: NSPoint?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -464,6 +465,31 @@ class PlaylistView: NSView {
                 await self?.playlistManager?.addFolder(url)
             }
         }
+    }
+
+    // MARK: - Window dragging (skinned mode)
+    override func mouseDown(with event: NSEvent) {
+        guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard point.y >= bounds.height - 20 else { super.mouseDown(with: event); return }
+        dragOrigin = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let current = event.locationInWindow
+        var frame = win.frame
+        frame.origin.x += current.x - origin.x
+        frame.origin.y += current.y - origin.y
+        win.setFrameOrigin(frame.origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        super.mouseUp(with: event)
     }
 
     // MARK: - Drag and Drop

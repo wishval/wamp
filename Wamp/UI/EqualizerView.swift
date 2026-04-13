@@ -42,6 +42,7 @@ class EqualizerView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
+    private var dragOrigin: NSPoint?
 
     var autoMode: Bool {
         get { autoButton.isActive }
@@ -358,5 +359,27 @@ class EqualizerView: NSView {
             slider.value = preset.bands[i]
         }
         responseView.bands = preset.bands
+    }
+
+    // MARK: - Window dragging (skinned mode)
+    override func mouseDown(with event: NSEvent) {
+        guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard point.y >= bounds.height - 14 else { super.mouseDown(with: event); return }
+        dragOrigin = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else { return }
+        let current = event.locationInWindow
+        var frame = win.frame
+        frame.origin.x += current.x - origin.x
+        frame.origin.y += current.y - origin.y
+        win.setFrameOrigin(frame.origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        super.mouseUp(with: event)
     }
 }
