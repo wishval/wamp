@@ -49,9 +49,10 @@ class MainPlayerView: NSView {
     // Play state indicator
     private let playIndicator = PlayStateIndicator()
 
-    // Invisible click hit-zones for close/minimize when skinned (replace hidden titleBar)
+    // Invisible click hit-zones for close/minimize/menu when skinned (replace hidden titleBar)
     private let closeHitZone = NSView()
     private let minimizeHitZone = NSView()
+    private let menuHitZone = NSView()
 
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
@@ -238,19 +239,23 @@ class MainPlayerView: NSView {
         eqButton.onClick = { [weak self] in self?.onToggleEQ?() }
         plButton.onClick = { [weak self] in self?.onTogglePL?() }
 
-        // Click hit-zones for close/minimize when skinned (titleBar is hidden then,
-        // so we need invisible NSViews at the locations where main.bmp paints these
-        // buttons so the user can still close/minimize the window).
+        // Click hit-zones for close/minimize/menu when skinned (titleBar is hidden
+        // then, so we need invisible NSViews at the locations where main.bmp paints
+        // these buttons so the user can still interact with them).
         addSubview(closeHitZone)
         addSubview(minimizeHitZone)
+        addSubview(menuHitZone)
         let closeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedClose))
         closeHitZone.addGestureRecognizer(closeClick)
         let minimizeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMinimize))
         minimizeHitZone.addGestureRecognizer(minimizeClick)
+        let menuClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMenu))
+        menuHitZone.addGestureRecognizer(menuClick)
     }
 
     @objc private func handleSkinnedClose() { NSApp.terminate(nil) }
     @objc private func handleSkinnedMinimize() { window?.miniaturize(nil) }
+    @objc private func handleSkinnedMenu() { showWindowMenu() }
 
     /// Hides NSTextField labels and helper NSViews whose visual content is baked
     /// into main.bmp / monoster.bmp / text.bmp when a skin is loaded. See spec §8.
@@ -269,6 +274,7 @@ class MainPlayerView: NSView {
         playIndicator.isHidden = active
         closeHitZone.isHidden = !active
         minimizeHitZone.isHidden = !active
+        menuHitZone.isHidden = !active
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -347,6 +353,9 @@ class MainPlayerView: NSView {
         let hitY = h - 3 - hitSize
         closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
         minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
+
+        // Menu icon hit-zone — webamp top-left icon at (6, 3, 9×9)
+        menuHitZone.frame = NSRect(x: 6, y: hitY, width: hitSize, height: hitSize)
 
         // Hidden panels — collapse
         leftPanel.frame = .zero
@@ -470,6 +479,7 @@ class MainPlayerView: NSView {
         let hitY: CGFloat = 116 - 3 - hitSize
         closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
         minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
+        menuHitZone.frame = .zero
     }
 
     // MARK: - Binding
@@ -674,8 +684,9 @@ class MainPlayerView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let titleBarMinY = bounds.height - 14
         guard point.y >= titleBarMinY else { super.mouseDown(with: event); return }
-        // Don't drag from close/minimize hit-zones
-        if closeHitZone.frame.contains(point) || minimizeHitZone.frame.contains(point) {
+        // Don't drag from close/minimize/menu hit-zones
+        if closeHitZone.frame.contains(point) || minimizeHitZone.frame.contains(point)
+            || menuHitZone.frame.contains(point) {
             super.mouseDown(with: event)
             return
         }
