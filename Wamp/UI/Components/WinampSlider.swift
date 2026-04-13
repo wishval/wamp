@@ -124,7 +124,7 @@ class WinampSlider: NSView {
         // Track background
         switch style {
         case .volume:
-            let gradient = NSGradient(starting: WinampTheme.volumeBgStart, ending: WinampTheme.volumeBgEnd)
+            let gradient = NSGradient(starting: NSColor(hex: 0x1A1A2C), ending: NSColor(hex: 0x2A2A44))
             gradient?.draw(in: trackRect, angle: 0)
         default:
             WinampTheme.lcdBackground.setFill()
@@ -139,7 +139,11 @@ class WinampSlider: NSView {
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
         switch style {
         case .volume:
-            let gradient = NSGradient(starting: WinampTheme.volumeFillStart, ending: WinampTheme.volumeFillEnd)
+            let gradient = NSGradient(colors: [
+                NSColor(hex: 0x3CB010),  // green (low volume)
+                NSColor(hex: 0xE0DA30),  // yellow (mid)
+                NSColor(hex: 0xE01015)   // red (max volume)
+            ])
             gradient?.draw(in: fillRect, angle: 0)
         default:
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
