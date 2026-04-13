@@ -8,6 +8,8 @@ class SpectrumView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = true
         skinObserver = SkinManager.shared.$currentSkin
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.needsDisplay = true }
@@ -35,6 +37,18 @@ class SpectrumView: NSView {
             top = WinampTheme.spectrumBarTop
         }
         let gradient = NSGradient(starting: bottom, ending: top)
+
+        // Dotted scale line on the left edge, full height of the view
+        if !WinampTheme.skinIsActive {
+        var y: CGFloat = 0
+        while y < bounds.height {
+            bottom.setFill()
+            NSRect(x: 0, y: y, width: 1, height: 2).fill()
+            top.setFill()
+            NSRect(x: 0, y: y + 2, width: 1, height: 1).fill()
+            y += 4
+        }
+        }
 
         for i in 0..<totalBars {
             let dataIndex = i < spectrumData.count ? i : 0
