@@ -136,12 +136,18 @@ class WinampSlider: NSView {
 
         // Fill
         let fillWidth = trackRect.width * normalizedValue
-        let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
         switch style {
         case .volume:
+            let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
             Self.skinColor(at: normalizedValue).setFill()
             fillRect.fill()
+        case .balance:
+            let fullRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: trackRect.width - 2, height: 4)
+            let distance = abs(normalizedValue - 0.5) * 2
+            Self.skinColor(at: distance).setFill()
+            fullRect.fill()
         default:
+            let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
             gradient?.draw(in: fillRect, angle: 90)
         }
@@ -199,30 +205,22 @@ class WinampSlider: NSView {
         path.stroke()
     }
 
-    /// Interpolates between Winamp 2.x volume.bmp skin colors for a given 0..1 position.
+    /// 19-stop slider palette, stored green→red so index 0 = green (t=0) and index 18 = red (t=1).
+    private static let sliderPalette: [UInt32] = [
+        0x2a9a16, 0x2a9a16, 0x5ab02c, 0x71cd34, 0x89e230,
+        0xa4e238, 0xa4e238, 0xd2eb35, 0xd2eb35, 0xefdc31,
+        0xefdc31, 0xefdc31, 0xe0b228, 0xe09228, 0xe09228,
+        0xe09228, 0xef7b21, 0xef5221, 0xd3221b
+    ]
+
+    /// Returns a discrete color from the 19-stop green→red Winamp slider palette.
     private static func skinColor(at t: CGFloat) -> NSColor {
-        let stops: [(CGFloat, UInt32)] = [
-            (0.0,  0x18920B),  // dark green
-            (0.19, 0x81E230),  // bright green
-            (0.44, 0xC6DA30),  // yellow
-            (0.67, 0xE0B228),  // orange
-            (1.0,  0xE00E15),  // red
-        ]
-        // Find the two stops that bracket t
-        var lo = 0
-        for i in 1..<stops.count {
-            if stops[i].0 >= t { lo = i - 1; break }
-            lo = i - 1
-        }
-        let hi = min(lo + 1, stops.count - 1)
-        let range = stops[hi].0 - stops[lo].0
-        let frac = range > 0 ? (t - stops[lo].0) / range : 0
-        let c1 = stops[lo].1
-        let c2 = stops[hi].1
-        let r = CGFloat((c1 >> 16) & 0xFF) + frac * (CGFloat((c2 >> 16) & 0xFF) - CGFloat((c1 >> 16) & 0xFF))
-        let g = CGFloat((c1 >> 8) & 0xFF) + frac * (CGFloat((c2 >> 8) & 0xFF) - CGFloat((c1 >> 8) & 0xFF))
-        let b = CGFloat(c1 & 0xFF) + frac * (CGFloat(c2 & 0xFF) - CGFloat(c1 & 0xFF))
-        return NSColor(red: r / 255, green: g / 255, blue: b / 255, alpha: 1)
+        let index = max(0, min(18, Int(round(t * 18))))
+        let hex = sliderPalette[index]
+        return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+                       green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+                       blue: CGFloat(hex & 0xFF) / 255.0,
+                       alpha: 1.0)
     }
 
     private func drawInsetBorder(_ rect: NSRect) {
