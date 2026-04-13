@@ -124,7 +124,7 @@ class WinampSlider: NSView {
         // Track background
         switch style {
         case .volume:
-            let gradient = NSGradient(starting: NSColor(hex: 0x1A1A2C), ending: NSColor(hex: 0x2A2A44))
+            let gradient = NSGradient(starting: WinampTheme.volumeBgStart, ending: WinampTheme.volumeBgEnd)
             gradient?.draw(in: trackRect, angle: 0)
         default:
             WinampTheme.lcdBackground.setFill()
@@ -139,12 +139,12 @@ class WinampSlider: NSView {
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
         switch style {
         case .volume:
-            let gradient = NSGradient(colors: [
-                NSColor(hex: 0x3CB010),  // green (low volume)
-                NSColor(hex: 0xE0DA30),  // yellow (mid)
-                NSColor(hex: 0xE01015)   // red (max volume)
-            ])
-            gradient?.draw(in: fillRect, angle: 0)
+            // Single flat color that changes with volume position (green→yellow→red)
+            // matching the original Winamp 2.x volume bar sprite sheet.
+            let t = CGFloat(normalizedValue)
+            let hue = (1 - t) * 120.0 / 360.0
+            NSColor(hue: hue, saturation: 0.88, brightness: 0.85, alpha: 1.0).setFill()
+            fillRect.fill()
         default:
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
             gradient?.draw(in: fillRect, angle: 90)
@@ -167,13 +167,10 @@ class WinampSlider: NSView {
         NSBezierPath(rect: trackRect).fill()
         drawInsetBorder(trackRect)
 
-        // Fill the entire track column, color depends on current value
-        // (green at min, yellow in the middle, red at max — hue interpolation).
+        // Fill the track column with solid green matching the original Winamp EQ slider.
         let thumbY = rect.height * normalizedValue
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackRect.minY + 1, width: trackRect.width - 2, height: max(0, trackRect.height - 2))
-        let t = CGFloat((value - minValue) / (maxValue - minValue))
-        let hue = (1 - t) * 120.0 / 360.0
-        NSColor(hue: hue, saturation: 0.90, brightness: 0.92, alpha: 1.0).setFill()
+        NSColor(hex: 0x2A9A16).setFill()
         fillRect.fill()
 
         // Thumb

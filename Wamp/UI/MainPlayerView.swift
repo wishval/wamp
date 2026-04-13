@@ -3,9 +3,6 @@ import Combine
 import UniformTypeIdentifiers
 
 private final class DottedDivider: NSView {
-    enum Orientation { case vertical, horizontal }
-    var orientation: Orientation = .vertical { didSet { needsDisplay = true } }
-
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -13,28 +10,15 @@ private final class DottedDivider: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    convenience init(orientation: Orientation) {
-        self.init(frame: .zero)
-        self.orientation = orientation
-    }
-
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // 3 px on, 1 px off pattern, same green for both orientations.
+        // Vertical dotted line: 3 px bar, 1 px gap — matches the spectrum bars
+        // (3 px wide, 1 px gap) that form the horizontal "dashed line" at zero amplitude.
         WinampTheme.spectrumBarBottom.setFill()
-        switch orientation {
-        case .vertical:
-            var y: CGFloat = 0
-            while y < bounds.height {
-                NSRect(x: 0, y: y, width: 1, height: 3).fill()
-                y += 4
-            }
-        case .horizontal:
-            var x: CGFloat = 0
-            while x < bounds.width {
-                NSRect(x: x, y: 0, width: 3, height: 1).fill()
-                x += 4
-            }
+        var y: CGFloat = 0
+        while y < bounds.height {
+            NSRect(x: 0, y: y, width: 1, height: 3).fill()
+            y += 4
         }
     }
 }
@@ -80,8 +64,7 @@ class MainPlayerView: NSView {
     // Panel backgrounds
     private let leftPanel = NSView()
     private let rightPanel = NSView()
-    private let leftPanelDivider = DottedDivider(orientation: .vertical)
-    private let leftPanelBottomDivider = DottedDivider(orientation: .horizontal)
+    private let leftPanelDivider = DottedDivider()
 
     // Play state indicator
     private let playIndicator = PlayStateIndicator()
@@ -134,7 +117,6 @@ class MainPlayerView: NSView {
         leftPanel.layer?.backgroundColor = NSColor.black.cgColor
         addSubview(leftPanel)
         leftPanel.addSubview(leftPanelDivider)
-        leftPanel.addSubview(leftPanelBottomDivider)
 
         // Time display
         timeDisplay.wantsLayer = true
@@ -294,7 +276,6 @@ class MainPlayerView: NSView {
         titleBar.isHidden = active
         titleBar.showMenuIcon = !active
         leftPanel.isHidden = active
-        leftPanelBottomDivider.isHidden = active
         rightPanel.isHidden = active
         bitrateLabel.isHidden = active
         sampleRateLabel.isHidden = active
@@ -449,8 +430,6 @@ class MainPlayerView: NSView {
         // Match the divider height to the spectrum bar area exactly so the L-corner closes cleanly.
         leftPanelDivider.frame = NSRect(x: 2, y: 2, width: 1, height: spectrumView.frame.height)
         leftPanelDivider.needsDisplay = true
-        leftPanelBottomDivider.frame = NSRect(x: 2, y: 1, width: leftPanelW - 2, height: 1)
-        leftPanelBottomDivider.needsDisplay = true
 
         // Right panel (black bg)
         rightPanel.frame = NSRect(x: rightPanelX, y: contentTop - displayH, width: rightPanelW, height: displayH)
