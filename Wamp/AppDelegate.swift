@@ -45,6 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             playlistManager.addTracks(savedTracks)
             if appState.lastTrackIndex >= 0, appState.lastTrackIndex < savedTracks.count {
                 playlistManager.currentIndex = appState.lastTrackIndex
+                audioEngine.load(url: savedTracks[appState.lastTrackIndex].url)
             }
         }
 

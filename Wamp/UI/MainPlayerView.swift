@@ -552,7 +552,15 @@ class MainPlayerView: NSView {
 
         // Transport
         transportBar.onPrevious = { [weak playlistManager] in playlistManager?.playPrevious() }
-        transportBar.onPlay = { [weak audioEngine] in audioEngine?.play() }
+        transportBar.onPlay = { [weak self] in
+            guard let self, let engine = self.audioEngine else { return }
+            if engine.playState == .stopped,
+               let track = self.playlistManager?.currentTrack {
+                engine.loadAndPlay(url: track.url)
+            } else {
+                engine.play()
+            }
+        }
         transportBar.onPause = { [weak audioEngine] in audioEngine?.pause() }
         transportBar.onStop = { [weak audioEngine] in audioEngine?.stop() }
         transportBar.onNext = { [weak playlistManager] in playlistManager?.playNext() }
