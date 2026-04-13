@@ -89,12 +89,10 @@ MainWindow stacks three panels vertically in a fixed 275px-wide borderless windo
 
 ## Workflow
 
-- **Multi-task requests (2+ items)** — start with `superpowers:brainstorming`. Save the resulting plan under `docs/superpowers/plans/YYYY-MM-DD-<slug>.md` before writing code.
 - **Branching** — each task list starts on a `feature/<slug>` branch off `main`. If the user is on `main` when a list begins, create the branch first. Never commit a task list directly to `main`.
 - **Commit granularity** — 1 task = 1 commit. Don't batch. The pre-commit hook (`.git/hooks/pre-commit`) handles build verification for Swift changes; doc-only commits skip the build.
 - **TDD for Models/** — any change under `Wamp/Models/` follows red → green → commit using the `superpowers:test-driven-development` skill: write the failing test first, implement until green, commit test and code together.
-- **Test merge gate** — `/wrap-session` runs `xcodebuild ... test` before merging a feature branch. Red tests abort the merge; the session stays open until the suite is green.
-- **Subagent policy** — dispatch independent tasks to parallel subagents (opus for architectural/complex work, sonnet for mechanical edits). Sequential or single tasks stay in the main session. Code exploration and search always go to the `Explore` subagent.
-- **Opus reviews sonnet** — when a sonnet subagent returns, the main (opus) session reviews its diff before marking the task complete. If issues are found, fix them inline in the main session rather than re-dispatching to sonnet.
+- **Brainstorming** — use `superpowers:brainstorming` only when the task is genuinely ambiguous or requires design exploration. If the user provides a clear task list, skip brainstorming and get to work.
+- **Subagents** — use parallel subagents when it genuinely saves time (large independent tasks). For small edits (renaming, color changes, single-file fixes), do the work directly in the main session. Don't create overhead that exceeds the task complexity.
 - **End-of-list report** — after every task list, post a short report: (1) what was done, (2) non-obvious decisions taken mid-flight, (3) anything skipped and why. Wait for user approval before moving on. Do not request screenshots; the user provides them when they want visual feedback.
-- **Session wrap-up** — when the user invokes `/wrap-session`: confirm the report, commit any pending work, ask for explicit approval, merge the feature branch into `main` with `--no-ff`, write `docs/superpowers/next-session.md` with a starter prompt, print the same prompt in chat, and tell the user they can now `/clear`.
+- **Session wrap-up** — when the user invokes `/wrap-session`: confirm the report, commit any pending work, ask for explicit approval, merge the feature branch into `main` with `--no-ff`, write `docs/superpowers/next-session.md`, print the prompt in chat, tell the user they can `/clear`.

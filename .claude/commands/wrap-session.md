@@ -33,8 +33,8 @@ Execute these steps in order. Do not skip steps. Do not parallelize.
 Compose a prompt that lets a fresh session pick up where this one left off. Include:
 - **Project context** — one sentence: "Wamp, macOS/Swift/AppKit, Winamp clone, working directory `/Users/valerijbakalenko/Documents/Stranger/Code/AI/WinampMac`".
 - **What just shipped** — 2-3 bullets summarizing the merged work (from the report in step 2).
-- **Open follow-ups** — anything the user mentioned but postponed, or "out of scope" items from the current list that might become the next list.
-- **Suggested next step** — ONE concrete suggestion for what to do next, framed as a question ("Want to tackle X next, or something else?"). Do not lock the user into a specific next task.
+- **Known concerns** — non-obvious issues discovered during the session that aren't captured in code or git history. Omit if none.
+- **Next tasks** — if the user passed arguments to `/wrap-session` (e.g. `/wrap-session fix the seek bar, add keyboard shortcuts`), include them verbatim as the next task list. If no arguments were passed, omit this section entirely — do NOT invent tasks.
 
 Keep the whole prompt under 200 words. Plain text, no code blocks nested inside it.
 
