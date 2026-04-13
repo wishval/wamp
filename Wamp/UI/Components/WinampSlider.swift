@@ -150,11 +150,11 @@ class WinampSlider: NSView {
             gradient?.draw(in: fillRect, angle: 90)
         }
 
-        // Thumb
+        // Thumb — clamped so it doesn't overflow into adjacent sliders
         let thumbW: CGFloat = 14
         let thumbH: CGFloat = rect.height
-        let thumbX = trackRect.minX + fillWidth - thumbW / 2
-        let thumbRect = NSRect(x: max(0, thumbX), y: 0, width: thumbW, height: thumbH)
+        let thumbX = min(rect.width - thumbW, max(0, trackRect.minX + fillWidth - thumbW / 2))
+        let thumbRect = NSRect(x: thumbX, y: 0, width: thumbW, height: thumbH)
         drawThumb(thumbRect, isVolumeStyle: style == .volume)
     }
 
@@ -167,10 +167,12 @@ class WinampSlider: NSView {
         NSBezierPath(rect: trackRect).fill()
         drawInsetBorder(trackRect)
 
-        // Fill the track column with solid green matching the original Winamp EQ slider.
+        // Fill color changes with slider position (green→yellow→red), same as volume.
         let thumbY = rect.height * normalizedValue
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackRect.minY + 1, width: trackRect.width - 2, height: max(0, trackRect.height - 2))
-        NSColor(hex: 0x2A9A16).setFill()
+        let t = CGFloat((value - minValue) / (maxValue - minValue))
+        let hue = (1 - t) * 120.0 / 360.0
+        NSColor(hue: hue, saturation: 0.88, brightness: 0.85, alpha: 1.0).setFill()
         fillRect.fill()
 
         // Thumb

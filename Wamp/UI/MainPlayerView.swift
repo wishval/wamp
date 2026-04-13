@@ -12,12 +12,14 @@ private final class DottedDivider: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // Vertical dotted line: 3 px bar, 1 px gap — matches the spectrum bars
-        // (3 px wide, 1 px gap) that form the horizontal "dashed line" at zero amplitude.
-        WinampTheme.spectrumBarBottom.setFill()
+        // Vertical dotted line matching the spectrum bar gradient:
+        // each dot is 3px tall (2px green bottom + 1px yellow top), 1px gap.
         var y: CGFloat = 0
         while y < bounds.height {
-            NSRect(x: 0, y: y, width: 1, height: 3).fill()
+            WinampTheme.spectrumBarBottom.setFill()
+            NSRect(x: 0, y: y, width: 1, height: 2).fill()
+            WinampTheme.spectrumBarTop.setFill()
+            NSRect(x: 0, y: y + 2, width: 1, height: 1).fill()
             y += 4
         }
     }
