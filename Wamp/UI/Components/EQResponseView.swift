@@ -72,23 +72,31 @@ class EQResponseView: NSView {
         NSColor.white.withAlphaComponent(0.35).setFill()
         NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
 
-        // Response curve
+        // Response curve — gradient colored per band (green=cut, yellow=flat, red=boost)
         guard bands.count >= 10 else { return }
-        let path = NSBezierPath()
-        WinampTheme.greenBright.setStroke()
-        path.lineWidth = 1.4
+        let lineWidth: CGFloat = 1.6
 
+        var points: [NSPoint] = []
         for (i, gain) in bands.enumerated() {
             let x = b.width * CGFloat(i) / CGFloat(bands.count - 1)
             let normalized = CGFloat(gain / 12) // -1 to 1
             let y = b.midY + normalized * (b.height / 2 - 1)
-
-            if i == 0 {
-                path.move(to: NSPoint(x: x, y: y))
-            } else {
-                path.line(to: NSPoint(x: x, y: y))
-            }
+            points.append(NSPoint(x: x, y: y))
         }
-        path.stroke()
+
+        // Draw segments between each pair of points, colored by average gain
+        for i in 0..<(points.count - 1) {
+            let avgGain = (bands[i] + bands[i + 1]) / 2.0
+            let t = CGFloat((avgGain - (-12)) / 24.0) // 0..1
+            let hue = (1 - t) * 120.0 / 360.0
+            let color = NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
+            color.setStroke()
+
+            let segment = NSBezierPath()
+            segment.lineWidth = lineWidth
+            segment.move(to: points[i])
+            segment.line(to: points[i + 1])
+            segment.stroke()
+        }
     }
 }
