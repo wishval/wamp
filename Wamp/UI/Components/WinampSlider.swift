@@ -124,8 +124,8 @@ class WinampSlider: NSView {
         // Track background
         switch style {
         case .volume:
-            let gradient = NSGradient(starting: WinampTheme.volumeBgStart, ending: WinampTheme.volumeBgEnd)
-            gradient?.draw(in: trackRect, angle: 0)
+            WinampTheme.lcdBackground.setFill()
+            trackRect.fill()
         default:
             WinampTheme.lcdBackground.setFill()
             trackRect.fill()
@@ -139,12 +139,16 @@ class WinampSlider: NSView {
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
         switch style {
         case .volume:
-            // Single flat color that changes with volume position (green→yellow→red)
-            // matching the original Winamp 2.x volume bar sprite sheet.
-            let t = CGFloat(normalizedValue)
-            let hue = (1 - t) * 120.0 / 360.0
-            NSColor(hue: hue, saturation: 0.88, brightness: 0.85, alpha: 1.0).setFill()
-            fillRect.fill()
+            // Full-width gradient using exact colors from Winamp 2.x volume.bmp.
+            let fullFillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: trackRect.width - 2, height: 4)
+            let skinGradient = NSGradient(colorsAndLocations:
+                (NSColor(hex: 0x18920B), 0.0),    // pos 0  — dark green
+                (NSColor(hex: 0x81E230), 0.19),   // pos 5  — bright green
+                (NSColor(hex: 0xC6DA30), 0.44),   // pos 12 — yellow
+                (NSColor(hex: 0xE0B228), 0.67),   // pos 18 — orange
+                (NSColor(hex: 0xE00E15), 1.0)     // pos 27 — red
+            )
+            skinGradient?.draw(in: fullFillRect, angle: 0)
         default:
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
             gradient?.draw(in: fillRect, angle: 90)
@@ -167,13 +171,18 @@ class WinampSlider: NSView {
         NSBezierPath(rect: trackRect).fill()
         drawInsetBorder(trackRect)
 
-        // Fill color changes with slider position (green→yellow→red), same as volume.
+        // Full-height gradient using exact colors from Winamp 2.x volume.bmp
+        // (green at bottom / -12dB, red at top / +12dB).
         let thumbY = rect.height * normalizedValue
         let fillRect = NSRect(x: trackRect.minX + 1, y: trackRect.minY + 1, width: trackRect.width - 2, height: max(0, trackRect.height - 2))
-        let t = CGFloat((value - minValue) / (maxValue - minValue))
-        let hue = (1 - t) * 120.0 / 360.0
-        NSColor(hue: hue, saturation: 0.88, brightness: 0.85, alpha: 1.0).setFill()
-        fillRect.fill()
+        let skinGradient = NSGradient(colorsAndLocations:
+            (NSColor(hex: 0x18920B), 0.0),    // dark green (bottom, -12dB)
+            (NSColor(hex: 0x81E230), 0.19),   // bright green
+            (NSColor(hex: 0xC6DA30), 0.44),   // yellow
+            (NSColor(hex: 0xE0B228), 0.67),   // orange
+            (NSColor(hex: 0xE00E15), 1.0)     // red (top, +12dB)
+        )
+        skinGradient?.draw(in: fillRect, angle: 90)
 
         // Thumb
         let eqThumbH: CGFloat = 4
