@@ -142,20 +142,10 @@ class WinampSlider: NSView {
             Self.skinColor(at: normalizedValue).setFill()
             fillRect.fill()
         case .balance:
-            let center = trackRect.width * 0.5
-            let pos = trackRect.width * normalizedValue
-            let fillX: CGFloat
-            let fillW: CGFloat
-            if pos < center {
-                fillX = pos
-                fillW = center - pos
-            } else {
-                fillX = center
-                fillW = pos - center
-            }
+            let fullRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: trackRect.width - 2, height: 4)
             let distance = abs(normalizedValue - 0.5) * 2
             Self.skinColor(at: distance).setFill()
-            NSRect(x: trackRect.minX + 1 + fillX, y: trackY + 1, width: fillW, height: 4).fill()
+            fullRect.fill()
         default:
             let fillRect = NSRect(x: trackRect.minX + 1, y: trackY + 1, width: fillWidth, height: 4)
             let gradient = NSGradient(starting: WinampTheme.seekFillTop, ending: WinampTheme.seekFillBottom)
