@@ -16,12 +16,6 @@ class PlaylistView: NSView {
     private let infoLabel = NSTextField(labelWithString: "")
     private let skinScroller = PlaylistSkinScroller()
 
-    // Invisible hit-zones for the four bottom-bar buttons baked into pledit.bmp.
-    private let addHitZone = NSView()
-    private let remHitZone = NSView()
-    private let selHitZone = NSView()
-    private let miscHitZone = NSView()
-
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
@@ -119,16 +113,6 @@ class PlaylistView: NSView {
         infoLabel.alignment = .center
         addSubview(infoLabel)
 
-        // Skinned bottom-bar hit-zones (positioned in layoutSkinned)
-        for zone in [addHitZone, remHitZone, selHitZone, miscHitZone] {
-            zone.isHidden = true
-            addSubview(zone)
-        }
-        addHitZone.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedAdd)))
-        remHitZone.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedRem)))
-        selHitZone.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedSel)))
-        miscHitZone.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMisc)))
-
         skinObserver = SkinManager.shared.$currentSkin
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -160,10 +144,6 @@ class PlaylistView: NSView {
         // Skinned playlists draw their own scroll thumb in the right-tile area.
         scrollView.hasVerticalScroller = !active
         skinScroller.isHidden = !active
-        // Bottom-bar hit-zones are only active when skinned.
-        for zone in [addHitZone, remHitZone, selHitZone, miscHitZone] {
-            zone.isHidden = !active
-        }
         tableView.reloadData()
         needsLayout = true
     }
@@ -283,14 +263,6 @@ class PlaylistView: NSView {
         listOptsButton.frame = .zero
         infoLabel.frame = .zero
 
-        // Bottom-bar hit-zones — Webamp positions (bottom-up, within the 38px
-        // bottom strip): ADD (0,0,25,18), REM (29,0,25,18), SEL (58,0,25,18),
-        // MISC (87,0,25,18). Each 25px wide, 18px tall at the very bottom.
-        addHitZone.frame  = NSRect(x:  0, y: 0, width: 25, height: 18)
-        remHitZone.frame  = NSRect(x: 29, y: 0, width: 25, height: 18)
-        selHitZone.frame  = NSRect(x: 58, y: 0, width: 25, height: 18)
-        miscHitZone.frame = NSRect(x: 87, y: 0, width: 25, height: 18)
-
         // Native scroller is hidden in skinned mode — full column width.
         let newWidth = scrollView.frame.width - 2
         tableView.tableColumns.first?.width = newWidth
@@ -347,11 +319,6 @@ class PlaylistView: NSView {
         if abs(newWidth - lastColumnWidth) > 0.5 {
             lastColumnWidth = newWidth
             tableView.reloadData()
-        }
-
-        // Hit-zones hidden in unskinned mode — collapse
-        for zone in [addHitZone, remHitZone, selHitZone, miscHitZone] {
-            zone.frame = .zero
         }
     }
 
@@ -420,12 +387,18 @@ class PlaylistView: NSView {
     }
 
     // MARK: - Skinned bottom-bar handlers
-    @objc private func handleSkinnedAdd() { showAddMenu() }
-    @objc private func handleSkinnedRem() { showRemMenu() }
-    @objc private func handleSkinnedSel() { showSelMenu() }
-    @objc private func handleSkinnedMisc() { showListOptsMenu() }
+    private func handleSkinnedAdd() {
+        let menu = NSMenu()
+        let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
+        fileItem.target = self
+        let folderItem = NSMenuItem(title: "Add Folder...", action: #selector(addFolder), keyEquivalent: "")
+        folderItem.target = self
+        menu.addItem(fileItem)
+        menu.addItem(folderItem)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedAddRect.minX, y: Self.skinnedAddRect.maxY), in: self)
+    }
 
-    private func showRemMenu() {
+    private func handleSkinnedRem() {
         let menu = NSMenu()
         let remSel = NSMenuItem(title: "Remove Selected", action: #selector(remMenuRemoveSelected), keyEquivalent: "")
         remSel.target = self
@@ -433,13 +406,13 @@ class PlaylistView: NSView {
         remAll.target = self
         menu.addItem(remSel)
         menu.addItem(remAll)
-        menu.popUp(positioning: nil, at: NSPoint(x: remHitZone.frame.minX, y: remHitZone.frame.maxY), in: self)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedRemRect.minX, y: Self.skinnedRemRect.maxY), in: self)
     }
 
     @objc private func remMenuRemoveSelected() { removeSelected() }
     @objc private func remMenuRemoveAll() { playlistManager?.clearPlaylist() }
 
-    private func showSelMenu() {
+    private func handleSkinnedSel() {
         let menu = NSMenu()
         let selAll = NSMenuItem(title: "Select All", action: #selector(selMenuSelectAll), keyEquivalent: "")
         selAll.target = self
@@ -450,7 +423,7 @@ class PlaylistView: NSView {
         menu.addItem(selAll)
         menu.addItem(selNone)
         menu.addItem(selInvert)
-        menu.popUp(positioning: nil, at: NSPoint(x: selHitZone.frame.minX, y: selHitZone.frame.maxY), in: self)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedSelRect.minX, y: Self.skinnedSelRect.maxY), in: self)
     }
 
     @objc private func selMenuSelectAll() {
@@ -466,6 +439,8 @@ class PlaylistView: NSView {
         let current = tableView.selectedRowIndexes
         tableView.selectRowIndexes(all.symmetricDifference(current), byExtendingSelection: false)
     }
+
+    private func handleSkinnedMisc() { showListOptsMenu() }
 
     private func showAddMenu() {
         let menu = NSMenu()
@@ -503,7 +478,10 @@ class PlaylistView: NSView {
         menu.addItem(newItem)
         menu.addItem(loadItem)
         menu.addItem(saveItem)
-        menu.popUp(positioning: nil, at: NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY), in: self)
+        let anchor = WinampTheme.skinIsActive
+            ? NSPoint(x: Self.skinnedMiscRect.minX, y: Self.skinnedMiscRect.maxY)
+            : NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
     @objc private func listOptsNew() {
@@ -549,12 +527,32 @@ class PlaylistView: NSView {
         }
     }
 
-    // MARK: - Window dragging (skinned mode)
+    // MARK: - Skinned bottom-button rects (Webamp positions in the 38px bottom strip)
+    private static let skinnedAddRect  = NSRect(x:  0, y: 0, width: 25, height: 18)
+    private static let skinnedRemRect  = NSRect(x: 29, y: 0, width: 25, height: 18)
+    private static let skinnedSelRect  = NSRect(x: 58, y: 0, width: 25, height: 18)
+    private static let skinnedMiscRect = NSRect(x: 87, y: 0, width: 25, height: 18)
+
+    // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
     override func mouseDown(with event: NSEvent) {
         guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
         let point = convert(event.locationInWindow, from: nil)
-        guard point.y >= bounds.height - 20 else { super.mouseDown(with: event); return }
-        dragOrigin = event.locationInWindow
+
+        // Title bar drag zone (top 20px)
+        if point.y >= bounds.height - 20 {
+            dragOrigin = event.locationInWindow
+            return
+        }
+
+        // Bottom button bar (bottom 18px)
+        if point.y < 18 {
+            if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
+            if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
+            if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
+            if Self.skinnedMiscRect.contains(point) { handleSkinnedMisc(); return }
+        }
+
+        super.mouseDown(with: event)
     }
 
     override func mouseDragged(with event: NSEvent) {
