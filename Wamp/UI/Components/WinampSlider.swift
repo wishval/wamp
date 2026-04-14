@@ -108,6 +108,11 @@ class WinampSlider: NSView {
             if let bg = WinampTheme.sprite(.eqSliderBackground) {
                 bg.draw(in: bounds)
             }
+            // Color-changing fill — same 19-stop palette as unskinned mode
+            let trackX = (bounds.width - 8) / 2
+            let trackRect = NSRect(x: trackX, y: 1, width: 8, height: bounds.height - 2)
+            Self.skinColor(at: n).setFill()
+            trackRect.fill()
             // 14 thumb positions: 0 = bottom (-12 dB), 13 = top (+12 dB)
             let thumbPos = Int((n * 13).rounded())
             let thumbY = n * (bounds.height - 11)
