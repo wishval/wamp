@@ -53,8 +53,8 @@ enum SpriteKey: Hashable {
 
     // eqmain
     case eqBackground
-    case eqSliderBackground
-    case eqSliderThumb(position: Int, pressed: Bool)  // position 0–13
+    case eqSliderBackground(position: Int)  // 14 pre-rendered variants (green→red gradient)
+    case eqSliderThumb(pressed: Bool)
     case eqOnButton(active: Bool, pressed: Bool)
     case eqAutoButton(active: Bool, pressed: Bool)
     case eqPresetsButton(pressed: Bool)
@@ -169,13 +169,14 @@ enum SpriteCoordinates {
         // MARK: eqmain
         case .eqBackground:
             return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 0, y: 0, width: 275, height: 116))
-        case .eqSliderBackground:
-            // The slider strip area used as background for individual band sliders.
-            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 13, y: 164, width: 14, height: 63))
-        case .eqSliderThumb(let position, let pressed):
-            // 14 thumb variants stacked horizontally; each 11×11 at y = pressed ? 176 : 164.
+        case .eqSliderBackground(let position):
+            // 14 pre-rendered slider tracks showing the authentic green→red
+            // gradient. Starts at x=13, packed every 15px. Thumb is drawn on top.
             let p = max(0, min(13, position))
-            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: p * 15, y: pressed ? 176 : 164, width: 11, height: 11))
+            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 13 + p * 15, y: 164, width: 14, height: 63))
+        case .eqSliderThumb(let pressed):
+            // Single thumb sprite stacked at x=0 (unpressed at y=164, pressed at y=176).
+            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 0, y: pressed ? 176 : 164, width: 11, height: 11))
         case .eqOnButton(let active, let pressed):
             // Active+pressed=187, active+!pressed=69, !active+pressed=128, !active+!pressed=10. y=119, 26×12.
             let x: Int
