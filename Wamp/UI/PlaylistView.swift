@@ -215,6 +215,15 @@ class PlaylistView: NSView {
             br.draw(in: NSRect(x: w - 150, y: 0, width: 150, height: 38))
         }
 
+        // Mask the mini-player buttons and ":"-timer baked into the BR corner.
+        // Classic Winamp wired these to playlist-local transport; we don't need
+        // them (main-window transport is the single source of truth), so paint
+        // black over top-down y=18..31 × x=4..101 inside the 150×38 sprite.
+        // AppKit: y=7..20. Stops short of the LIST OPTS box at x≥105 and keeps
+        // the outer frame (bottom 2px, left/right edges) intact.
+        NSColor.black.setFill()
+        NSRect(x: w - 146, y: 7, width: 97, height: 13).fill()
+
         // Render "N tracks / total duration" via text.bmp inside the baked
         // "running time" LCD area of the bottom-right corner sprite.
         // Webamp positions #playlist-running-time-display at top:10, left:7
