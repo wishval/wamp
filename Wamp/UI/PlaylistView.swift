@@ -538,10 +538,11 @@ class PlaylistView: NSView {
     private static let skinnedSelRect  = NSRect(x: 69, y: 10, width: 22, height: 18)
 
     // LIST OPTS lives in the bottom-right corner (150×38 at x=w-150).
-    // Measured baked at pledit.bmp (234, 76, 20, 18) → corner-relative
-    // (108, 4_topdown, 20, 18) → AppKit y = 38 - 4 - 18 = 16.
+    // Bounds measured directly from pledit.bmp BR-corner pixels: the visible
+    // raised box spans top-down (105, 8, 23, 18) → playlist-local x = w-45,
+    // AppKit y = 38 - 8 - 18 = 12.
     private func skinnedListOptsRect() -> NSRect {
-        NSRect(x: bounds.width - 42, y: 16, width: 20, height: 18)
+        NSRect(x: bounds.width - 45, y: 12, width: 23, height: 18)
     }
 
     // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
