@@ -527,11 +527,21 @@ class PlaylistView: NSView {
         }
     }
 
-    // MARK: - Skinned bottom-button rects (Webamp positions in the 38px bottom strip)
-    private static let skinnedAddRect  = NSRect(x:  0, y: 0, width: 25, height: 18)
-    private static let skinnedRemRect  = NSRect(x: 29, y: 0, width: 25, height: 18)
-    private static let skinnedSelRect  = NSRect(x: 58, y: 0, width: 25, height: 18)
-    private static let skinnedMiscRect = NSRect(x: 87, y: 0, width: 25, height: 18)
+    // MARK: - Skinned bottom-button rects
+    // Baked-button positions measured from PLEDIT.BMP bottom-left corner sprite
+    // (125×38 drawn at playlist y=0). AppKit y = 10 places the 18px-tall buttons
+    // flush with the visible baked graphics (sprite y_topdown ≈ 10..28).
+    private static let skinnedAddRect  = NSRect(x: 11, y: 10, width: 22, height: 18)
+    private static let skinnedRemRect  = NSRect(x: 40, y: 10, width: 22, height: 18)
+    private static let skinnedSelRect  = NSRect(x: 69, y: 10, width: 22, height: 18)
+    private static let skinnedMiscRect = NSRect(x: 98, y: 10, width: 22, height: 18)
+
+    // LIST OPTS lives in the bottom-right corner (150×38 at x=w-150).
+    // Measured baked at pledit.bmp (234, 76, 20, 18) → corner-relative
+    // (108, 4_topdown, 20, 18) → AppKit y = 38 - 4 - 18 = 16.
+    private func skinnedListOptsRect() -> NSRect {
+        NSRect(x: bounds.width - 42, y: 16, width: 20, height: 18)
+    }
 
     // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
     override func mouseDown(with event: NSEvent) {
@@ -544,12 +554,13 @@ class PlaylistView: NSView {
             return
         }
 
-        // Bottom button bar (bottom 18px)
-        if point.y < 18 {
+        // Bottom button strip
+        if point.y < 38 {
             if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
             if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
             if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
             if Self.skinnedMiscRect.contains(point) { handleSkinnedMisc(); return }
+            if skinnedListOptsRect().contains(point) { showListOptsMenu(); return }
         }
 
         super.mouseDown(with: event)

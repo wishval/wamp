@@ -105,18 +105,14 @@ class WinampSlider: NSView {
             }
 
         case .eqBand:
-            if let bg = WinampTheme.sprite(.eqSliderBackground) {
+            // Winamp bakes the green→red gradient directly into 14 background variants
+            // (position 0 = bottom/-12dB all green, 13 = top/+12dB all red).
+            let bgPos = Int((n * 13).rounded())
+            if let bg = WinampTheme.sprite(.eqSliderBackground(position: bgPos)) {
                 bg.draw(in: bounds)
             }
-            // Color-changing fill — same 19-stop palette as unskinned mode
-            let trackX = (bounds.width - 8) / 2
-            let trackRect = NSRect(x: trackX, y: 1, width: 8, height: bounds.height - 2)
-            Self.skinColor(at: n).setFill()
-            trackRect.fill()
-            // 14 thumb positions: 0 = bottom (-12 dB), 13 = top (+12 dB)
-            let thumbPos = Int((n * 13).rounded())
             let thumbY = n * (bounds.height - 11)
-            if let thumb = WinampTheme.sprite(.eqSliderThumb(position: thumbPos, pressed: isUserInteracting)) {
+            if let thumb = WinampTheme.sprite(.eqSliderThumb(pressed: isUserInteracting)) {
                 thumb.draw(in: NSRect(x: (bounds.width - 11) / 2, y: thumbY, width: 11, height: 11))
             }
         }

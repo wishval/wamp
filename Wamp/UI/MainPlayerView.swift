@@ -53,6 +53,8 @@ class MainPlayerView: NSView {
     private let closeHitZone = NSView()
     private let minimizeHitZone = NSView()
     private let menuHitZone = NSView()
+    // Click target over the Nullsoft logo baked into main.bmp, right of the repeat button.
+    private let githubHitZone = NSView()
 
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
@@ -245,17 +247,25 @@ class MainPlayerView: NSView {
         addSubview(closeHitZone)
         addSubview(minimizeHitZone)
         addSubview(menuHitZone)
+        addSubview(githubHitZone)
         let closeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedClose))
         closeHitZone.addGestureRecognizer(closeClick)
         let minimizeClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMinimize))
         minimizeHitZone.addGestureRecognizer(minimizeClick)
         let menuClick = NSClickGestureRecognizer(target: self, action: #selector(handleSkinnedMenu))
         menuHitZone.addGestureRecognizer(menuClick)
+        let githubClick = NSClickGestureRecognizer(target: self, action: #selector(handleOpenGitHub))
+        githubHitZone.addGestureRecognizer(githubClick)
     }
 
     @objc private func handleSkinnedClose() { NSApp.terminate(nil) }
     @objc private func handleSkinnedMinimize() { window?.miniaturize(nil) }
     @objc private func handleSkinnedMenu() { showWindowMenu() }
+    @objc private func handleOpenGitHub() {
+        if let url = URL(string: "https://github.com/wishval/wamp") {
+            NSWorkspace.shared.open(url)
+        }
+    }
 
     /// Hides NSTextField labels and helper NSViews whose visual content is baked
     /// into main.bmp / monoster.bmp / text.bmp when a skin is loaded. See spec §8.
@@ -275,6 +285,7 @@ class MainPlayerView: NSView {
         closeHitZone.isHidden = !active
         minimizeHitZone.isHidden = !active
         menuHitZone.isHidden = !active
+        githubHitZone.isHidden = !active
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -388,6 +399,9 @@ class MainPlayerView: NSView {
         // Shuffle / repeat (webamp 164,89,47,15 and 210,89,28,15 → y=12)
         shuffleButton.frame = NSRect(x: 164, y: 12, width: 47, height: 15)
         repeatButton.frame = NSRect(x: 210, y: 12, width: 28, height: 15)
+
+        // Nullsoft logo (baked into main.bmp at ~249,89,18,15) — repurposed as a link to the repo.
+        githubHitZone.frame = NSRect(x: 249, y: 12, width: 18, height: 15)
     }
 
     private func layoutUnskinned() {
@@ -480,6 +494,7 @@ class MainPlayerView: NSView {
         closeHitZone.frame = NSRect(x: 263, y: hitY, width: hitSize, height: hitSize)
         minimizeHitZone.frame = NSRect(x: 243, y: hitY, width: hitSize, height: hitSize)
         menuHitZone.frame = .zero
+        githubHitZone.frame = .zero
     }
 
     // MARK: - Binding
