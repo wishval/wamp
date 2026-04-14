@@ -42,6 +42,7 @@ class EqualizerView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
     private weak var audioEngine: AudioEngine?
+    private var dragOrigin: NSPoint?
 
     var autoMode: Bool {
         get { autoButton.isActive }
@@ -67,6 +68,7 @@ class EqualizerView: NSView {
             .sink { [weak self] _ in
                 self?.applySkinVisibility()
                 self?.needsDisplay = true
+                self?.needsLayout = true
             }
         applySkinVisibility()
     }
@@ -230,6 +232,47 @@ class EqualizerView: NSView {
 
     override func layout() {
         super.layout()
+        if WinampTheme.skinIsActive {
+            layoutSkinned()
+        } else {
+            layoutUnskinned()
+        }
+    }
+
+    /// Exact Webamp EQ pixel coordinates. View bounds are 275x116 when skinned.
+    /// Y converted from Webamp top-down to AppKit bottom-up: y = 116 - y_webamp - h.
+    private func layoutSkinned() {
+        let h: CGFloat = bounds.height  // 116
+
+        // Title bar (hidden but keep frame valid)
+        titleBar.frame = NSRect(x: 0, y: h - 14, width: bounds.width, height: 14)
+
+        // ON button: webamp (14, 18, 26, 12) → y = 116-18-12 = 86
+        onButton.frame = NSRect(x: 14, y: 86, width: 26, height: 12)
+        // AUTO button: webamp (39, 18, 33, 12) → y = 86
+        autoButton.frame = NSRect(x: 39, y: 86, width: 33, height: 12)
+        // PRESETS button: webamp (217, 18, 44, 12) → y = 86
+        presetsButton.frame = NSRect(x: 217, y: 86, width: 44, height: 12)
+
+        // EQ graph: webamp (86, 17, 113, 19) → y = 116-17-19 = 80
+        responseView.frame = NSRect(x: 86, y: 80, width: 113, height: 19)
+
+        // Preamp slider: webamp (21, 38, 14, 63) → y = 116-38-63 = 15
+        preampSlider.frame = NSRect(x: 21, y: 15, width: 14, height: 63)
+
+        // Band sliders: webamp x = 78 + i*18, y = 38, each 14x63 → y = 15
+        for i in 0..<10 {
+            bandSliders[i].frame = NSRect(x: 78 + CGFloat(i) * 18, y: 15, width: 14, height: 63)
+        }
+
+        // Hidden labels — collapse
+        for label in bandLabels { label.frame = .zero }
+        for label in dbLabels { label.frame = .zero }
+        preLabel?.frame = .zero
+        dbUnitLabel?.frame = .zero
+    }
+
+    private func layoutUnskinned() {
         let w = bounds.width
         let pad: CGFloat = 4
 
@@ -358,5 +401,27 @@ class EqualizerView: NSView {
             slider.value = preset.bands[i]
         }
         responseView.bands = preset.bands
+    }
+
+    // MARK: - Window dragging (skinned mode)
+    override func mouseDown(with event: NSEvent) {
+        guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard point.y >= bounds.height - 14 else { super.mouseDown(with: event); return }
+        dragOrigin = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else { return }
+        let current = event.locationInWindow
+        var frame = win.frame
+        frame.origin.x += current.x - origin.x
+        frame.origin.y += current.y - origin.y
+        win.setFrameOrigin(frame.origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        super.mouseUp(with: event)
     }
 }

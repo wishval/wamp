@@ -20,6 +20,7 @@ class PlaylistView: NSView {
     private var skinObserver: AnyCancellable?
     private weak var playlistManager: PlaylistManager?
     private var lastColumnWidth: CGFloat = 0
+    private var dragOrigin: NSPoint?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -259,6 +260,7 @@ class PlaylistView: NSView {
         addButton.frame = .zero
         remButton.frame = .zero
         remAllButton.frame = .zero
+        listOptsButton.frame = .zero
         infoLabel.frame = .zero
 
         // Native scroller is hidden in skinned mode — full column width.
@@ -384,6 +386,62 @@ class PlaylistView: NSView {
         }
     }
 
+    // MARK: - Skinned bottom-bar handlers
+    private func handleSkinnedAdd() {
+        let menu = NSMenu()
+        let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
+        fileItem.target = self
+        let folderItem = NSMenuItem(title: "Add Folder...", action: #selector(addFolder), keyEquivalent: "")
+        folderItem.target = self
+        menu.addItem(fileItem)
+        menu.addItem(folderItem)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedAddRect.minX, y: Self.skinnedAddRect.maxY), in: self)
+    }
+
+    private func handleSkinnedRem() {
+        let menu = NSMenu()
+        let remSel = NSMenuItem(title: "Remove Selected", action: #selector(remMenuRemoveSelected), keyEquivalent: "")
+        remSel.target = self
+        let remAll = NSMenuItem(title: "Remove All", action: #selector(remMenuRemoveAll), keyEquivalent: "")
+        remAll.target = self
+        menu.addItem(remSel)
+        menu.addItem(remAll)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedRemRect.minX, y: Self.skinnedRemRect.maxY), in: self)
+    }
+
+    @objc private func remMenuRemoveSelected() { removeSelected() }
+    @objc private func remMenuRemoveAll() { playlistManager?.clearPlaylist() }
+
+    private func handleSkinnedSel() {
+        let menu = NSMenu()
+        let selAll = NSMenuItem(title: "Select All", action: #selector(selMenuSelectAll), keyEquivalent: "")
+        selAll.target = self
+        let selNone = NSMenuItem(title: "Select None", action: #selector(selMenuSelectNone), keyEquivalent: "")
+        selNone.target = self
+        let selInvert = NSMenuItem(title: "Invert Selection", action: #selector(selMenuInvert), keyEquivalent: "")
+        selInvert.target = self
+        menu.addItem(selAll)
+        menu.addItem(selNone)
+        menu.addItem(selInvert)
+        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedSelRect.minX, y: Self.skinnedSelRect.maxY), in: self)
+    }
+
+    @objc private func selMenuSelectAll() {
+        let count = tableView.numberOfRows
+        guard count > 0 else { return }
+        tableView.selectRowIndexes(IndexSet(0..<count), byExtendingSelection: false)
+    }
+    @objc private func selMenuSelectNone() {
+        tableView.deselectAll(nil)
+    }
+    @objc private func selMenuInvert() {
+        let all = IndexSet(0..<tableView.numberOfRows)
+        let current = tableView.selectedRowIndexes
+        tableView.selectRowIndexes(all.symmetricDifference(current), byExtendingSelection: false)
+    }
+
+    private func handleSkinnedMisc() { showListOptsMenu() }
+
     private func showAddMenu() {
         let menu = NSMenu()
         let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
@@ -420,7 +478,10 @@ class PlaylistView: NSView {
         menu.addItem(newItem)
         menu.addItem(loadItem)
         menu.addItem(saveItem)
-        menu.popUp(positioning: nil, at: NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY), in: self)
+        let anchor = WinampTheme.skinIsActive
+            ? NSPoint(x: Self.skinnedMiscRect.minX, y: Self.skinnedMiscRect.maxY)
+            : NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
     @objc private func listOptsNew() {
@@ -464,6 +525,51 @@ class PlaylistView: NSView {
                 await self?.playlistManager?.addFolder(url)
             }
         }
+    }
+
+    // MARK: - Skinned bottom-button rects (Webamp positions in the 38px bottom strip)
+    private static let skinnedAddRect  = NSRect(x:  0, y: 0, width: 25, height: 18)
+    private static let skinnedRemRect  = NSRect(x: 29, y: 0, width: 25, height: 18)
+    private static let skinnedSelRect  = NSRect(x: 58, y: 0, width: 25, height: 18)
+    private static let skinnedMiscRect = NSRect(x: 87, y: 0, width: 25, height: 18)
+
+    // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
+    override func mouseDown(with event: NSEvent) {
+        guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+
+        // Title bar drag zone (top 20px)
+        if point.y >= bounds.height - 20 {
+            dragOrigin = event.locationInWindow
+            return
+        }
+
+        // Bottom button bar (bottom 18px)
+        if point.y < 18 {
+            if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
+            if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
+            if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
+            if Self.skinnedMiscRect.contains(point) { handleSkinnedMisc(); return }
+        }
+
+        super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let win = window else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let current = event.locationInWindow
+        var frame = win.frame
+        frame.origin.x += current.x - origin.x
+        frame.origin.y += current.y - origin.y
+        win.setFrameOrigin(frame.origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        super.mouseUp(with: event)
     }
 
     // MARK: - Drag and Drop
