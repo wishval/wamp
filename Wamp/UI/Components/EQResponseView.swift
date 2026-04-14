@@ -34,10 +34,18 @@ class EQResponseView: NSView {
             bg.draw(in: b)
         }
 
-        drawPixelCurve(in: b) { row, rowCount in
-            let t = CGFloat(rowCount - 1 - row) / CGFloat(max(rowCount - 1, 1))
-            let hue = t * 120.0 / 360.0
-            return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
+        // Skin-sourced palette: 19 colors sampled from eqmain.bmp at y=313
+        // (x=0 = +12dB / top, x=18 = -12dB / bottom). Each color covers one
+        // pixel row of the 19-pixel-tall graph. See EqGraphColorsParser.
+        let palette = WinampTheme.provider.eqGraphLineColors
+        if palette.count == 19 {
+            drawPixelCurve(in: b) { row, rowCount in
+                let idx = min(palette.count - 1, row * palette.count / max(rowCount, 1))
+                return palette[idx]
+            }
+        } else {
+            // Skin somehow lacks the palette — fall back to the built-in hue gradient.
+            drawPixelCurve(in: b) { row, rowCount in hueGradient(row: row, rowCount: rowCount) }
         }
     }
 
@@ -58,11 +66,14 @@ class EQResponseView: NSView {
         NSColor.white.withAlphaComponent(0.35).setFill()
         NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
 
-        drawPixelCurve(in: b) { row, rowCount in
-            let t = CGFloat(rowCount - 1 - row) / CGFloat(max(rowCount - 1, 1))
-            let hue = t * 120.0 / 360.0
-            return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
-        }
+        drawPixelCurve(in: b) { row, rowCount in hueGradient(row: row, rowCount: rowCount) }
+    }
+
+    /// Green→red hue by row position (top = red/boost, bottom = green/cut).
+    private func hueGradient(row: Int, rowCount: Int) -> NSColor {
+        let t = CGFloat(rowCount - 1 - row) / CGFloat(max(rowCount - 1, 1))
+        let hue = t * 120.0 / 360.0
+        return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
     }
 
     /// Classic Winamp draws the EQ curve as a 1px-wide per-column sweep across
