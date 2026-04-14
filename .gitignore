@@ -18,6 +18,9 @@ xcuserdata/
 .Trashes
 ._*
 
+# LLVM coverage profiling artifact dropped when running the app in Debug
+*.profraw
+
 # App bundles & symbols
 *.app
 *.ipa
