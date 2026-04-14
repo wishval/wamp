@@ -30,55 +30,20 @@ class EQResponseView: NSView {
 
         let b = bounds
 
-        // Graph background from eqmain.bmp
         if let bg = WinampTheme.sprite(.eqGraphBackground) {
             bg.draw(in: b)
         }
 
-        // Horizontal center line (0 dB)
-        NSColor.white.withAlphaComponent(0.35).setFill()
-        NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
-
-        // Response curve — Catmull-Rom spline, colored by gain (green→red hue),
-        // matching the unskinned drawBuiltIn() style.
-        guard bands.count >= 10 else { return }
-        let lineWidth: CGFloat = 1.6
-
-        var points: [NSPoint] = []
-        for (i, gain) in bands.enumerated() {
-            let x = b.width * CGFloat(i) / CGFloat(bands.count - 1)
-            let normalized = CGFloat(gain / 12) // -1 to 1
-            let y = b.midY + normalized * (b.height / 2 - 1)
-            points.append(NSPoint(x: x, y: y))
-        }
-
-        for i in 0..<(points.count - 1) {
-            let avgGain = (bands[i] + bands[i + 1]) / 2.0
-            let t = CGFloat((avgGain + 12) / 24.0) // 0..1
-            let hue = (1 - t) * 120.0 / 360.0
-            let color = NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
-            color.setStroke()
-
-            let p0 = i > 0 ? points[i - 1] : points[i]
-            let p1 = points[i]
-            let p2 = points[i + 1]
-            let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
-
-            let cp1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
-            let cp2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
-
-            let segment = NSBezierPath()
-            segment.lineWidth = lineWidth
-            segment.move(to: p1)
-            segment.curve(to: p2, controlPoint1: cp1, controlPoint2: cp2)
-            segment.stroke()
+        drawPixelCurve(in: b) { row, rowCount in
+            let t = CGFloat(rowCount - 1 - row) / CGFloat(max(rowCount - 1, 1))
+            let hue = t * 120.0 / 360.0
+            return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
         }
     }
 
     private func drawBuiltIn() {
         let b = bounds
 
-        // Background
         let bgGradient = NSGradient(starting: WinampTheme.eqSliderBgTop, ending: WinampTheme.eqSliderBgBottom)
         bgGradient?.draw(in: b, angle: 90)
 
@@ -90,43 +55,46 @@ class EQResponseView: NSView {
             NSRect(x: x, y: 0, width: 1, height: b.height).fill()
         }
 
-        // Horizontal mid-line — pale white, matching the verticals
         NSColor.white.withAlphaComponent(0.35).setFill()
         NSRect(x: 0, y: round(b.midY), width: b.width, height: 1).fill()
 
-        // Response curve — gradient colored per band (green=cut, yellow=flat, red=boost)
-        guard bands.count >= 10 else { return }
-        let lineWidth: CGFloat = 1.6
-
-        var points: [NSPoint] = []
-        for (i, gain) in bands.enumerated() {
-            let x = b.width * CGFloat(i) / CGFloat(bands.count - 1)
-            let normalized = CGFloat(gain / 12) // -1 to 1
-            let y = b.midY + normalized * (b.height / 2 - 1)
-            points.append(NSPoint(x: x, y: y))
+        drawPixelCurve(in: b) { row, rowCount in
+            let t = CGFloat(rowCount - 1 - row) / CGFloat(max(rowCount - 1, 1))
+            let hue = t * 120.0 / 360.0
+            return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
         }
+    }
 
-        // Draw Catmull-Rom spline segments for smooth curves, colored by average gain
-        for i in 0..<(points.count - 1) {
-            let avgGain = (bands[i] + bands[i + 1]) / 2.0
-            let t = CGFloat((avgGain - (-12)) / 24.0) // 0..1
-            let hue = (1 - t) * 120.0 / 360.0
-            let color = NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
-            color.setStroke()
+    /// Classic Winamp draws the EQ curve as a 1px-wide per-column sweep across
+    /// the graph area, not as a smooth bezier. For each integer x column we
+    /// linearly interpolate between the two surrounding band gains, round the
+    /// result to a pixel row, and fill a 1×1 rect. `colorForRow` returns the
+    /// palette color for a given row index (0 = top, rowCount-1 = bottom).
+    private func drawPixelCurve(in rect: NSRect, colorForRow: (_ row: Int, _ rowCount: Int) -> NSColor) {
+        guard bands.count >= 10 else { return }
 
-            let p0 = i > 0 ? points[i - 1] : points[i]
-            let p1 = points[i]
-            let p2 = points[i + 1]
-            let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
+        let rowCount = max(1, Int(rect.height.rounded()))
+        let colCount = max(1, Int(rect.width.rounded()))
+        let lastBand = CGFloat(bands.count - 1)
 
-            let cp1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
-            let cp2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+        for col in 0..<colCount {
+            let x = rect.minX + CGFloat(col)
+            // Fractional band index for this column, linearly mapped across width.
+            let f = CGFloat(col) / CGFloat(max(colCount - 1, 1)) * lastBand
+            let lo = Int(f.rounded(.down))
+            let hi = min(bands.count - 1, lo + 1)
+            let frac = f - CGFloat(lo)
+            let gain = (1 - frac) * CGFloat(bands[lo]) + frac * CGFloat(bands[hi])
+            let normalized = gain / 12.0 // -1..1 for ±12 dB
 
-            let segment = NSBezierPath()
-            segment.lineWidth = lineWidth
-            segment.move(to: p1)
-            segment.curve(to: p2, controlPoint1: cp1, controlPoint2: cp2)
-            segment.stroke()
+            // Row 0 = top (+12 dB); rowCount-1 = bottom (-12 dB). Classic Winamp
+            // maps gain linearly onto the 19-row graph.
+            let rowF = (1 - normalized) / 2 * CGFloat(rowCount - 1)
+            let row = min(rowCount - 1, max(0, Int(rowF.rounded())))
+            let y = rect.minY + CGFloat(rowCount - 1 - row)
+
+            colorForRow(row, rowCount).setFill()
+            NSRect(x: x, y: y, width: 1, height: 1).fill()
         }
     }
 }
