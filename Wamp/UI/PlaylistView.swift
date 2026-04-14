@@ -224,12 +224,15 @@ class PlaylistView: NSView {
         NSColor.black.setFill()
         NSRect(x: w - 146, y: 7, width: 97, height: 13).fill()
 
-        // Render "N tracks / total duration" via text.bmp inside the baked
-        // "running time" LCD area of the bottom-right corner sprite.
+        // Render the compact "N / H:MM" summary via text.bmp inside the baked
+        // "running time" LCD area of the bottom-right corner sprite. The full
+        // "N tracks / H:MM:SS" form overflows the ~100px LCD once counts or
+        // durations grow — drop the "tracks" label and the seconds so track
+        // counts into the hundreds still fit.
         // Webamp positions #playlist-running-time-display at top:10, left:7
         // inside the 150×38 BR corner, i.e. absolute (w-150+7, corner-top-10).
         if let textSheet = WinampTheme.provider.textSheet, let pm = playlistManager {
-            let info = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+            let info = "\(pm.tracks.count) / \(pm.formattedTotalDurationCompact)"
             let textX = w - 150 + 7
             let textY: CGFloat = 38 - 10 - TextSpriteRenderer.glyphHeight
             TextSpriteRenderer.draw(info, at: NSPoint(x: textX, y: textY), sheet: textSheet)
@@ -361,7 +364,7 @@ class PlaylistView: NSView {
 
     private func updateInfoLabel() {
         guard let pm = playlistManager else { return }
-        infoLabel.stringValue = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+        infoLabel.stringValue = "\(pm.tracks.count) / \(pm.formattedTotalDurationCompact)"
     }
 
     @objc private func doubleClickRow() {
