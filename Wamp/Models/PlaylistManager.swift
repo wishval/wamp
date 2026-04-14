@@ -38,6 +38,18 @@ class PlaylistManager: ObservableObject {
         return "\(minutes):\(String(format: "%02d", seconds))"
     }
 
+    /// H:MM (or MM if under an hour). Used in the playlist footer LCD where
+    /// the full HH:MM:SS form won't fit alongside the track count.
+    var formattedTotalDurationCompact: String {
+        let total = Int(totalDuration)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours > 0 {
+            return "\(hours):\(String(format: "%02d", minutes))"
+        }
+        return "\(minutes)"
+    }
+
     init() {
         NotificationCenter.default.publisher(for: .trackDidFinish)
             .receive(on: DispatchQueue.main)

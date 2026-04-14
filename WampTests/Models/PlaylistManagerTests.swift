@@ -94,6 +94,17 @@ struct PlaylistManagerTests {
         #expect(pm.totalDuration == 150)
     }
 
+    @Test func formattedTotalDurationCompact_stripsSeconds() {
+        let pm = PlaylistManager()
+        // 2h 3m 45s — seconds must be dropped, hours padded naturally.
+        pm.addTracks([makeTrack("a", duration: 2 * 3600 + 3 * 60 + 45)])
+        #expect(pm.formattedTotalDurationCompact == "2:03")
+        // Under an hour: just minutes.
+        pm.clearPlaylist()
+        pm.addTracks([makeTrack("a", duration: 7 * 60 + 30)])
+        #expect(pm.formattedTotalDurationCompact == "7")
+    }
+
     @Test func filteredTracks_searchQueryMatchesTitle() {
         let pm = PlaylistManager()
         pm.addTracks([makeTrack("Alpha"), makeTrack("Beta"), makeTrack("alphabet")])

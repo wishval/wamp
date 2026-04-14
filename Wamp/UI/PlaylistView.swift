@@ -215,12 +215,24 @@ class PlaylistView: NSView {
             br.draw(in: NSRect(x: w - 150, y: 0, width: 150, height: 38))
         }
 
-        // Render "N tracks / total duration" via text.bmp inside the baked
-        // "running time" LCD area of the bottom-right corner sprite.
+        // Mask the mini-player buttons and ":"-timer baked into the BR corner.
+        // Classic Winamp wired these to playlist-local transport; we don't need
+        // them (main-window transport is the single source of truth), so paint
+        // black over top-down y=18..31 × x=4..101 inside the 150×38 sprite.
+        // AppKit: y=7..20. Stops short of the LIST OPTS box at x≥105 and keeps
+        // the outer frame (bottom 2px, left/right edges) intact.
+        NSColor.black.setFill()
+        NSRect(x: w - 146, y: 7, width: 97, height: 13).fill()
+
+        // Render the compact "N / H:MM" summary via text.bmp inside the baked
+        // "running time" LCD area of the bottom-right corner sprite. The full
+        // "N tracks / H:MM:SS" form overflows the ~100px LCD once counts or
+        // durations grow — drop the "tracks" label and the seconds so track
+        // counts into the hundreds still fit.
         // Webamp positions #playlist-running-time-display at top:10, left:7
         // inside the 150×38 BR corner, i.e. absolute (w-150+7, corner-top-10).
         if let textSheet = WinampTheme.provider.textSheet, let pm = playlistManager {
-            let info = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+            let info = "\(pm.tracks.count) / \(pm.formattedTotalDurationCompact)"
             let textX = w - 150 + 7
             let textY: CGFloat = 38 - 10 - TextSpriteRenderer.glyphHeight
             TextSpriteRenderer.draw(info, at: NSPoint(x: textX, y: textY), sheet: textSheet)
@@ -352,7 +364,7 @@ class PlaylistView: NSView {
 
     private func updateInfoLabel() {
         guard let pm = playlistManager else { return }
-        infoLabel.stringValue = "\(pm.tracks.count) tracks / \(pm.formattedTotalDuration)"
+        infoLabel.stringValue = "\(pm.tracks.count) / \(pm.formattedTotalDurationCompact)"
     }
 
     @objc private func doubleClickRow() {
@@ -440,8 +452,6 @@ class PlaylistView: NSView {
         tableView.selectRowIndexes(all.symmetricDifference(current), byExtendingSelection: false)
     }
 
-    private func handleSkinnedMisc() { showListOptsMenu() }
-
     private func showAddMenu() {
         let menu = NSMenu()
         let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
@@ -478,9 +488,13 @@ class PlaylistView: NSView {
         menu.addItem(newItem)
         menu.addItem(loadItem)
         menu.addItem(saveItem)
-        let anchor = WinampTheme.skinIsActive
-            ? NSPoint(x: Self.skinnedMiscRect.minX, y: Self.skinnedMiscRect.maxY)
-            : NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        let anchor: NSPoint
+        if WinampTheme.skinIsActive {
+            let r = skinnedListOptsRect()
+            anchor = NSPoint(x: r.minX, y: r.maxY)
+        } else {
+            anchor = NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        }
         menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
@@ -534,13 +548,13 @@ class PlaylistView: NSView {
     private static let skinnedAddRect  = NSRect(x: 11, y: 10, width: 22, height: 18)
     private static let skinnedRemRect  = NSRect(x: 40, y: 10, width: 22, height: 18)
     private static let skinnedSelRect  = NSRect(x: 69, y: 10, width: 22, height: 18)
-    private static let skinnedMiscRect = NSRect(x: 98, y: 10, width: 22, height: 18)
 
     // LIST OPTS lives in the bottom-right corner (150×38 at x=w-150).
-    // Measured baked at pledit.bmp (234, 76, 20, 18) → corner-relative
-    // (108, 4_topdown, 20, 18) → AppKit y = 38 - 4 - 18 = 16.
+    // Bounds measured directly from pledit.bmp BR-corner pixels: the visible
+    // raised box spans top-down (105, 8, 23, 18) → playlist-local x = w-45,
+    // AppKit y = 38 - 8 - 18 = 12.
     private func skinnedListOptsRect() -> NSRect {
-        NSRect(x: bounds.width - 42, y: 16, width: 20, height: 18)
+        NSRect(x: bounds.width - 45, y: 12, width: 23, height: 18)
     }
 
     // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
@@ -554,12 +568,12 @@ class PlaylistView: NSView {
             return
         }
 
-        // Bottom button strip
+        // Bottom button strip. MISC sprite is baked into the BL corner but is
+        // intentionally inert — list management lives under LIST OPTS only.
         if point.y < 38 {
             if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
             if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
             if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
-            if Self.skinnedMiscRect.contains(point) { handleSkinnedMisc(); return }
             if skinnedListOptsRect().contains(point) { showListOptsMenu(); return }
         }
 
