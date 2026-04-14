@@ -440,8 +440,6 @@ class PlaylistView: NSView {
         tableView.selectRowIndexes(all.symmetricDifference(current), byExtendingSelection: false)
     }
 
-    private func handleSkinnedMisc() { showListOptsMenu() }
-
     private func showAddMenu() {
         let menu = NSMenu()
         let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
@@ -478,9 +476,13 @@ class PlaylistView: NSView {
         menu.addItem(newItem)
         menu.addItem(loadItem)
         menu.addItem(saveItem)
-        let anchor = WinampTheme.skinIsActive
-            ? NSPoint(x: Self.skinnedMiscRect.minX, y: Self.skinnedMiscRect.maxY)
-            : NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        let anchor: NSPoint
+        if WinampTheme.skinIsActive {
+            let r = skinnedListOptsRect()
+            anchor = NSPoint(x: r.minX, y: r.maxY)
+        } else {
+            anchor = NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
+        }
         menu.popUp(positioning: nil, at: anchor, in: self)
     }
 
@@ -534,7 +536,6 @@ class PlaylistView: NSView {
     private static let skinnedAddRect  = NSRect(x: 11, y: 10, width: 22, height: 18)
     private static let skinnedRemRect  = NSRect(x: 40, y: 10, width: 22, height: 18)
     private static let skinnedSelRect  = NSRect(x: 69, y: 10, width: 22, height: 18)
-    private static let skinnedMiscRect = NSRect(x: 98, y: 10, width: 22, height: 18)
 
     // LIST OPTS lives in the bottom-right corner (150×38 at x=w-150).
     // Measured baked at pledit.bmp (234, 76, 20, 18) → corner-relative
@@ -554,12 +555,12 @@ class PlaylistView: NSView {
             return
         }
 
-        // Bottom button strip
+        // Bottom button strip. MISC sprite is baked into the BL corner but is
+        // intentionally inert — list management lives under LIST OPTS only.
         if point.y < 38 {
             if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
             if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
             if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
-            if Self.skinnedMiscRect.contains(point) { handleSkinnedMisc(); return }
             if skinnedListOptsRect().contains(point) { showListOptsMenu(); return }
         }
 
