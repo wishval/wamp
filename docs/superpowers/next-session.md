@@ -1,17 +1,15 @@
 # Next session — 2026-04-14
 
-Wamp, macOS/Swift/AppKit, Winamp clone, working directory
-  `/Users/valerijbakalenko/Documents/Stranger/Code/AI/WinampMac`.
+Wamp, macOS/Swift/AppKit, Winamp clone, working directory `/Users/valerijbakalenko/Documents/Stranger/Code/AI/WinampMac`.
 
-Just shipped (feature/skin-polish):
-- Window dragging in skinned mode (MainPlayer/EQ/Playlist title areas) and menu icon hit zone in the top-left.
-- EqualizerView gained a layoutSkinned() with exact Webamp coordinates; EQ response curve now draws a center line and hue-colored Catmull-Rom spline; EQ band sliders draw the 19-stop palette fill in skinned mode.
-- Playlist bottom buttons re-implemented via direct mouseDown hit-testing (NSClickGestureRecognizer on invisible NSViews didn't fire).
+Just shipped (feature/skin-fixes-2):
+- Fixed skinned playlist bottom-button hit rects using positions measured from pledit.bmp (ADD/REM/SEL/MISC at x=11/40/69/98, AppKit y=10..28) and added LIST OPTS click target at (w-42, 16, 20, 18).
+- Rewrote the EQ slider sprite mapping: eqSliderThumb is a single sprite (not 14 variants); eqSliderBackground now has 14 position variants at x=13+p*15 with the authentic green→red gradient baked in. Dropped the programmatic 19-stop fill.
+- Nullsoft swoosh baked into main.bmp is now a clickable hit-zone at (249, 12, 18, 15) that opens https://github.com/wishval/wamp.
 
-Known concerns:
-- The mouseDown hit-test for ADD/REM/SEL/MISC may still be intercepted by the scrollView or pledit corner-sprite area — needs investigation when the new session starts (verify hitTest order, consider overriding hitTest(_:) instead of mouseDown).
+Known concerns: none of the above was visually verified in a running app — user should launch and confirm each playlist button clicks, EQ sliders look right, and the logo link opens.
 
 Next tasks:
-- Кнопки add, rem, sel, misc, list opts до сих пор не нажимаются.
-- EQ-ползунки очень отличаются стилистически от скина; сами перетаскивающиеся ползунки (thumbs) вообще не получили скин — они должны быть такими же, как ползунки звука или баланса (sprite-based из eqmain.bmp).
-- Справа от кнопки повтора в скине есть иконка — она должна быть кликабельной и вести на https://github.com/wishval/wamp.
+- Разобраться с футером плейлиста — как он хранится в теме. Убрать кнопку MISC. Починить кнопку LIST OPTS (сейчас не работает).
+- В поле между MISC и LIST OPTS показывается «tracks / total duration» — текст не влазит. Уменьшить шрифт и убрать секунды из длительности.
+- Под этим полем в BR corner есть мини-кнопки управления плеером и поле с двоеточием (предположительно для current playback time) — всё это убрать, не нужно.
