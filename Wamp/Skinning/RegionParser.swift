@@ -5,23 +5,22 @@ import CoreGraphics
 import Foundation
 
 enum RegionParser {
-    /// Parses region.txt and returns the Y-flipped polygon for the [Normal] section
-    /// (the main window region). All other sections (WindowShade, Equalizer, etc.) ignored.
-    /// `windowHeight` is the height to flip Y around (Winamp main window = 116).
-    static func parseMainWindowRegion(_ text: String, windowHeight: CGFloat = 116) -> [CGPoint]? {
+    /// Parses region.txt [Normal] into one or more Y-flipped polygons — the union of
+    /// which forms the main window mask. `numpoints` is a comma-separated list of
+    /// vertex counts, one per polygon, and `pointlist` concatenates the polygons'
+    /// points in order. All other sections (WindowShade, Equalizer, etc.) are ignored.
+    /// Returns nil when [Normal] is absent or contains no valid polygon.
+    static func parseMainWindowRegion(_ text: String, windowHeight: CGFloat = 116) -> [[CGPoint]]? {
         let ini = IniParser.parse(text)
         guard let section = ini["normal"],
               let numpointsStr = section["numpoints"],
               let pointlistStr = section["pointlist"] else { return nil }
 
-        // First polygon's point count from numpoints (comma-separated). Take the first only.
-        let firstCount = numpointsStr
+        let counts = numpointsStr
             .split(separator: ",")
             .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-            .first ?? 0
-        guard firstCount >= 3 else { return nil }
+        guard !counts.isEmpty else { return nil }
 
-        // Pointlist: "x1,y1 x2,y2 ..." — possibly newline or whitespace separated
         let coords = pointlistStr
             .split(whereSeparator: { $0.isWhitespace })
             .compactMap { (token: Substring) -> CGPoint? in
@@ -33,7 +32,13 @@ enum RegionParser {
                 return CGPoint(x: x, y: windowHeight - y)
             }
 
-        guard coords.count >= firstCount else { return nil }
-        return Array(coords.prefix(firstCount))
+        var polygons: [[CGPoint]] = []
+        var cursor = 0
+        for count in counts {
+            guard count >= 3, cursor + count <= coords.count else { break }
+            polygons.append(Array(coords[cursor..<(cursor + count)]))
+            cursor += count
+        }
+        return polygons.isEmpty ? nil : polygons
     }
 }

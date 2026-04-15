@@ -155,17 +155,27 @@ class MainWindow: NSWindow {
 
     /// Applies the non-rectangular window mask from the current skin's region.txt.
     /// Called by AppDelegate after each skin load/unload.
+    ///
+    /// The mask is scoped to `mainPlayerView` because region.txt describes the
+    /// 275×116 main-player window only — EQ and playlist stay rectangular. We
+    /// also flip the window to non-opaque while a region is active, otherwise
+    /// the NSWindow background fills the cutout areas and the silhouette looks
+    /// pasted onto a solid rectangle instead of showing the desktop behind it.
     func applyRegionMaskFromCurrentSkin() {
-        guard let contentView = self.contentView else { return }
-        contentView.wantsLayer = true
+        mainPlayerView.wantsLayer = true
 
         if let region = SkinManager.shared.currentSkin.mainWindowRegion {
             let mask = CAShapeLayer()
             mask.path = region.cgPath
             mask.fillColor = NSColor.black.cgColor
-            contentView.layer?.mask = mask
+            mainPlayerView.layer?.mask = mask
+            isOpaque = false
+            backgroundColor = .clear
         } else {
-            contentView.layer?.mask = nil
+            mainPlayerView.layer?.mask = nil
+            isOpaque = true
+            backgroundColor = WinampTheme.frameBackground
         }
+        invalidateShadow()
     }
 }

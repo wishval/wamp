@@ -76,11 +76,12 @@ class EQResponseView: NSView {
         return NSColor(hue: hue, saturation: 0.90, brightness: 0.95, alpha: 1.0)
     }
 
-    /// Classic Winamp draws the EQ curve as a 1px-wide per-column sweep across
-    /// the graph area, not as a smooth bezier. For each integer x column we
-    /// linearly interpolate between the two surrounding band gains, round the
-    /// result to a pixel row, and fill a 1×1 rect. `colorForRow` returns the
-    /// palette color for a given row index (0 = top, rowCount-1 = bottom).
+    /// Classic Winamp / Webamp draws the EQ curve as a connected 1px-wide line:
+    /// for each x column we compute the curve row and fill the vertical segment
+    /// from the previous column's row to the current one (height = 1 + |Δrow|).
+    /// This matches Webamp's `fillRect(x, yTop, 1, 1 + |lastY - y|)` loop and
+    /// keeps the line visible even when adjacent bands swing sharply.
+    /// `colorForRow` returns the palette color for a given row (0 = top).
     private func drawPixelCurve(in rect: NSRect, colorForRow: (_ row: Int, _ rowCount: Int) -> NSColor) {
         guard bands.count >= 10 else { return }
 
@@ -88,24 +89,32 @@ class EQResponseView: NSView {
         let colCount = max(1, Int(rect.width.rounded()))
         let lastBand = CGFloat(bands.count - 1)
 
-        for col in 0..<colCount {
-            let x = rect.minX + CGFloat(col)
-            // Fractional band index for this column, linearly mapped across width.
+        func row(for col: Int) -> Int {
             let f = CGFloat(col) / CGFloat(max(colCount - 1, 1)) * lastBand
             let lo = Int(f.rounded(.down))
             let hi = min(bands.count - 1, lo + 1)
             let frac = f - CGFloat(lo)
             let gain = (1 - frac) * CGFloat(bands[lo]) + frac * CGFloat(bands[hi])
             let normalized = gain / 12.0 // -1..1 for ±12 dB
-
-            // Row 0 = top (+12 dB); rowCount-1 = bottom (-12 dB). Classic Winamp
-            // maps gain linearly onto the 19-row graph.
             let rowF = (1 - normalized) / 2 * CGFloat(rowCount - 1)
-            let row = min(rowCount - 1, max(0, Int(rowF.rounded())))
-            let y = rect.minY + CGFloat(rowCount - 1 - row)
+            return min(rowCount - 1, max(0, Int(rowF.rounded())))
+        }
 
-            colorForRow(row, rowCount).setFill()
-            NSRect(x: x, y: y, width: 1, height: 1).fill()
+        var lastRow = row(for: 0)
+        for col in 0..<colCount {
+            let curRow = row(for: col)
+            // Fill the vertical segment [min(lastRow, curRow) … max(lastRow, curRow)]
+            // column by column. Each pixel gets its per-row palette color so the
+            // line carries the skin's gradient from +12 dB (top) to -12 dB (bottom).
+            let topRow = min(lastRow, curRow)
+            let botRow = max(lastRow, curRow)
+            let x = rect.minX + CGFloat(col)
+            for r in topRow...botRow {
+                let y = rect.minY + CGFloat(rowCount - 1 - r)
+                colorForRow(r, rowCount).setFill()
+                NSRect(x: x, y: y, width: 1, height: 1).fill()
+            }
+            lastRow = curRow
         }
     }
 }

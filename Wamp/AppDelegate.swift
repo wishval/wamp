@@ -49,11 +49,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // First-launch seed: add the bundled demo track once. If the user deletes
-        // it later, the normal playlist-save path persists its absence and the
-        // flag below prevents it from coming back.
-        seedBundledSampleIfNeeded()
-
         // Restore saved skin (synchronous to avoid window flicker)
         if let path = appState.skinPath, FileManager.default.fileExists(atPath: path) {
             try? SkinManager.shared.loadSkinSync(from: URL(fileURLWithPath: path))
@@ -96,23 +91,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
-    }
-
-    // MARK: - Bundled sample seeding
-
-    private static let seededBundledSampleKey = "hasSeededBundledSample"
-    private static let bundledSampleName = "DJ_Mike_Llama_-_Llama_Whippin_Intro"
-
-    private func seedBundledSampleIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: Self.seededBundledSampleKey) else { return }
-        guard let url = Bundle.main.url(forResource: Self.bundledSampleName, withExtension: "mp3") else { return }
-
-        Task { @MainActor in
-            let track = await Track.fromURL(url)
-            self.playlistManager.addTracks([track])
-            defaults.set(true, forKey: Self.seededBundledSampleKey)
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

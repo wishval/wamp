@@ -15,8 +15,9 @@ struct SkinModel {
     /// Playlist colors and font. Defaults if pledit.txt absent.
     let playlistStyle: PlaylistStyle
 
-    /// Main window region polygon (Y-flipped to macOS coordinates). nil if region.txt absent.
-    let mainWindowRegion: [CGPoint]?
+    /// Main window region — one or more Y-flipped polygons whose union forms the mask.
+    /// nil if region.txt or its [Normal] section is absent.
+    let mainWindowRegion: [[CGPoint]]?
 
     /// 19 colors sampled from eqmain.bmp at y=313 — one per pixel row of the EQ response curve.
     /// Empty if eqmain.bmp absent.
