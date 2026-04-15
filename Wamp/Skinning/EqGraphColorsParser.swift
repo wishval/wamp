@@ -4,19 +4,24 @@
 import AppKit
 
 enum EqGraphColorsParser {
-    /// Samples 19 pixels at y=313 (graph line colors, top→bottom = +12dB→-12dB)
-    /// and 1 pixel at y=314 (preamp line color) from eqmain.bmp.
+    /// Samples the EQ response-curve palette from eqmain.bmp, matching Webamp's
+    /// sprite definitions:
     ///
-    /// Returns `([], .green)` when the image is shorter than 314 pixels. The
-    /// preamp row is optional: when the image is exactly 314 tall (no y=314),
-    /// the line colors are still returned and preamp falls back to `.green`.
+    ///   EQ_GRAPH_LINE_COLORS — x=115, y=294, width=1, height=19 (vertical strip
+    ///     to the right of the graph. Top row = +12 dB, bottom row = -12 dB.)
+    ///   EQ_PREAMP_LINE       — x=0,   y=314, width=113, height=1
     ///
+    /// An earlier revision sampled a horizontal strip at y=313, which matched
+    /// neither the classic Winamp layout nor most real-world skins and produced
+    /// near-uniform "curve disappears into the background" palettes.
+    ///
+    /// Returns `([], .green)` when the image is too short for y=312. Preamp
+    /// falls back to `.green` when y=314 is not present (e.g. 314-tall sheets).
     /// If every sampled line pixel is Winamp's transparency key `#FF00FF`,
-    /// the row was never populated by the skin author — returned as `[]` so
-    /// the view falls back to its built-in hue gradient instead of rendering
-    /// a bright-magenta curve.
+    /// `lines` is returned as `[]` so the view falls back to its built-in
+    /// hue gradient instead of rendering a bright-magenta curve.
     static func parse(from cg: CGImage) -> (lines: [NSColor], preamp: NSColor) {
-        guard cg.height > 313 else { return ([], .green) }
+        guard cg.height > 312, cg.width > 115 else { return ([], .green) }
 
         guard let context = CGContext(
             data: nil,
@@ -50,7 +55,8 @@ enum EqGraphColorsParser {
             px.r == 255 && px.g == 0 && px.b == 255
         }
 
-        let rawLines = (0..<19).map { rgb(x: $0, y_winamp: 313) }
+        // 19 line colors read top→bottom from the vertical strip at x=115.
+        let rawLines = (0..<19).map { rgb(x: 115, y_winamp: 294 + $0) }
         let lines: [NSColor] = rawLines.allSatisfy(isTransparencyKey)
             ? []
             : rawLines.map(toColor)
