@@ -35,11 +35,13 @@ final class WinampClassicSkin: SkinProvider {
     var eqPreampLineColor: NSColor { model.eqPreampLineColor }
 
     var mainWindowRegion: NSBezierPath? {
-        guard let points = model.mainWindowRegion, points.count >= 3 else { return nil }
+        guard let polygons = model.mainWindowRegion else { return nil }
         let path = NSBezierPath()
-        path.move(to: points[0])
-        for p in points.dropFirst() { path.line(to: p) }
-        path.close()
-        return path
+        for poly in polygons where poly.count >= 3 {
+            path.move(to: poly[0])
+            for p in poly.dropFirst() { path.line(to: p) }
+            path.close()
+        }
+        return path.isEmpty ? nil : path
     }
 }

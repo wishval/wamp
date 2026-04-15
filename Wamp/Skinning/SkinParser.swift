@@ -51,7 +51,7 @@ final class SkinParser {
         }
 
         // region.txt — main window only
-        let region: [CGPoint]?
+        let region: [[CGPoint]]?
         if let regionData = entries["region.txt"],
            let text = String(data: regionData, encoding: .utf8)
               ?? String(data: regionData, encoding: .windowsCP1252) {
