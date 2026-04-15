@@ -188,6 +188,40 @@ class PlaylistManager: ObservableObject {
         }
     }
 
+    // MARK: - Sorting (MISC menu)
+    /// Case-insensitive sort by track title. Preserves currentIndex → playing track.
+    func sortByTitle() {
+        sortTracks { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    /// Sort by URL.lastPathComponent (filename only), localized case-insensitive.
+    func sortByFilename() {
+        sortTracks { $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending }
+    }
+
+    /// Sort by full URL.path, localized case-insensitive.
+    func sortByPath() {
+        sortTracks { $0.url.path.localizedCaseInsensitiveCompare($1.url.path) == .orderedAscending }
+    }
+
+    /// Reverse the current list order.
+    func reverseList() {
+        sortTracks(using: nil, reverse: true)
+    }
+
+    private func sortTracks(using predicate: ((Track, Track) -> Bool)? = nil, reverse: Bool = false) {
+        let current = currentIndex >= 0 && currentIndex < tracks.count ? tracks[currentIndex] : nil
+        if let predicate {
+            tracks.sort(by: predicate)
+        }
+        if reverse {
+            tracks.reverse()
+        }
+        if let current {
+            currentIndex = tracks.firstIndex(where: { $0.id == current.id }) ?? -1
+        }
+    }
+
     func shuffleTracks() {
         guard tracks.count > 1 else { return }
         let currentTrack = currentIndex >= 0 && currentIndex < tracks.count ? tracks[currentIndex] : nil

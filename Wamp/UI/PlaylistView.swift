@@ -11,7 +11,8 @@ class PlaylistView: NSView {
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
     private let remButton = WinampButton(title: "REM", style: .action)
-    private let remAllButton = WinampButton(title: "CLEAR", style: .action)
+    private let selButton = WinampButton(title: "SEL", style: .action)
+    private let miscButton = WinampButton(title: "MISC", style: .action)
     private let listOptsButton = WinampButton(title: "LISTS", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
     private let skinScroller = PlaylistSkinScroller()
@@ -86,19 +87,22 @@ class PlaylistView: NSView {
         addSubview(searchField)
 
         // Buttons
-        addButton.onClick = { [weak self] in self?.showAddMenu() }
-        remButton.onClick = { [weak self] in self?.removeSelected() }
-        remAllButton.onClick = { [weak self] in self?.playlistManager?.clearPlaylist() }
+        addButton.onClick  = { [weak self] in self?.showAddMenu() }
+        remButton.onClick  = { [weak self] in self?.showRemMenu() }
+        selButton.onClick  = { [weak self] in self?.showSelMenu() }
+        miscButton.onClick = { [weak self] in self?.showMiscMenu() }
 
-        // Sprite providers (pledit.bmp submenu sub-buttons)
+        // Sprite providers (pledit.bmp submenu sub-buttons). Unskinned mode
+        // ignores these; they exist so the same NSButtons can be reused if
+        // we ever expose them under a skin (currently we hide them).
         addButton.spriteKeyProvider    = { _, pressed in .playlistAddFile(pressed: pressed) }
         remButton.spriteKeyProvider    = { _, pressed in .playlistRemoveSelected(pressed: pressed) }
-        remAllButton.spriteKeyProvider = { _, pressed in .playlistRemoveAll(pressed: pressed) }
         listOptsButton.spriteKeyProvider = { _, pressed in .playlistMiscOpts(pressed: pressed) }
 
         addSubview(addButton)
         addSubview(remButton)
-        addSubview(remAllButton)
+        addSubview(selButton)
+        addSubview(miscButton)
 
         listOptsButton.onClick = { [weak self] in self?.showListOptsMenu() }
         addSubview(listOptsButton)
@@ -135,7 +139,8 @@ class PlaylistView: NSView {
         searchField.isHidden = active
         addButton.isHidden = active
         remButton.isHidden = active
-        remAllButton.isHidden = active
+        selButton.isHidden = active
+        miscButton.isHidden = active
         listOptsButton.isHidden = active
         // Classic Winamp playlist rows are tight — text.bmp glyphs are 6 px tall.
         tableView.rowHeight = active ? 13 : 18
@@ -271,7 +276,8 @@ class PlaylistView: NSView {
         searchField.frame = .zero
         addButton.frame = .zero
         remButton.frame = .zero
-        remAllButton.frame = .zero
+        selButton.frame = .zero
+        miscButton.frame = .zero
         listOptsButton.frame = .zero
         infoLabel.frame = .zero
 
@@ -301,17 +307,20 @@ class PlaylistView: NSView {
         let bottomBarH: CGFloat = 18
         let searchH: CGFloat = 16
 
-        // Bottom bar
-        let btnW: CGFloat = 30
+        // Bottom bar — mirrors classic Winamp layout: ADD, REM, SEL, MISC on
+        // the left; LISTS on the right (our stand-in for LIST OPTS).
+        let btnW: CGFloat = 28
         let btnH: CGFloat = 14
-        addButton.frame = NSRect(x: pad, y: 2, width: btnW, height: btnH)
-        remButton.frame = NSRect(x: pad + btnW + 1, y: 2, width: btnW, height: btnH)
-        remAllButton.frame = NSRect(x: pad + (btnW + 1) * 2, y: 2, width: btnW, height: btnH)
+        let gap: CGFloat = 1
+        addButton.frame  = NSRect(x: pad + (btnW + gap) * 0, y: 2, width: btnW, height: btnH)
+        remButton.frame  = NSRect(x: pad + (btnW + gap) * 1, y: 2, width: btnW, height: btnH)
+        selButton.frame  = NSRect(x: pad + (btnW + gap) * 2, y: 2, width: btnW, height: btnH)
+        miscButton.frame = NSRect(x: pad + (btnW + gap) * 3, y: 2, width: btnW, height: btnH)
 
         let listOptsW: CGFloat = 36
         listOptsButton.frame = NSRect(x: w - pad - listOptsW, y: 2, width: listOptsW, height: btnH)
 
-        let infoW: CGFloat = 90
+        let infoW: CGFloat = 80
         let infoFont = infoLabel.font ?? NSFont.systemFont(ofSize: 9)
         let infoTextH = infoFont.boundingRectForFont.height
         let infoY = round((bottomBarH - infoTextH) / 2)
@@ -398,44 +407,65 @@ class PlaylistView: NSView {
         }
     }
 
-    // MARK: - Skinned bottom-bar handlers
-    private func handleSkinnedAdd() {
-        let menu = NSMenu()
-        let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
-        fileItem.target = self
-        let folderItem = NSMenuItem(title: "Add Folder...", action: #selector(addFolder), keyEquivalent: "")
-        folderItem.target = self
-        menu.addItem(fileItem)
-        menu.addItem(folderItem)
-        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedAddRect.minX, y: Self.skinnedAddRect.maxY), in: self)
+    // MARK: - Bottom-bar menus (shared by skinned + unskinned modes)
+    //
+    // Menu anchoring rule: each menu is anchored to the rect of its button. In
+    // skinned mode the rect is measured from the baked pledit.bmp sprite (see
+    // `skinned*Rect` constants below); in unskinned mode it's the NSButton
+    // frame. The two modes share the item lists — only the anchor differs.
+
+    private enum MenuKind { case add, rem, sel, misc, list }
+
+    private func menuAnchor(for kind: MenuKind) -> NSPoint {
+        if WinampTheme.skinIsActive {
+            let r: NSRect
+            switch kind {
+            case .add:  r = Self.skinnedAddRect
+            case .rem:  r = Self.skinnedRemRect
+            case .sel:  r = Self.skinnedSelRect
+            case .misc: r = Self.skinnedMiscRect
+            case .list: r = skinnedListOptsRect()
+            }
+            return NSPoint(x: r.minX, y: r.maxY)
+        }
+        let b: NSRect
+        switch kind {
+        case .add:  b = addButton.frame
+        case .rem:  b = remButton.frame
+        case .sel:  b = selButton.frame
+        case .misc: b = miscButton.frame
+        case .list: b = listOptsButton.frame
+        }
+        return NSPoint(x: b.minX, y: b.maxY)
     }
 
-    private func handleSkinnedRem() {
+    private func popUpMenu(_ menu: NSMenu, for kind: MenuKind) {
+        menu.popUp(positioning: nil, at: menuAnchor(for: kind), in: self)
+    }
+
+    private func showAddMenu() {
         let menu = NSMenu()
-        let remSel = NSMenuItem(title: "Remove Selected", action: #selector(remMenuRemoveSelected), keyEquivalent: "")
-        remSel.target = self
-        let remAll = NSMenuItem(title: "Remove All", action: #selector(remMenuRemoveAll), keyEquivalent: "")
-        remAll.target = self
-        menu.addItem(remSel)
-        menu.addItem(remAll)
-        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedRemRect.minX, y: Self.skinnedRemRect.maxY), in: self)
+        menu.addItem(menuItem("Add Files...",  action: #selector(addFiles)))
+        menu.addItem(menuItem("Add Folder...", action: #selector(addFolder)))
+        popUpMenu(menu, for: .add)
+    }
+
+    private func showRemMenu() {
+        let menu = NSMenu()
+        menu.addItem(menuItem("Remove Selected", action: #selector(remMenuRemoveSelected)))
+        menu.addItem(menuItem("Remove All",      action: #selector(remMenuRemoveAll)))
+        popUpMenu(menu, for: .rem)
     }
 
     @objc private func remMenuRemoveSelected() { removeSelected() }
     @objc private func remMenuRemoveAll() { playlistManager?.clearPlaylist() }
 
-    private func handleSkinnedSel() {
+    private func showSelMenu() {
         let menu = NSMenu()
-        let selAll = NSMenuItem(title: "Select All", action: #selector(selMenuSelectAll), keyEquivalent: "")
-        selAll.target = self
-        let selNone = NSMenuItem(title: "Select None", action: #selector(selMenuSelectNone), keyEquivalent: "")
-        selNone.target = self
-        let selInvert = NSMenuItem(title: "Invert Selection", action: #selector(selMenuInvert), keyEquivalent: "")
-        selInvert.target = self
-        menu.addItem(selAll)
-        menu.addItem(selNone)
-        menu.addItem(selInvert)
-        menu.popUp(positioning: nil, at: NSPoint(x: Self.skinnedSelRect.minX, y: Self.skinnedSelRect.maxY), in: self)
+        menu.addItem(menuItem("Select All",       action: #selector(selMenuSelectAll)))
+        menu.addItem(menuItem("Select None",      action: #selector(selMenuSelectNone)))
+        menu.addItem(menuItem("Invert Selection", action: #selector(selMenuInvert)))
+        popUpMenu(menu, for: .sel)
     }
 
     @objc private func selMenuSelectAll() {
@@ -452,15 +482,80 @@ class PlaylistView: NSView {
         tableView.selectRowIndexes(all.symmetricDifference(current), byExtendingSelection: false)
     }
 
-    private func showAddMenu() {
+    private func showMiscMenu() {
         let menu = NSMenu()
-        let fileItem = NSMenuItem(title: "Add Files...", action: #selector(addFiles), keyEquivalent: "")
-        fileItem.target = self
-        let folderItem = NSMenuItem(title: "Add Folder...", action: #selector(addFolder), keyEquivalent: "")
-        folderItem.target = self
-        menu.addItem(fileItem)
-        menu.addItem(folderItem)
-        menu.popUp(positioning: nil, at: NSPoint(x: addButton.frame.minX, y: addButton.frame.maxY), in: self)
+        menu.addItem(menuItem("File Info…", action: #selector(miscFileInfo)))
+        menu.addItem(NSMenuItem.separator())
+
+        let sort = NSMenu(title: "Sort List")
+        sort.addItem(menuItem("Sort by Title",            action: #selector(miscSortByTitle)))
+        sort.addItem(menuItem("Sort by Filename",         action: #selector(miscSortByFilename)))
+        sort.addItem(menuItem("Sort by Path + Filename",  action: #selector(miscSortByPath)))
+        sort.addItem(NSMenuItem.separator())
+        sort.addItem(menuItem("Randomize List", action: #selector(miscRandomize)))
+        sort.addItem(menuItem("Reverse List",   action: #selector(miscReverse)))
+        let sortItem = NSMenuItem(title: "Sort List", action: nil, keyEquivalent: "")
+        sortItem.submenu = sort
+        menu.addItem(sortItem)
+
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(menuItem("Jump to File…", action: #selector(miscJumpToFile)))
+
+        popUpMenu(menu, for: .misc)
+    }
+
+    @objc private func miscSortByTitle()    { playlistManager?.sortByTitle() }
+    @objc private func miscSortByFilename() { playlistManager?.sortByFilename() }
+    @objc private func miscSortByPath()     { playlistManager?.sortByPath() }
+    @objc private func miscRandomize()      { playlistManager?.shuffleTracks() }
+    @objc private func miscReverse()        { playlistManager?.reverseList() }
+
+    @objc private func miscFileInfo() {
+        let tracks = displayedTracks
+        let row = tableView.selectedRow
+        guard row >= 0, row < tracks.count else { return }
+        let t = tracks[row]
+        let alert = NSAlert()
+        alert.messageText = t.displayTitle
+        var lines: [String] = []
+        lines.append("File: \(t.url.path)")
+        lines.append("Duration: \(t.formattedDuration)")
+        if !t.album.isEmpty { lines.append("Album: \(t.album)") }
+        if !t.genre.isEmpty { lines.append("Genre: \(t.genre)") }
+        if t.bitrate > 0     { lines.append("Bitrate: \(t.bitrate) kbps") }
+        if t.sampleRate > 0  { lines.append("Sample rate: \(t.sampleRate) Hz") }
+        lines.append("Channels: \(t.isStereo ? "Stereo" : "Mono")")
+        alert.informativeText = lines.joined(separator: "\n")
+        alert.runModal()
+    }
+
+    /// Classic Winamp's Ctrl+J — focuses the search field so the user can
+    /// type-to-find. In skinned mode there's no visible field, so we show the
+    /// field temporarily by ignoring skin visibility for this one control.
+    @objc private func miscJumpToFile() {
+        if WinampTheme.skinIsActive {
+            // Skinned mode has no persistent search UI. Fall back to a prompt.
+            let alert = NSAlert()
+            alert.messageText = "Jump to File"
+            alert.informativeText = "Type part of a title or artist to filter the list."
+            let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 22))
+            input.stringValue = playlistManager?.searchQuery ?? ""
+            alert.accessoryView = input
+            alert.addButton(withTitle: "Filter")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn {
+                playlistManager?.searchQuery = input.stringValue
+                tableView.reloadData()
+            }
+            return
+        }
+        window?.makeFirstResponder(searchField)
+    }
+
+    private func menuItem(_ title: String, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        return item
     }
 
     @objc private func addFiles() {
@@ -479,23 +574,10 @@ class PlaylistView: NSView {
 
     private func showListOptsMenu() {
         let menu = NSMenu()
-        let newItem = NSMenuItem(title: "New list", action: #selector(listOptsNew), keyEquivalent: "")
-        newItem.target = self
-        let loadItem = NSMenuItem(title: "Load list…", action: #selector(listOptsLoad), keyEquivalent: "")
-        loadItem.target = self
-        let saveItem = NSMenuItem(title: "Save list…", action: #selector(listOptsSave), keyEquivalent: "")
-        saveItem.target = self
-        menu.addItem(newItem)
-        menu.addItem(loadItem)
-        menu.addItem(saveItem)
-        let anchor: NSPoint
-        if WinampTheme.skinIsActive {
-            let r = skinnedListOptsRect()
-            anchor = NSPoint(x: r.minX, y: r.maxY)
-        } else {
-            anchor = NSPoint(x: listOptsButton.frame.minX, y: listOptsButton.frame.maxY)
-        }
-        menu.popUp(positioning: nil, at: anchor, in: self)
+        menu.addItem(menuItem("New list",    action: #selector(listOptsNew)))
+        menu.addItem(menuItem("Load list…",  action: #selector(listOptsLoad)))
+        menu.addItem(menuItem("Save list…",  action: #selector(listOptsSave)))
+        popUpMenu(menu, for: .list)
     }
 
     @objc private func listOptsNew() {
@@ -548,6 +630,7 @@ class PlaylistView: NSView {
     private static let skinnedAddRect  = NSRect(x: 11, y: 10, width: 22, height: 18)
     private static let skinnedRemRect  = NSRect(x: 40, y: 10, width: 22, height: 18)
     private static let skinnedSelRect  = NSRect(x: 69, y: 10, width: 22, height: 18)
+    private static let skinnedMiscRect = NSRect(x: 98, y: 10, width: 22, height: 18)
 
     // LIST OPTS lives in the bottom-right corner (150×38 at x=w-150).
     // Bounds measured directly from pledit.bmp BR-corner pixels: the visible
@@ -568,12 +651,13 @@ class PlaylistView: NSView {
             return
         }
 
-        // Bottom button strip. MISC sprite is baked into the BL corner but is
-        // intentionally inert — list management lives under LIST OPTS only.
+        // Bottom button strip — baked pledit.bmp sprites for ADD/REM/SEL/MISC
+        // on the left, LIST OPTS on the right.
         if point.y < 38 {
-            if Self.skinnedAddRect.contains(point) { handleSkinnedAdd(); return }
-            if Self.skinnedRemRect.contains(point) { handleSkinnedRem(); return }
-            if Self.skinnedSelRect.contains(point) { handleSkinnedSel(); return }
+            if Self.skinnedAddRect.contains(point)  { showAddMenu(); return }
+            if Self.skinnedRemRect.contains(point)  { showRemMenu(); return }
+            if Self.skinnedSelRect.contains(point)  { showSelMenu(); return }
+            if Self.skinnedMiscRect.contains(point) { showMiscMenu(); return }
             if skinnedListOptsRect().contains(point) { showListOptsMenu(); return }
         }
 

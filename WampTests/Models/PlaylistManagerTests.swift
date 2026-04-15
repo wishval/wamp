@@ -76,6 +76,45 @@ struct PlaylistManagerTests {
         #expect(pm.currentIndex == 0)
     }
 
+    @Test func sortByTitle_sortsAlphabeticallyAndPreservesCurrent() {
+        let pm = PlaylistManager()
+        pm.addTracks([makeTrack("Charlie"), makeTrack("alpha"), makeTrack("Bravo")])
+        pm.currentIndex = 0 // "Charlie"
+        pm.sortByTitle()
+        #expect(pm.tracks.map(\.title) == ["alpha", "Bravo", "Charlie"])
+        #expect(pm.currentIndex == 2)
+    }
+
+    @Test func sortByFilename_sortsByLastPathComponent() {
+        let pm = PlaylistManager()
+        let t1 = Track(url: URL(fileURLWithPath: "/z/zeta.m4a"),  title: "Z", artist: "", album: "", duration: 1)
+        let t2 = Track(url: URL(fileURLWithPath: "/a/alpha.m4a"), title: "A", artist: "", album: "", duration: 1)
+        let t3 = Track(url: URL(fileURLWithPath: "/m/mid.m4a"),   title: "M", artist: "", album: "", duration: 1)
+        pm.addTracks([t1, t2, t3])
+        pm.currentIndex = 0 // zeta
+        pm.sortByFilename()
+        #expect(pm.tracks.map { $0.url.lastPathComponent } == ["alpha.m4a", "mid.m4a", "zeta.m4a"])
+        #expect(pm.currentIndex == 2)
+    }
+
+    @Test func sortByPath_sortsByFullPath() {
+        let pm = PlaylistManager()
+        let t1 = Track(url: URL(fileURLWithPath: "/b/song.m4a"), title: "B", artist: "", album: "", duration: 1)
+        let t2 = Track(url: URL(fileURLWithPath: "/a/song.m4a"), title: "A", artist: "", album: "", duration: 1)
+        pm.addTracks([t1, t2])
+        pm.sortByPath()
+        #expect(pm.tracks.map(\.url.path) == ["/a/song.m4a", "/b/song.m4a"])
+    }
+
+    @Test func reverseList_reversesAndFollowsCurrent() {
+        let pm = PlaylistManager()
+        pm.addTracks([makeTrack("a"), makeTrack("b"), makeTrack("c"), makeTrack("d")])
+        pm.currentIndex = 1 // "b"
+        pm.reverseList()
+        #expect(pm.tracks.map(\.title) == ["d", "c", "b", "a"])
+        #expect(pm.currentIndex == 2)
+    }
+
     @Test func shuffleTracks_preservesCurrentTrackAndCount() {
         let pm = PlaylistManager()
         let tracks = (0..<20).map { makeTrack("t\($0)") }
