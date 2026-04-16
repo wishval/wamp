@@ -36,7 +36,7 @@
 		AAAA00000000000000000001 /* Exceptions for "WampTests" folder in "WampTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Fixtures/generate-sample.swift,
+				"Fixtures/generate-sample.swift",
 			);
 			target = 1CC170292F8B04F300BDC56D /* WampTests */;
 		};

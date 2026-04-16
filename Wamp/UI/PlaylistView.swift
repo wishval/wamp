@@ -49,6 +49,11 @@ class PlaylistView: NSView {
         tableView.backgroundColor = .black
         tableView.rowHeight = 18
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
+        // macOS 11+ defaults NSTableView.style to .automatic, which applies
+        // built-in row insets (rounded selection, side padding) that push the
+        // first row down away from the scroll-view top. .plain disables that.
+        if #available(macOS 11.0, *) { tableView.style = .plain }
+        tableView.usesAutomaticRowHeights = false
         tableView.delegate = self
         tableView.dataSource = self
         tableView.doubleAction = #selector(doubleClickRow)
@@ -64,6 +69,9 @@ class PlaylistView: NSView {
         scrollView.backgroundColor = .black
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = true
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
         // Custom scroller appearance
         scrollView.verticalScroller?.controlSize = .small
@@ -747,7 +755,7 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         numLabel.drawsBackground = false
         numLabel.sizeToFit()
         let numWidth = numLabel.frame.width
-        numLabel.frame = NSRect(x: -10, y: yOffset, width: numWidth, height: textH)
+        numLabel.frame = NSRect(x: 0, y: yOffset, width: numWidth, height: textH)
         cell.addSubview(numLabel)
 
         // Duration
@@ -760,12 +768,12 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
         // sizeToFit underestimates width for small Arial — pad the label so the
         // trailing digit isn't clipped inside its own frame.
         let durWidth = durLabel.frame.width + 3
-        let rightMargin: CGFloat = 10
+        let rightMargin: CGFloat = 1
         durLabel.frame = NSRect(x: cellW - durWidth - rightMargin, y: yOffset, width: durWidth, height: textH)
         cell.addSubview(durLabel)
 
         // Track name
-        let nameX = numWidth - 10 + 4
+        let nameX = numWidth + 4
         let nameLabel = NSTextField(labelWithString: track.displayTitle)
         nameLabel.font = font
         nameLabel.textColor = isPlaying ? currentColor : normalColor
