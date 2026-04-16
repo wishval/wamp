@@ -26,7 +26,7 @@ final class JumpToFileWindow: NSPanel, NSTableViewDataSource, NSTableViewDelegat
         let rect = NSRect(x: 0, y: 0, width: 500, height: 400)
         super.init(
             contentRect: rect,
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.titled, .closable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
