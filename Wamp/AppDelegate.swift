@@ -11,6 +11,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var hotKeyManager: HotKeyManager!
     private weak var alwaysOnTopMenuItem: NSMenuItem?
     private weak var doubleSizeMenuItem: NSMenuItem?
+    private var jumpToFileWindow: JumpToFileWindow?
+    private var jumpToFileMonitor: Any?
 
     static func main() {
         let app = NSApplication.shared
@@ -85,6 +87,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Setup media key handling and Now Playing info
         hotKeyManager = HotKeyManager(audioEngine: audioEngine, playlistManager: playlistManager)
+
+        installJumpToFileShortcut()
 
         NSApp.activate()
     }
@@ -166,6 +170,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let shuffle = NSMenuItem(title: "Shuffle", action: #selector(toggleShuffle), keyEquivalent: "s")
         shuffle.target = self
         controlsMenu.addItem(shuffle)
+        controlsMenu.addItem(.separator())
+        let jump = NSMenuItem(title: "Jump to File…", action: #selector(presentJumpToFileWindow), keyEquivalent: "j")
+        jump.target = self
+        jump.keyEquivalentModifierMask = [.command]
+        controlsMenu.addItem(jump)
         let controlsMenuItem = NSMenuItem()
         controlsMenuItem.submenu = controlsMenu
         mainMenu.addItem(controlsMenuItem)
@@ -391,5 +400,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
+    }
+
+    // MARK: - Jump to File
+    @objc func presentJumpToFileWindow() {
+        if jumpToFileWindow == nil {
+            let panel = JumpToFileWindow()
+            panel.jumpDelegate = self
+            jumpToFileWindow = panel
+        }
+        jumpToFileWindow?.present(over: mainWindow)
+    }
+
+    private func installJumpToFileShortcut() {
+        // Ctrl+J — Cmd+J is handled by the menu key equivalent.
+        jumpToFileMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let isCtrlJ = mods == .control && event.charactersIgnoringModifiers?.lowercased() == "j"
+            if isCtrlJ {
+                self?.presentJumpToFileWindow()
+                return nil
+            }
+            return event
+        }
+    }
+}
+
+// MARK: - JumpToFileDelegate
+extension AppDelegate: JumpToFileDelegate {
+    var jumpCandidates: [JumpFilter.Candidate] {
+        playlistManager.tracks.enumerated().map { idx, track in
+            JumpFilter.Candidate(
+                index: idx,
+                displayTitle: track.displayTitle,
+                filename: track.url.lastPathComponent
+            )
+        }
+    }
+
+    var currentTrackIndex: Int? {
+        playlistManager.currentIndex >= 0 ? playlistManager.currentIndex : nil
+    }
+
+    func playTrack(atPlaylistIndex index: Int) {
+        playlistManager.playTrack(at: index)
     }
 }
