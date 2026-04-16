@@ -19,11 +19,12 @@ struct SkinModel {
     /// nil if region.txt or its [Normal] section is absent.
     let mainWindowRegion: [[CGPoint]]?
 
-    /// 19 colors sampled from eqmain.bmp at y=313 — one per pixel row of the EQ response curve.
-    /// Empty if eqmain.bmp absent.
+    /// 19 colors sampled from eqmain.bmp vertical strip at x=115, y=294..312 —
+    /// one per pixel row of the 19px-tall EQ response curve (top = +12 dB, bottom = −12 dB).
+    /// Empty if eqmain.bmp absent. See EqGraphColorsParser.
     let eqGraphLineColors: [NSColor]
 
-    /// 1 color sampled from eqmain.bmp at y=314 — preamp line color.
+    /// 1 color sampled from eqmain.bmp at (x=0, y=314) — preamp line color.
     let eqPreampLineColor: NSColor
 }
 
