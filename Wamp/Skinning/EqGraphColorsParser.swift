@@ -35,12 +35,14 @@ enum EqGraphColorsParser {
 
         context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
         guard let data = context.data else { return ([], .green) }
-        let buffer = data.bindMemory(to: UInt8.self, capacity: cg.width * cg.height * 4)
+        let bpr = context.bytesPerRow
+        let buffer = data.bindMemory(to: UInt8.self, capacity: bpr * cg.height)
 
-        // CGContext stores pixels bottom-up. y_top = (cg.height - 1 - y_winamp).
+        // When an NSImage-sourced CGImage is drawn into a bitmap CGContext the
+        // resulting pixel buffer is laid out top-down: memory row 0 = image top.
+        // Winamp coordinates are also top-down, so no y-flip is needed.
         func rgb(x: Int, y_winamp: Int) -> (r: UInt8, g: UInt8, b: UInt8) {
-            let y_ctx = cg.height - 1 - y_winamp
-            let offset = (y_ctx * cg.width + x) * 4
+            let offset = y_winamp * bpr + x * 4
             return (buffer[offset], buffer[offset + 1], buffer[offset + 2])
         }
         func toColor(_ px: (r: UInt8, g: UInt8, b: UInt8)) -> NSColor {
