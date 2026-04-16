@@ -2,8 +2,20 @@ import Cocoa
 import Combine
 
 class SpectrumView: NSView {
-    var spectrumData: [Float] = [] { didSet { needsDisplay = true } }
+    var spectrumData: [Float] = [] {
+        didSet {
+            updatePeaks()
+            needsDisplay = true
+        }
+    }
     var barCount: Int = 26
+
+    /// Winamp convention: 16 vertical rows, each painted with viscolors[2..17] bottom→top.
+    private static let rowCount = 16
+
+    /// Per-bar peak position (0...rowCount), decays 1 row per spectrumData update.
+    private var peaks: [CGFloat] = []
+
     private var skinObserver: AnyCancellable?
 
     override init(frame: NSRect) {
@@ -16,47 +28,63 @@ class SpectrumView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    private func updatePeaks() {
+        if peaks.count != barCount { peaks = Array(repeating: 0, count: barCount) }
+        let rows = CGFloat(Self.rowCount)
+        for i in 0..<barCount {
+            let dataIndex = i < spectrumData.count ? i : 0
+            let amplitude = spectrumData.isEmpty ? Float(0) : min(1, spectrumData[dataIndex] * 10)
+            let barRows = CGFloat(amplitude) * rows
+            if barRows >= peaks[i] {
+                peaks[i] = barRows
+            } else {
+                peaks[i] = max(0, peaks[i] - 0.35) // falloff rate
+            }
+        }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
         let barWidth: CGFloat = 3
         let gap: CGFloat = 1
         let totalBars = min(barCount, Int(bounds.width / (barWidth + gap)))
+        let rows = Self.rowCount
+        let rowHeight = bounds.height / CGFloat(rows)
 
-        // Pick gradient endpoints from the active skin's viscolors when skinned;
-        // otherwise use the built-in defaults. viscolors[2..17] is the spectrum range,
-        // viscolors[18..23] are peak/highlight colors per Winamp convention.
         let viscolors = WinampTheme.provider.viscolors
-        let bottom: NSColor
-        let top: NSColor
-        if WinampTheme.skinIsActive, viscolors.count >= 18 {
-            bottom = viscolors[2]
-            top = viscolors[17]
-        } else {
-            bottom = WinampTheme.spectrumBarBottom
-            top = WinampTheme.spectrumBarTop
-        }
-        let gradient = NSGradient(starting: bottom, ending: top)
+        guard viscolors.count >= 24 else { return }
 
-        // Dotted scale line on the left edge, full height of the view
-        if !WinampTheme.skinIsActive {
-        var y: CGFloat = 0
-        while y < bounds.height {
-            bottom.setFill()
-            NSRect(x: 0, y: y, width: 1, height: 2).fill()
-            top.setFill()
-            NSRect(x: 0, y: y + 2, width: 1, height: 1).fill()
-            y += 4
-        }
-        }
+        // Row colors: viscolors[2..17], bottom → top.
+        // Peak cap: viscolors[23] per Winamp convention.
+        let peakColor = viscolors[23]
 
         for i in 0..<totalBars {
             let dataIndex = i < spectrumData.count ? i : 0
             let amplitude = spectrumData.isEmpty ? Float(0) : min(1, spectrumData[dataIndex] * 10)
-            let barHeight = CGFloat(amplitude) * bounds.height
+            let litRows = Int(CGFloat(amplitude) * CGFloat(rows))
             let x = CGFloat(i) * (barWidth + gap)
-            let barRect = NSRect(x: x, y: 0, width: barWidth, height: max(1, barHeight))
-            gradient?.draw(in: barRect, angle: 90)
+
+            // Discrete 16-step bar
+            for r in 0..<litRows {
+                viscolors[2 + r].setFill()
+                NSRect(x: x,
+                       y: CGFloat(r) * rowHeight,
+                       width: barWidth,
+                       height: rowHeight).fill()
+            }
+
+            // Peak cap
+            if i < peaks.count {
+                let peakRow = Int(peaks[i])
+                if peakRow > litRows && peakRow < rows {
+                    peakColor.setFill()
+                    NSRect(x: x,
+                           y: CGFloat(peakRow) * rowHeight,
+                           width: barWidth,
+                           height: rowHeight).fill()
+                }
+            }
         }
     }
 }
