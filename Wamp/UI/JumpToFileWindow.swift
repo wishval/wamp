@@ -144,6 +144,55 @@ final class JumpToFileWindow: NSPanel, NSTableViewDataSource, NSTableViewDelegat
         }
     }
 
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        switch commandSelector {
+        case #selector(NSResponder.moveDown(_:)):
+            moveSelection(by: +1); return true
+        case #selector(NSResponder.moveUp(_:)):
+            moveSelection(by: -1); return true
+        case #selector(NSResponder.moveToBeginningOfDocument(_:)),
+             #selector(NSResponder.scrollPageUp(_:)):
+            moveSelection(toRow: 0); return true
+        case #selector(NSResponder.moveToEndOfDocument(_:)),
+             #selector(NSResponder.scrollPageDown(_:)):
+            moveSelection(toRow: matches.count - 1); return true
+        case #selector(NSResponder.insertNewline(_:)):
+            playSelected(); return true
+        case #selector(NSResponder.cancelOperation(_:)):
+            close(); return true
+        case #selector(NSResponder.insertTab(_:)),
+             #selector(NSResponder.insertBacktab(_:)):
+            // Eat Tab so focus can't escape to the button
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func moveSelection(by delta: Int) {
+        guard !matches.isEmpty else { return }
+        let current = tableView.selectedRow
+        let proposed = current < 0 ? (delta > 0 ? 0 : matches.count - 1) : current + delta
+        let clamped = max(0, min(matches.count - 1, proposed))
+        moveSelection(toRow: clamped)
+    }
+
+    private func moveSelection(toRow row: Int) {
+        guard row >= 0, row < matches.count else { return }
+        tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        tableView.scrollRowToVisible(row)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Cmd+. is the macOS-native cancel chord.
+        if event.modifierFlags.contains(.command),
+           event.charactersIgnoringModifiers == "." {
+            close()
+            return
+        }
+        super.keyDown(with: event)
+    }
+
     // MARK: - NSTableViewDataSource
 
     func numberOfRows(in tableView: NSTableView) -> Int { matches.count }
