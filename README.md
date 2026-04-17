@@ -118,6 +118,10 @@ open Wamp.xcodeproj
 
 MP3 | AAC | M4A | FLAC | WAV | AIFF
 
+## Non-goals
+
+Wamp is a **local** player. It does not stream from Spotify or Apple Music, and it does not sync with iCloud Music Library. See [docs/non-goals.md](docs/non-goals.md) for the rationale.
+
 ---
 
 <div align="center">
