@@ -1,12 +1,12 @@
 import Foundation
 
-public enum CueSheetParser {
-    public static func parse(url: URL) throws -> CueSheet {
+enum CueSheetParser {
+    static func parse(url: URL) throws -> CueSheet {
         let data = try Data(contentsOf: url)
         return try parse(data)
     }
 
-    public static func parse(_ data: Data) throws -> CueSheet {
+    static func parse(_ data: Data) throws -> CueSheet {
         let decoded = try CueDecoder.decode(data)
         return try parseText(decoded.text)
     }

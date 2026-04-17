@@ -1,12 +1,12 @@
 import Foundation
 
-public enum CueDecoder {
-    public struct Result {
-        public let text: String
-        public let encoding: String.Encoding
+enum CueDecoder {
+    struct Result {
+        let text: String
+        let encoding: String.Encoding
     }
 
-    public static func decode(_ data: Data) throws -> Result {
+    static func decode(_ data: Data) throws -> Result {
         // BOM detection
         if data.starts(with: [0xEF, 0xBB, 0xBF]) {
             let body = data.dropFirst(3)
