@@ -1,13 +1,23 @@
-import XCTest
+import Testing
+import Foundation
 @testable import Wamp
 
-final class CueSheetParserTests: XCTestCase {
-    func test_cueTrack_framesToSeconds_75framesIsOneSecond() {
-        let track = CueTrack(number: 1, title: nil, performer: nil, startFrames: 75)
-        XCTAssertEqual(CueSheet.framesToSeconds(track.startFrames), 1.0, accuracy: 1e-9)
+@Suite("CueSheetParser")
+struct CueSheetParserTests {
+
+    private func fixtureURL(_ name: String, file: StaticString = #filePath) -> URL {
+        URL(fileURLWithPath: "\(file)")
+            .deletingLastPathComponent()   // WampTests/CueSheet
+            .deletingLastPathComponent()   // WampTests
+            .appendingPathComponent("Fixtures/cue/\(name).cue")
     }
 
-    func test_parses_single_file_with_two_tracks() throws {
+    @Test func cueTrack_framesToSeconds_75framesIsOneSecond() {
+        let track = CueTrack(number: 1, title: nil, performer: nil, startFrames: 75)
+        #expect(abs(CueSheet.framesToSeconds(track.startFrames) - 1.0) < 1e-9)
+    }
+
+    @Test func parsesSingleFileWithTwoTracks() throws {
         let cue = """
         PERFORMER "DJ X"
         TITLE "DJ Mix vol. 3"
@@ -22,37 +32,35 @@ final class CueSheetParserTests: XCTestCase {
             INDEX 01 05:32:40
         """
         let sheet = try CueSheetParser.parse(cue.data(using: .utf8)!)
-        XCTAssertEqual(sheet.title, "DJ Mix vol. 3")
-        XCTAssertEqual(sheet.performer, "DJ X")
-        XCTAssertEqual(sheet.files.count, 1)
-        let file = sheet.files[0]
-        XCTAssertEqual(file.path, "mix.flac")
-        XCTAssertEqual(file.format, "WAVE")
-        XCTAssertEqual(file.tracks.count, 2)
-        XCTAssertEqual(file.tracks[0].number, 1)
-        XCTAssertEqual(file.tracks[0].title, "Opening")
-        XCTAssertEqual(file.tracks[0].performer, "DJ X")
-        XCTAssertEqual(file.tracks[0].startFrames, 0)
-        XCTAssertEqual(file.tracks[1].number, 2)
-        XCTAssertEqual(file.tracks[1].title, "Second tune")
-        // 5 min 32 sec 40 frames = (5*60 + 32)*75 + 40 = 24 940
-        XCTAssertEqual(file.tracks[1].startFrames, (5*60 + 32)*75 + 40)
+        #expect(sheet.title == "DJ Mix vol. 3")
+        #expect(sheet.performer == "DJ X")
+        #expect(sheet.files.count == 1)
+        let fileEntry = sheet.files[0]
+        #expect(fileEntry.path == "mix.flac")
+        #expect(fileEntry.format == "WAVE")
+        #expect(fileEntry.tracks.count == 2)
+        #expect(fileEntry.tracks[0].number == 1)
+        #expect(fileEntry.tracks[0].title == "Opening")
+        #expect(fileEntry.tracks[0].performer == "DJ X")
+        #expect(fileEntry.tracks[0].startFrames == 0)
+        #expect(fileEntry.tracks[1].number == 2)
+        #expect(fileEntry.tracks[1].title == "Second tune")
+        #expect(fileEntry.tracks[1].startFrames == (5*60 + 32)*75 + 40)
     }
 
-    func test_parses_top_level_metadata_with_no_files() {
+    @Test func parsesTopLevelMetadataWithNoFiles() {
         let cue = """
         REM GENRE "Electronic"
         REM DATE 2003
         PERFORMER "Various Artists"
         TITLE "DJ Mix vol. 3"
         """
-        let data = cue.data(using: .utf8)!
-        XCTAssertThrowsError(try CueSheetParser.parse(data)) { error in
-            XCTAssertEqual(error as? CueParseError, .noTracks)
+        #expect(throws: CueParseError.noTracks) {
+            try CueSheetParser.parse(cue.data(using: .utf8)!)
         }
     }
 
-    func test_index_00_pregap_is_ignored_when_index_01_present() throws {
+    @Test func index00PregapIsIgnoredWhenIndex01Present() throws {
         let cue = """
         FILE "a.wav" WAVE
           TRACK 01 AUDIO
@@ -62,10 +70,10 @@ final class CueSheetParserTests: XCTestCase {
             INDEX 01 05:32:40
         """
         let sheet = try CueSheetParser.parse(cue.data(using: .utf8)!)
-        XCTAssertEqual(sheet.files[0].tracks[1].startFrames, (5*60 + 32)*75 + 40)
+        #expect(sheet.files[0].tracks[1].startFrames == (5*60 + 32)*75 + 40)
     }
 
-    func test_multi_file_cue() throws {
+    @Test func multiFileCue() throws {
         let cue = """
         FILE "a.wav" WAVE
           TRACK 01 AUDIO
@@ -75,73 +83,126 @@ final class CueSheetParserTests: XCTestCase {
             INDEX 01 00:00:00
         """
         let sheet = try CueSheetParser.parse(cue.data(using: .utf8)!)
-        XCTAssertEqual(sheet.files.count, 2)
-        XCTAssertEqual(sheet.files[0].path, "a.wav")
-        XCTAssertEqual(sheet.files[0].tracks.first?.number, 1)
-        XCTAssertEqual(sheet.files[1].path, "b.wav")
-        XCTAssertEqual(sheet.files[1].tracks.first?.number, 2)
+        #expect(sheet.files.count == 2)
+        #expect(sheet.files[0].path == "a.wav")
+        #expect(sheet.files[0].tracks.first?.number == 1)
+        #expect(sheet.files[1].path == "b.wav")
+        #expect(sheet.files[1].tracks.first?.number == 2)
     }
 
-    func test_track_without_index_01_is_malformed() {
+    @Test func trackWithoutIndex01IsMalformed() throws {
         let cue = """
         FILE "a.wav" WAVE
           TRACK 01 AUDIO
             TITLE "x"
         """
-        XCTAssertThrowsError(try CueSheetParser.parse(cue.data(using: .utf8)!)) { err in
-            guard case .malformed(let line, let reason) = err as! CueParseError else {
-                return XCTFail("expected .malformed, got \(err)")
+        do {
+            _ = try CueSheetParser.parse(cue.data(using: .utf8)!)
+            Issue.record("expected throw")
+        } catch let err as CueParseError {
+            guard case .malformed(let line, let reason) = err else {
+                Issue.record("expected .malformed, got \(err)")
+                return
             }
-            XCTAssertGreaterThan(line, 0)
-            XCTAssertTrue(reason.contains("INDEX 01"))
+            #expect(line > 0)
+            #expect(reason.contains("INDEX 01"))
         }
     }
 
-    func test_track_before_file_is_malformed_with_line_number() {
+    @Test func trackBeforeFileIsMalformedWithLineNumber() throws {
         let cue = """
         TRACK 01 AUDIO
           INDEX 01 00:00:00
         """
-        XCTAssertThrowsError(try CueSheetParser.parse(cue.data(using: .utf8)!)) { err in
-            guard case .malformed(let line, _) = err as! CueParseError else {
-                return XCTFail("expected .malformed, got \(err)")
+        do {
+            _ = try CueSheetParser.parse(cue.data(using: .utf8)!)
+            Issue.record("expected throw")
+        } catch let err as CueParseError {
+            guard case .malformed(let line, _) = err else {
+                Issue.record("expected .malformed, got \(err)")
+                return
             }
-            XCTAssertEqual(line, 1)
+            #expect(line == 1)
         }
     }
 
-    func test_invalid_timecode_is_malformed() {
+    @Test func invalidTimecodeIsMalformed() throws {
         let cue = """
         FILE "a.wav" WAVE
           TRACK 01 AUDIO
             INDEX 01 99:99:99
         """
-        XCTAssertThrowsError(try CueSheetParser.parse(cue.data(using: .utf8)!)) { err in
-            guard case .malformed(_, let reason) = err as! CueParseError else {
-                return XCTFail("expected .malformed, got \(err)")
+        do {
+            _ = try CueSheetParser.parse(cue.data(using: .utf8)!)
+            Issue.record("expected throw")
+        } catch let err as CueParseError {
+            guard case .malformed(_, let reason) = err else {
+                Issue.record("expected .malformed, got \(err)")
+                return
             }
-            XCTAssertTrue(reason.contains("timecode"))
+            #expect(reason.contains("timecode"))
         }
     }
 
-    func test_unquoted_file_path() throws {
+    @Test func unquotedFilePath() throws {
         let cue = """
         FILE mix.flac WAVE
           TRACK 01 AUDIO
             INDEX 01 00:00:00
         """
         let sheet = try CueSheetParser.parse(cue.data(using: .utf8)!)
-        XCTAssertEqual(sheet.files[0].path, "mix.flac")
-        XCTAssertEqual(sheet.files[0].format, "WAVE")
+        #expect(sheet.files[0].path == "mix.flac")
+        #expect(sheet.files[0].format == "WAVE")
     }
 
-    func test_file_path_with_spaces_in_quotes() throws {
+    @Test func filePathWithSpacesInQuotes() throws {
         let cue = """
         FILE "a long name.flac" WAVE
           TRACK 01 AUDIO
             INDEX 01 00:00:00
         """
         let sheet = try CueSheetParser.parse(cue.data(using: .utf8)!)
-        XCTAssertEqual(sheet.files[0].path, "a long name.flac")
+        #expect(sheet.files[0].path == "a long name.flac")
+    }
+
+    // MARK: - Fixture-backed tests
+
+    @Test func basicFixture() throws {
+        let sheet = try CueSheetParser.parse(url: fixtureURL("basic"))
+        #expect(sheet.title == "DJ Mix vol. 3")
+        #expect(sheet.genre == "Electronic")
+        #expect(sheet.date == "2003")
+        #expect(sheet.files.first?.tracks.count == 2)
+        #expect(sheet.files.first?.tracks[1].startFrames == (5*60 + 32)*75 + 40)
+    }
+
+    @Test func multiFileFixture() throws {
+        let sheet = try CueSheetParser.parse(url: fixtureURL("multi-file"))
+        #expect(sheet.files.count == 2)
+        #expect(sheet.files[1].tracks.first?.number == 3)
+    }
+
+    @Test func zeroTracksFixtureThrowsNoTracks() {
+        #expect(throws: CueParseError.noTracks) {
+            try CueSheetParser.parse(url: self.fixtureURL("zero-tracks"))
+        }
+    }
+
+    @Test func cp1251FixtureDecodesCyrillicTitles() throws {
+        let sheet = try CueSheetParser.parse(url: fixtureURL("cp1251"))
+        #expect(sheet.title == "Микс №3")
+        #expect(sheet.files.first?.tracks.first?.title == "Начало")
+    }
+
+    @Test func shiftJisFixtureDecodesJapaneseTitles() throws {
+        let sheet = try CueSheetParser.parse(url: fixtureURL("shift-jis"))
+        #expect(sheet.title == "日本のミックス")
+        #expect(sheet.files.first?.tracks.first?.title == "序章")
+    }
+
+    @Test func cp1252FixtureDecodesFrenchDiacritics() throws {
+        let sheet = try CueSheetParser.parse(url: fixtureURL("cp1252"))
+        #expect(sheet.title == "Été")
+        #expect(sheet.performer == "Café Crème")
     }
 }
