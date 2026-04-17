@@ -8,6 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Import from Music Library** — new File → Import from Music Library…
+  menu item opens a sheet listing "All Songs" plus your user and smart
+  playlists from Music.app. Check the sources to import, pick "New
+  playlist" or "Append to current", and Wamp pulls in every local track
+  it can see. Streaming-only tracks (not downloaded) and entries whose
+  files have been removed are skipped with counts in the summary
+  alert. Backed by the `iTunesLibrary` framework; falls back to parsing
+  `~/Music/iTunes/iTunes Music Library.xml` if it's been enabled. First
+  use triggers the macOS permission prompt; a denied state offers a
+  direct link to Privacy & Security → Media & Apple Music.
+
+- **M3U / M3U8 playlists** — drop a `.m3u` or `.m3u8` on the player, open
+  one via File → Open, or double-click from Finder to import its tracks.
+  Present files are appended to the current playlist; missing entries are
+  counted and surfaced in a summary alert so dead references don't silently
+  disappear. Parser handles `#EXTM3U` / `#EXTINF` metadata, mixed
+  CRLF/LF/CR line endings, UTF-8 BOM, and the Latin-1-vs-UTF-8 extension
+  convention (`.m3u` → Latin-1, `.m3u8` → UTF-8).
+
+- **Non-goals documented** — `docs/non-goals.md` explains why Wamp does
+  not (and will not) stream Spotify or Apple Music catalog tracks: both
+  route audio through a system-managed graph that bypasses our DSP, so
+  EQ and spectrum wouldn't apply.
+
 - **CUE sheet support** — drop a `.cue` on the player, or open a FLAC with an
   embedded `CUESHEET` Vorbis comment, to split one long audio file into
   individual virtual tracks in the playlist. External `.cue` next to a FLAC

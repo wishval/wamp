@@ -117,24 +117,58 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Route incoming URLs. `.cue` files expand into virtual tracks via
-    /// `PlaylistManager.addCueSheet`; everything else falls through to `addURLs`.
+    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8` playlists are appended
+    /// via `PlaylistManager.addM3U`, with a summary alert if any referenced
+    /// files are missing. Folders are recursively scanned. Everything else
+    /// falls through to `addURLs`. This method is the single routing entry
+    /// point — both `application(_:open:)` and drag-drop go through here.
     @MainActor
-    private func handleOpenURLs(_ urls: [URL]) async {
+    func handleOpenURLs(_ urls: [URL]) async {
         var passthrough: [URL] = []
+        var totalMissing = 0
         for url in urls {
-            if url.pathExtension.lowercased() == "cue" {
+            let ext = url.pathExtension.lowercased()
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            if exists && isDir.boolValue {
+                await playlistManager.addFolder(url)
+                continue
+            }
+            switch ext {
+            case "cue":
                 do {
                     try await playlistManager.addCueSheet(url: url)
                 } catch {
                     presentError(error, context: "Opening \(url.lastPathComponent)")
                 }
-            } else {
+            case "m3u", "m3u8":
+                do {
+                    let summary = try await playlistManager.addM3U(url: url)
+                    totalMissing += summary.missing
+                } catch {
+                    presentError(error, context: "Opening \(url.lastPathComponent)")
+                }
+            default:
                 passthrough.append(url)
             }
         }
         if !passthrough.isEmpty {
             await playlistManager.addURLs(passthrough)
         }
+        if totalMissing > 0 {
+            presentMissingFilesNotice(count: totalMissing)
+        }
+    }
+
+    @MainActor
+    private func presentMissingFilesNotice(count: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Some tracks couldn't be found"
+        alert.informativeText = count == 1
+            ? "1 entry in the playlist points to a file that no longer exists on disk."
+            : "\(count) entries in the playlist point to files that no longer exist on disk."
+        alert.alertStyle = .warning
+        alert.runModal()
     }
 
     private func presentError(_ error: Error, context: String) {
@@ -169,6 +203,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openFolder.target = self
         openFolder.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(openFolder)
+        fileMenu.addItem(.separator())
+        let importMusic = NSMenuItem(title: "Import from Music Library…",
+                                     action: #selector(importFromMusicLibraryAction),
+                                     keyEquivalent: "")
+        importMusic.target = self
+        fileMenu.addItem(importMusic)
         let fileMenuItem = NSMenuItem()
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
@@ -292,6 +332,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard response == .OK else { return }
             Task { await self?.handleOpenURLs(panel.urls) }
         }
+    }
+
+    private var importMusicController: ImportMusicLibraryWindowController?
+
+    @objc private func importFromMusicLibraryAction() {
+        guard let mainWindow = mainWindow else { return }
+        let controller = ImportMusicLibraryWindowController()
+        importMusicController = controller
+        controller.onCancel = { [weak self, weak mainWindow] in
+            guard let self, let sheet = self.importMusicController?.window else { return }
+            mainWindow?.endSheet(sheet)
+            self.importMusicController = nil
+        }
+        controller.onImport = { [weak self, weak mainWindow] sources, destination in
+            guard let self else { return }
+            let replace = (destination == .newPlaylist)
+            let summary = self.playlistManager.importMusicLibraryTracks(
+                sources, replaceCurrent: replace
+            )
+            if let sheet = self.importMusicController?.window {
+                mainWindow?.endSheet(sheet)
+            }
+            self.importMusicController = nil
+            self.presentImportSummary(summary)
+        }
+        if let sheetWindow = controller.window {
+            mainWindow.beginSheet(sheetWindow) { _ in }
+        }
+        controller.beginLoading()
+    }
+
+    @MainActor
+    private func presentImportSummary(_ summary: PlaylistManager.LibraryImportSummary) {
+        let alert = NSAlert()
+        alert.messageText = summary.imported == 1
+            ? "Imported 1 track."
+            : "Imported \(summary.imported) tracks."
+        var lines: [String] = []
+        if summary.skippedStreamingOnly > 0 {
+            lines.append("Skipped \(summary.skippedStreamingOnly) streaming-only \(summary.skippedStreamingOnly == 1 ? "track" : "tracks").")
+        }
+        if summary.skippedMissing > 0 {
+            lines.append("Skipped \(summary.skippedMissing) \(summary.skippedMissing == 1 ? "track" : "tracks") whose file was missing.")
+        }
+        alert.informativeText = lines.joined(separator: "\n")
+        alert.alertStyle = .informational
+        alert.runModal()
     }
 
     @objc private func openFolderAction() {

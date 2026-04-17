@@ -110,6 +110,82 @@ class PlaylistManager: ObservableObject {
         await addURLs(urls)
     }
 
+    struct M3UImportSummary: Equatable {
+        let imported: Int
+        let missing: Int
+    }
+
+    struct LibraryImportSummary: Equatable {
+        let imported: Int
+        let skippedStreamingOnly: Int
+        let skippedMissing: Int
+    }
+
+    /// Convert a set of tracks from a Music.app library snapshot into Wamp
+    /// tracks and append (or replace) the playlist. Streaming-only items (no
+    /// local file) and items whose file has been removed are counted for the
+    /// summary alert but not added. Skips the usual `Track.fromURL` asset
+    /// parse — metadata comes from the library snapshot directly, so
+    /// importing thousands of tracks stays fast.
+    @discardableResult
+    func importMusicLibraryTracks(
+        _ sourceTracks: [ITunesTrack],
+        replaceCurrent: Bool
+    ) -> LibraryImportSummary {
+        var newTracks: [Track] = []
+        var streamingOnly = 0
+        var missing = 0
+        for t in sourceTracks {
+            guard let location = t.location, location.isFileURL else {
+                streamingOnly += 1
+                continue
+            }
+            if !FileManager.default.fileExists(atPath: location.path) {
+                missing += 1
+                continue
+            }
+            let track = Track(
+                url: location,
+                title: t.name,
+                artist: t.artist.isEmpty ? "Unknown Artist" : t.artist,
+                album: t.album,
+                duration: t.duration,
+                genre: t.genre
+            )
+            newTracks.append(track)
+        }
+        if replaceCurrent {
+            clearPlaylist()
+        }
+        addTracks(newTracks)
+        return LibraryImportSummary(
+            imported: newTracks.count,
+            skippedStreamingOnly: streamingOnly,
+            skippedMissing: missing
+        )
+    }
+
+    /// Parse an M3U/M3U8 playlist and append tracks whose files exist to the current
+    /// playlist. Missing files are counted so callers can surface a warning; they are
+    /// not added as placeholder tracks (the task spec prescribes greying-out on
+    /// reload, not on initial import).
+    @discardableResult
+    func addM3U(url: URL) async throws -> M3UImportSummary {
+        let entries = try M3UParser.parse(url: url)
+        var present: [URL] = []
+        var missing = 0
+        for entry in entries {
+            if FileManager.default.fileExists(atPath: entry.url.path) {
+                present.append(entry.url)
+            } else {
+                missing += 1
+            }
+        }
+        let before = tracks.count
+        await addURLs(present)
+        return M3UImportSummary(imported: tracks.count - before, missing: missing)
+    }
+
     private func collectAudioURLs(in folderURL: URL) -> [URL] {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
@@ -318,31 +394,48 @@ class PlaylistManager: ObservableObject {
     }
 
     /// Load an M3U/M3U8/PLS playlist, replacing the current track list.
-    func loadPlaylistM3U(from fileURL: URL) async {
-        guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
-        let baseDir = fileURL.deletingLastPathComponent()
-        var urls: [URL] = []
+    /// Returns an import summary (present vs missing entry count).
+    @discardableResult
+    func loadPlaylistM3U(from fileURL: URL) async -> M3UImportSummary {
         let ext = fileURL.pathExtension.lowercased()
+        var urls: [URL] = []
+        var missing = 0
         if ext == "pls" {
+            guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+                return M3UImportSummary(imported: 0, missing: 0)
+            }
+            let baseDir = fileURL.deletingLastPathComponent()
             for line in text.components(separatedBy: .newlines) {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.lowercased().hasPrefix("file"),
                       let eq = trimmed.firstIndex(of: "=") else { continue }
                 let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
-                urls.append(resolvePlaylistEntry(value, baseDir: baseDir))
+                let candidate = resolvePLSEntry(value, baseDir: baseDir)
+                if candidate.isFileURL, !FileManager.default.fileExists(atPath: candidate.path) {
+                    missing += 1
+                } else {
+                    urls.append(candidate)
+                }
             }
         } else {
-            for line in text.components(separatedBy: .newlines) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-                urls.append(resolvePlaylistEntry(trimmed, baseDir: baseDir))
+            guard let entries = try? M3UParser.parse(url: fileURL) else {
+                return M3UImportSummary(imported: 0, missing: 0)
+            }
+            for entry in entries {
+                if FileManager.default.fileExists(atPath: entry.url.path) {
+                    urls.append(entry.url)
+                } else {
+                    missing += 1
+                }
             }
         }
         clearPlaylist()
+        let before = tracks.count
         await addURLs(urls)
+        return M3UImportSummary(imported: tracks.count - before, missing: missing)
     }
 
-    private func resolvePlaylistEntry(_ entry: String, baseDir: URL) -> URL {
+    private func resolvePLSEntry(_ entry: String, baseDir: URL) -> URL {
         if let url = URL(string: entry), url.scheme != nil { return url }
         if entry.hasPrefix("/") { return URL(fileURLWithPath: entry) }
         return baseDir.appendingPathComponent(entry)
