@@ -63,6 +63,10 @@ class AudioEngine: ObservableObject {
     /// `audioLengthFrames` for a whole-file play, or the CUE track's end frame
     /// when we're playing a bounded segment.
     private var currentSegmentEndFrame: AVAudioFramePosition = 0
+    /// Set by `chainNextSegment` when a follow-up segment has already been
+    /// queued on the player node. Consumed by `handleTrackCompletion` so the
+    /// engine keeps playing into the chained segment without re-loading.
+    private var pendingChain: (startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition)?
 
     private var effectiveVolume: Float {
         isMuted ? 0 : volume
@@ -126,6 +130,43 @@ class AudioEngine: ObservableObject {
         } catch {
             print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
         }
+    }
+
+    /// Schedule a follow-up segment back-to-back on the same player node —
+    /// no `stop()`, no reload — so the boundary is sample-exact. Returns true
+    /// on success, false if the engine isn't currently playing this file.
+    ///
+    /// The chained segment's completion handler fires `.trackDidFinish` when
+    /// the chained segment itself ends. When the *prior* segment ends its
+    /// completion handler will also fire; it consumes `pendingChain` and
+    /// updates the seek/end bookkeeping without interrupting playback.
+    @discardableResult
+    func chainNextSegment(url: URL, startTime: TimeInterval, endTime: TimeInterval?) -> Bool {
+        guard isPlaying, let file = audioFile, file.url == url else { return false }
+        let startFrame = AVAudioFramePosition(startTime * audioSampleRate)
+        let endFrame: AVAudioFramePosition
+        if let endTime = endTime {
+            endFrame = min(audioLengthFrames, AVAudioFramePosition(endTime * audioSampleRate))
+        } else {
+            endFrame = audioLengthFrames
+        }
+        let frames = endFrame - startFrame
+        guard frames > 0 else { return false }
+
+        let generation = playbackGeneration
+        playerNode.scheduleSegment(
+            file,
+            startingFrame: max(0, startFrame),
+            frameCount: AVAudioFrameCount(frames),
+            at: nil
+        ) { [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.playbackGeneration == generation else { return }
+                self.handleTrackCompletion()
+            }
+        }
+        pendingChain = (startFrame: max(0, startFrame), endFrame: endFrame)
+        return true
     }
 
     /// Load `url` and play from `startTime` until `endTime` (or EOF if nil).
@@ -205,6 +246,7 @@ class AudioEngine: ObservableObject {
         currentTime = 0
         seekFrame = 0
         needsScheduling = true
+        pendingChain = nil
         stopTimeUpdates()
     }
 
@@ -305,13 +347,26 @@ class AudioEngine: ObservableObject {
             seekFrame = 0
             needsScheduling = true
             scheduleAndPlay()
-        } else {
-            isPlaying = false
-            playState = .stopped
-            stopTimeUpdates()
-            print("🔴 handleTrackCompletion: posting .trackDidFinish")
-            NotificationCenter.default.post(name: .trackDidFinish, object: nil)
+            return
         }
+
+        // Gapless chain: the next segment is already queued on the player node
+        // and may already be feeding audio. Adopt its bookkeeping and notify
+        // the playlist, but do NOT stop or reset the engine.
+        if let pending = pendingChain {
+            seekFrame = pending.startFrame
+            currentSegmentEndFrame = pending.endFrame
+            pendingChain = nil
+            print("🟢 handleTrackCompletion: promoted chained segment [\(pending.startFrame), \(pending.endFrame)]")
+            NotificationCenter.default.post(name: .trackDidFinish, object: nil)
+            return
+        }
+
+        isPlaying = false
+        playState = .stopped
+        stopTimeUpdates()
+        print("🔴 handleTrackCompletion: posting .trackDidFinish")
+        NotificationCenter.default.post(name: .trackDidFinish, object: nil)
     }
 
     // MARK: - Time Updates
