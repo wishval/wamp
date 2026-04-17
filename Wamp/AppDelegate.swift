@@ -203,6 +203,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openFolder.target = self
         openFolder.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(openFolder)
+        fileMenu.addItem(.separator())
+        let importMusic = NSMenuItem(title: "Import from Music Library…",
+                                     action: #selector(importFromMusicLibraryAction),
+                                     keyEquivalent: "")
+        importMusic.target = self
+        fileMenu.addItem(importMusic)
         let fileMenuItem = NSMenuItem()
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
@@ -326,6 +332,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard response == .OK else { return }
             Task { await self?.handleOpenURLs(panel.urls) }
         }
+    }
+
+    private var importMusicController: ImportMusicLibraryWindowController?
+
+    @objc private func importFromMusicLibraryAction() {
+        guard let mainWindow = mainWindow else { return }
+        let controller = ImportMusicLibraryWindowController()
+        importMusicController = controller
+        controller.onCancel = { [weak self, weak mainWindow] in
+            guard let self, let sheet = self.importMusicController?.window else { return }
+            mainWindow?.endSheet(sheet)
+            self.importMusicController = nil
+        }
+        controller.onImport = { [weak self, weak mainWindow] sources, destination in
+            guard let self else { return }
+            let replace = (destination == .newPlaylist)
+            let summary = self.playlistManager.importMusicLibraryTracks(
+                sources, replaceCurrent: replace
+            )
+            if let sheet = self.importMusicController?.window {
+                mainWindow?.endSheet(sheet)
+            }
+            self.importMusicController = nil
+            self.presentImportSummary(summary)
+        }
+        if let sheetWindow = controller.window {
+            mainWindow.beginSheet(sheetWindow) { _ in }
+        }
+        controller.beginLoading()
+    }
+
+    @MainActor
+    private func presentImportSummary(_ summary: PlaylistManager.LibraryImportSummary) {
+        let alert = NSAlert()
+        alert.messageText = summary.imported == 1
+            ? "Imported 1 track."
+            : "Imported \(summary.imported) tracks."
+        var lines: [String] = []
+        if summary.skippedStreamingOnly > 0 {
+            lines.append("Skipped \(summary.skippedStreamingOnly) streaming-only \(summary.skippedStreamingOnly == 1 ? "track" : "tracks").")
+        }
+        if summary.skippedMissing > 0 {
+            lines.append("Skipped \(summary.skippedMissing) \(summary.skippedMissing == 1 ? "track" : "tracks") whose file was missing.")
+        }
+        alert.informativeText = lines.joined(separator: "\n")
+        alert.alertStyle = .informational
+        alert.runModal()
     }
 
     @objc private func openFolderAction() {

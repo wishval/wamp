@@ -275,6 +275,55 @@ struct PlaylistManagerTests {
         #expect(pm.tracks[0].title == "existing")
     }
 
+    // MARK: - Music library import
+
+    @Test func importMusicLibrary_skipsStreamingOnlyAndMissingFiles() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let realA = try makeSilentWav(in: dir, name: "a.wav")
+        let realB = try makeSilentWav(in: dir, name: "b.wav")
+
+        let sources: [ITunesTrack] = [
+            ITunesTrack(trackID: 1, name: "A", artist: "X", album: "Z",
+                        genre: "", duration: 5, location: realA),
+            ITunesTrack(trackID: 2, name: "B", artist: "Y", album: "Z",
+                        genre: "", duration: 6, location: realB),
+            ITunesTrack(trackID: 3, name: "Cloud", artist: "?", album: "?",
+                        genre: "", duration: 10, location: nil),
+            ITunesTrack(trackID: 4, name: "Ghost", artist: "?", album: "?",
+                        genre: "", duration: 10,
+                        location: dir.appendingPathComponent("nope.wav")),
+        ]
+        let pm = PlaylistManager()
+        let summary = pm.importMusicLibraryTracks(sources, replaceCurrent: false)
+        #expect(summary.imported == 2)
+        #expect(summary.skippedStreamingOnly == 1)
+        #expect(summary.skippedMissing == 1)
+        #expect(pm.tracks.count == 2)
+        #expect(pm.tracks.contains { $0.url.path == realA.path })
+        #expect(pm.tracks.contains { $0.url.path == realB.path })
+    }
+
+    @Test func importMusicLibrary_replaceCurrentClearsFirst() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let real = try makeSilentWav(in: dir, name: "new.wav")
+
+        let pm = PlaylistManager()
+        pm.addTracks([makeTrack("stale")])
+        let sources: [ITunesTrack] = [
+            ITunesTrack(trackID: 1, name: "N", artist: "", album: "",
+                        genre: "", duration: 1, location: real)
+        ]
+        _ = pm.importMusicLibraryTracks(sources, replaceCurrent: true)
+        #expect(pm.tracks.count == 1)
+        #expect(pm.tracks[0].title == "N")
+    }
+
     @Test func addCueSheet_missingAudioThrows() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(UUID().uuidString)

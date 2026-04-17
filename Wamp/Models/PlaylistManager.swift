@@ -115,6 +115,56 @@ class PlaylistManager: ObservableObject {
         let missing: Int
     }
 
+    struct LibraryImportSummary: Equatable {
+        let imported: Int
+        let skippedStreamingOnly: Int
+        let skippedMissing: Int
+    }
+
+    /// Convert a set of tracks from a Music.app library snapshot into Wamp
+    /// tracks and append (or replace) the playlist. Streaming-only items (no
+    /// local file) and items whose file has been removed are counted for the
+    /// summary alert but not added. Skips the usual `Track.fromURL` asset
+    /// parse — metadata comes from the library snapshot directly, so
+    /// importing thousands of tracks stays fast.
+    @discardableResult
+    func importMusicLibraryTracks(
+        _ sourceTracks: [ITunesTrack],
+        replaceCurrent: Bool
+    ) -> LibraryImportSummary {
+        var newTracks: [Track] = []
+        var streamingOnly = 0
+        var missing = 0
+        for t in sourceTracks {
+            guard let location = t.location, location.isFileURL else {
+                streamingOnly += 1
+                continue
+            }
+            if !FileManager.default.fileExists(atPath: location.path) {
+                missing += 1
+                continue
+            }
+            let track = Track(
+                url: location,
+                title: t.name,
+                artist: t.artist.isEmpty ? "Unknown Artist" : t.artist,
+                album: t.album,
+                duration: t.duration,
+                genre: t.genre
+            )
+            newTracks.append(track)
+        }
+        if replaceCurrent {
+            clearPlaylist()
+        }
+        addTracks(newTracks)
+        return LibraryImportSummary(
+            imported: newTracks.count,
+            skippedStreamingOnly: streamingOnly,
+            skippedMissing: missing
+        )
+    }
+
     /// Parse an M3U/M3U8 playlist and append tracks whose files exist to the current
     /// playlist. Missing files are counted so callers can surface a warning; they are
     /// not added as placeholder tracks (the task spec prescribes greying-out on
