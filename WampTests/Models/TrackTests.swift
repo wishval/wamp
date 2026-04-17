@@ -54,4 +54,31 @@ struct TrackTests {
                           title: "", artist: "", album: "", duration: 125)
         #expect(track.formattedDuration == "2:05")
     }
+
+    @Test func isCueVirtualFalseByDefault() {
+        let t = Track(url: URL(fileURLWithPath: "/tmp/x.flac"),
+                      title: "x", artist: "", album: "", duration: 1)
+        #expect(t.cueStart == nil)
+        #expect(t.cueEnd == nil)
+        #expect(t.isCueVirtual == false)
+    }
+
+    @Test func isCueVirtualTrueWhenCueStartSet() {
+        var t = Track(url: URL(fileURLWithPath: "/tmp/x.flac"),
+                      title: "x", artist: "", album: "", duration: 30)
+        t.cueStart = 10
+        t.cueEnd = 40
+        #expect(t.isCueVirtual == true)
+    }
+
+    @Test func codableRoundTripPreservesCueRange() throws {
+        var t = Track(url: URL(fileURLWithPath: "/tmp/x.flac"),
+                      title: "x", artist: "", album: "", duration: 30)
+        t.cueStart = 10.5
+        t.cueEnd = 40.25
+        let data = try JSONEncoder().encode(t)
+        let decoded = try JSONDecoder().decode(Track.self, from: data)
+        #expect(decoded.cueStart == 10.5)
+        #expect(decoded.cueEnd == 40.25)
+    }
 }

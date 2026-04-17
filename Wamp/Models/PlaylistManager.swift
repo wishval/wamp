@@ -70,10 +70,37 @@ class PlaylistManager: ObservableObject {
         var newTracks: [Track] = []
         for url in urls {
             let ext = url.pathExtension.lowercased()
-            if Track.supportedExtensions.contains(ext) {
-                let track = await Track.fromURL(url)
-                newTracks.append(track)
+            guard Track.supportedExtensions.contains(ext) else { continue }
+
+            if ext == "flac" {
+                // External sibling .cue wins — it's the more explicit user action.
+                let siblingCue = url.deletingPathExtension().appendingPathExtension("cue")
+                if FileManager.default.fileExists(atPath: siblingCue.path) {
+                    do {
+                        try await self.addCueSheet(url: siblingCue)
+                        continue
+                    } catch {
+                        print("🟡 addURLs: sibling .cue failed (\(error)), falling through")
+                    }
+                }
+                // Embedded CUESHEET.
+                if let cueText = (try? FlacCueExtractor.extractCueSheet(from: url)) ?? nil,
+                   let cueData = cueText.data(using: .utf8) {
+                    do {
+                        let sheet = try CueSheetParser.parse(cueData)
+                        let resolved = try await CueResolver.resolveTracks(
+                            cue: sheet, cueDirectory: url.deletingLastPathComponent()
+                        )
+                        newTracks.append(contentsOf: resolved)
+                        continue
+                    } catch {
+                        print("🟡 addURLs: embedded CUESHEET unusable (\(error)), falling through")
+                    }
+                }
             }
+
+            let track = await Track.fromURL(url)
+            newTracks.append(track)
         }
         addTracks(newTracks)
     }
@@ -153,7 +180,38 @@ class PlaylistManager: ObservableObject {
         }
         print("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
         currentIndex = index
-        audioEngine?.loadAndPlay(url: tracks[index].url)
+        let track = tracks[index]
+        if let start = track.cueStart {
+            audioEngine?.loadAndPlay(url: track.url, startTime: start, endTime: track.cueEnd)
+        } else {
+            audioEngine?.loadAndPlay(url: track.url)
+        }
+        prepareGaplessChain(after: index)
+    }
+
+    /// If the *next* track in the playlist is on the same underlying audio file as the
+    /// one just started, schedule it back-to-back on the engine so the handoff is
+    /// sample-accurate.
+    private func prepareGaplessChain(after index: Int) {
+        guard index + 1 < tracks.count else { return }
+        let cur = tracks[index]
+        let next = tracks[index + 1]
+        guard cur.isCueVirtual, next.isCueVirtual, cur.url == next.url else { return }
+        guard let start = next.cueStart else { return }
+        _ = audioEngine?.chainNextSegment(url: next.url, startTime: start, endTime: next.cueEnd)
+    }
+
+    // MARK: - CUE sheets
+
+    /// Load a .cue sheet, resolve its virtual tracks, and append them to the playlist.
+    /// Throws if the cue can't be parsed or the referenced audio file is missing.
+    @MainActor
+    func addCueSheet(url: URL) async throws {
+        let sheet = try CueSheetParser.parse(url: url)
+        let resolved = try await CueResolver.resolveTracks(
+            cue: sheet, cueDirectory: url.deletingLastPathComponent()
+        )
+        addTracks(resolved)
     }
 
     func playNext() {
@@ -294,7 +352,30 @@ class PlaylistManager: ObservableObject {
     private func advanceToNext() {
         print("⚡ advanceToNext: repeatMode=\(String(describing: audioEngine?.repeatMode))")
         guard audioEngine?.repeatMode != .track else { return }
-        playNext()
+        guard !tracks.isEmpty else { return }
+
+        let nextIndex = currentIndex + 1
+        if nextIndex >= tracks.count {
+            if audioEngine?.repeatMode == .playlist {
+                playTrack(at: 0)
+            } else {
+                audioEngine?.stop()
+            }
+            return
+        }
+
+        // If a gapless chain is in flight (previous and next are CUE-virtual on the
+        // same underlying file) the engine has already started the next segment —
+        // just promote currentIndex and prepare the segment *after* it.
+        let prev = currentIndex >= 0 && currentIndex < tracks.count ? tracks[currentIndex] : nil
+        let next = tracks[nextIndex]
+        if let prev = prev,
+           prev.isCueVirtual, next.isCueVirtual, prev.url == next.url {
+            currentIndex = nextIndex
+            prepareGaplessChain(after: nextIndex)
+            return
+        }
+        playTrack(at: nextIndex)
     }
 
 }

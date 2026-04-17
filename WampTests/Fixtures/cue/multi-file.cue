@@ -1,0 +1,12 @@
+TITLE "Compilation"
+FILE "side-a.flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "A1"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "A2"
+    INDEX 01 03:15:00
+FILE "side-b.flac" WAVE
+  TRACK 03 AUDIO
+    TITLE "B1"
+    INDEX 01 00:00:00

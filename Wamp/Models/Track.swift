@@ -17,6 +17,14 @@ struct Track: Identifiable, Codable, Equatable {
     var sampleRate: Int
     var channels: Int
 
+    /// For CUE-derived virtual tracks: start offset in the underlying audio file (seconds).
+    var cueStart: TimeInterval?
+    /// For CUE-derived virtual tracks: end offset in the underlying audio file (seconds, exclusive).
+    /// `nil` means play to EOF.
+    var cueEnd: TimeInterval?
+
+    var isCueVirtual: Bool { cueStart != nil }
+
     init(
         url: URL,
         title: String,
@@ -26,7 +34,9 @@ struct Track: Identifiable, Codable, Equatable {
         genre: String = "",
         bitrate: Int = 0,
         sampleRate: Int = 0,
-        channels: Int = 2
+        channels: Int = 2,
+        cueStart: TimeInterval? = nil,
+        cueEnd: TimeInterval? = nil
     ) {
         self.id = UUID()
         self.url = url
@@ -38,6 +48,8 @@ struct Track: Identifiable, Codable, Equatable {
         self.bitrate = bitrate
         self.sampleRate = sampleRate
         self.channels = channels
+        self.cueStart = cueStart
+        self.cueEnd = cueEnd
     }
 
     var displayTitle: String {

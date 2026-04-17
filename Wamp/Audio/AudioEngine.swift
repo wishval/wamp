@@ -59,6 +59,14 @@ class AudioEngine: ObservableObject {
     private var timeUpdateTimer: Timer?
     private var needsScheduling = true
     private var playbackGeneration: UInt64 = 0
+    /// Upper frame bound of the segment currently scheduled. Matches
+    /// `audioLengthFrames` for a whole-file play, or the CUE track's end frame
+    /// when we're playing a bounded segment.
+    private var currentSegmentEndFrame: AVAudioFramePosition = 0
+    /// Set by `chainNextSegment` when a follow-up segment has already been
+    /// queued on the player node. Consumed by `handleTrackCompletion` so the
+    /// engine keeps playing into the chained segment without re-loading.
+    private var pendingChain: (startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition)?
 
     private var effectiveVolume: Float {
         isMuted ? 0 : volume
@@ -124,6 +132,70 @@ class AudioEngine: ObservableObject {
         }
     }
 
+    /// Schedule a follow-up segment back-to-back on the same player node —
+    /// no `stop()`, no reload — so the boundary is sample-exact. Returns true
+    /// on success, false if the engine isn't currently playing this file.
+    ///
+    /// The chained segment's completion handler fires `.trackDidFinish` when
+    /// the chained segment itself ends. When the *prior* segment ends its
+    /// completion handler will also fire; it consumes `pendingChain` and
+    /// updates the seek/end bookkeeping without interrupting playback.
+    @discardableResult
+    func chainNextSegment(url: URL, startTime: TimeInterval, endTime: TimeInterval?) -> Bool {
+        guard isPlaying, let file = audioFile, file.url == url else { return false }
+        let startFrame = AVAudioFramePosition(startTime * audioSampleRate)
+        let endFrame: AVAudioFramePosition
+        if let endTime = endTime {
+            endFrame = min(audioLengthFrames, AVAudioFramePosition(endTime * audioSampleRate))
+        } else {
+            endFrame = audioLengthFrames
+        }
+        let frames = endFrame - startFrame
+        guard frames > 0 else { return false }
+
+        let generation = playbackGeneration
+        playerNode.scheduleSegment(
+            file,
+            startingFrame: max(0, startFrame),
+            frameCount: AVAudioFrameCount(frames),
+            at: nil
+        ) { [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.playbackGeneration == generation else { return }
+                self.handleTrackCompletion()
+            }
+        }
+        pendingChain = (startFrame: max(0, startFrame), endFrame: endFrame)
+        return true
+    }
+
+    /// Load `url` and play from `startTime` until `endTime` (or EOF if nil).
+    /// Used for CUE-derived virtual tracks. When playback reaches the end frame
+    /// the completion handler posts `.trackDidFinish` exactly like a normal track.
+    func loadAndPlay(url: URL, startTime: TimeInterval, endTime: TimeInterval?) {
+        print("🔵 loadAndPlay(range): \(url.lastPathComponent) [\(startTime), \(endTime as Any)]")
+        stop()
+        playbackGeneration &+= 1
+
+        do {
+            try loadFile(url: url)
+            if !engine.isRunning { try engine.start() }
+            installSpectrumTap()
+
+            let startFrame = AVAudioFramePosition(startTime * audioSampleRate)
+            let endFrame: AVAudioFramePosition
+            if let endTime = endTime {
+                endFrame = min(audioLengthFrames, AVAudioFramePosition(endTime * audioSampleRate))
+            } else {
+                endFrame = audioLengthFrames
+            }
+            seekFrame = max(0, min(startFrame, audioLengthFrames))
+            scheduleSegment(endFrame: endFrame)
+        } catch {
+            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+        }
+    }
+
     /// Shared helper: opens the audio file and sets duration/sample-rate metadata.
     private func loadFile(url: URL) throws {
         audioFile = try AVAudioFile(forReading: url)
@@ -174,6 +246,7 @@ class AudioEngine: ObservableObject {
         currentTime = 0
         seekFrame = 0
         needsScheduling = true
+        pendingChain = nil
         stopTimeUpdates()
     }
 
@@ -184,13 +257,14 @@ class AudioEngine: ObservableObject {
     func seek(to time: TimeInterval) {
         guard audioFile != nil else { return }
         let targetFrame = AVAudioFramePosition(time * audioSampleRate)
-        seekFrame = max(0, min(targetFrame, audioLengthFrames))
+        let upperBound = currentSegmentEndFrame > 0 ? currentSegmentEndFrame : audioLengthFrames
+        seekFrame = max(0, min(targetFrame, upperBound))
         needsScheduling = true
 
         if isPlaying {
             playbackGeneration &+= 1
             playerNode.stop()
-            scheduleAndPlay()
+            scheduleSegment(endFrame: upperBound)
         } else {
             currentTime = time
         }
@@ -224,38 +298,33 @@ class AudioEngine: ObservableObject {
 
     // MARK: - Private Playback
     private func scheduleAndPlay() {
+        scheduleSegment(endFrame: audioLengthFrames)
+    }
+
+    private func scheduleSegment(endFrame: AVAudioFramePosition) {
         guard let file = audioFile else {
-            print("🔴 scheduleAndPlay: no audioFile")
+            print("🔴 scheduleSegment: no audioFile")
             return
         }
-
-        let framesToPlay = audioLengthFrames - seekFrame
-        print("🟢 scheduleAndPlay: framesToPlay=\(framesToPlay), seekFrame=\(seekFrame), totalFrames=\(audioLengthFrames), gen=\(playbackGeneration)")
+        let framesToPlay = endFrame - seekFrame
+        print("🟢 scheduleSegment: framesToPlay=\(framesToPlay), seekFrame=\(seekFrame), endFrame=\(endFrame), gen=\(playbackGeneration)")
         guard framesToPlay > 0 else {
-            print("🔴 scheduleAndPlay: no frames to play, calling handleTrackCompletion")
+            print("🔴 scheduleSegment: no frames to play, calling handleTrackCompletion")
             handleTrackCompletion()
             return
         }
 
         playerNode.stop()
         let generation = playbackGeneration
+        let capturedEnd = endFrame
         playerNode.scheduleSegment(
             file,
             startingFrame: seekFrame,
             frameCount: AVAudioFrameCount(framesToPlay),
             at: nil
         ) { [weak self] in
-            print("🟠 completion handler fired, captured gen=\(generation)")
             DispatchQueue.main.async {
-                guard let self else {
-                    print("🟠 completion: self is nil")
-                    return
-                }
-                print("🟠 completion on main: currentGen=\(self.playbackGeneration), capturedGen=\(generation), isPlaying=\(self.isPlaying)")
-                guard self.playbackGeneration == generation else {
-                    print("🟠 completion: STALE generation, ignoring")
-                    return
-                }
+                guard let self, self.playbackGeneration == generation else { return }
                 self.handleTrackCompletion()
             }
         }
@@ -263,8 +332,8 @@ class AudioEngine: ObservableObject {
         isPlaying = true
         playState = .playing
         needsScheduling = false
+        currentSegmentEndFrame = capturedEnd
         startTimeUpdates()
-        print("🟢 scheduleAndPlay: playerNode.play() called, isPlaying=true")
     }
 
     private func handleTrackCompletion() {
@@ -278,13 +347,26 @@ class AudioEngine: ObservableObject {
             seekFrame = 0
             needsScheduling = true
             scheduleAndPlay()
-        } else {
-            isPlaying = false
-            playState = .stopped
-            stopTimeUpdates()
-            print("🔴 handleTrackCompletion: posting .trackDidFinish")
-            NotificationCenter.default.post(name: .trackDidFinish, object: nil)
+            return
         }
+
+        // Gapless chain: the next segment is already queued on the player node
+        // and may already be feeding audio. Adopt its bookkeeping and notify
+        // the playlist, but do NOT stop or reset the engine.
+        if let pending = pendingChain {
+            seekFrame = pending.startFrame
+            currentSegmentEndFrame = pending.endFrame
+            pendingChain = nil
+            print("🟢 handleTrackCompletion: promoted chained segment [\(pending.startFrame), \(pending.endFrame)]")
+            NotificationCenter.default.post(name: .trackDidFinish, object: nil)
+            return
+        }
+
+        isPlaying = false
+        playState = .stopped
+        stopTimeUpdates()
+        print("🔴 handleTrackCompletion: posting .trackDidFinish")
+        NotificationCenter.default.post(name: .trackDidFinish, object: nil)
     }
 
     // MARK: - Time Updates
