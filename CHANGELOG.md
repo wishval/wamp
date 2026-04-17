@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Import from Music Library** — new File → Import from Music Library…
+  menu item opens a sheet listing "All Songs" plus your user and smart
+  playlists from Music.app. Check the sources to import, pick "New
+  playlist" or "Append to current", and Wamp pulls in every local track
+  it can see. Streaming-only tracks (not downloaded) and entries whose
+  files have been removed are skipped with counts in the summary
+  alert. Backed by the `iTunesLibrary` framework; falls back to parsing
+  `~/Music/iTunes/iTunes Music Library.xml` if it's been enabled. First
+  use triggers the macOS permission prompt; a denied state offers a
+  direct link to Privacy & Security → Media & Apple Music.
+
 - **M3U / M3U8 playlists** — drop a `.m3u` or `.m3u8` on the player, open
   one via File → Open, or double-click from Finder to import its tracks.
   Present files are appended to the current playlist; missing entries are
