@@ -15,6 +15,8 @@ If you want to play Spotify, use the Spotify app. Wamp is a local player.
 
 MusicKit on macOS exposes `ApplicationMusicPlayer`, which will play Apple Music catalog tracks for subscribers. We're not integrating it either, for the same reason as Spotify: `ApplicationMusicPlayer` routes audio through a system-managed graph that bypasses our DSP pipeline. You get Apple Music playback, but without EQ and without visualization — which is most of what Wamp is for. The trade-off isn't worth it.
 
+We *do* read your Music.app library to import **local** files — tracks on disk, including ones you downloaded from Apple Music for offline playback. That's done via the `iTunesLibrary` framework (`ITLibrary`), not `ApplicationMusicPlayer`. Streaming-only tracks are skipped with a count, never played.
+
 ## iTunes Match / iCloud Music Library sync
 
 Wamp reads your local Music.app library. It does not sync with iCloud, does not download cloud-only tracks, does not re-evaluate smart playlists. If the file isn't on disk, Wamp can't play it.

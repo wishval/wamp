@@ -24,6 +24,8 @@
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
     <string></string>
+    <key>NSAppleMusicUsageDescription</key>
+    <string>Wamp reads your Music library so it can import local tracks and playlists. Nothing is uploaded or streamed.</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
