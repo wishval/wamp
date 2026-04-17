@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import AVFoundation
 @testable import Wamp
 
 @MainActor
@@ -158,5 +159,54 @@ struct PlaylistManagerTests {
         NotificationCenter.default.post(name: .trackDidFinish, object: nil)
         try? await Task.sleep(nanoseconds: 200_000_000)
         #expect(pm.currentIndex == 1)
+    }
+
+    // MARK: - CUE sheet support
+
+    private func makeSilentWav(in dir: URL, name: String = "mix.wav", seconds: Double = 1) throws -> URL {
+        let wavURL = dir.appendingPathComponent(name)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        let file = try AVAudioFile(forWriting: wavURL, settings: format.settings)
+        let frames = AVAudioFrameCount(44_100 * seconds)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        try file.write(from: buffer)
+        return wavURL
+    }
+
+    @Test func addCueSheet_appendsVirtualTracks() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        _ = try makeSilentWav(in: dir)
+        let cueURL = dir.appendingPathComponent("mix.cue")
+        try """
+        FILE "mix.wav" WAVE
+          TRACK 01 AUDIO
+            TITLE "A"
+            INDEX 01 00:00:00
+        """.write(to: cueURL, atomically: true, encoding: .utf8)
+
+        let pm = PlaylistManager()
+        try await pm.addCueSheet(url: cueURL)
+        #expect(pm.tracks.count == 1)
+        #expect(pm.tracks[0].isCueVirtual)
+        #expect(pm.tracks[0].title == "A")
+    }
+
+    @Test func addCueSheet_missingAudioThrows() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let cueURL = dir.appendingPathComponent("orphan.cue")
+        try """
+        FILE "missing.wav" WAVE
+          TRACK 01 AUDIO
+            INDEX 01 00:00:00
+        """.write(to: cueURL, atomically: true, encoding: .utf8)
+        let pm = PlaylistManager()
+        await #expect(throws: (any Error).self) {
+            try await pm.addCueSheet(url: cueURL)
+        }
     }
 }
