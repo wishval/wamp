@@ -113,9 +113,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        Task {
-            await playlistManager.addURLs(urls)
+        Task { await handleOpenURLs(urls) }
+    }
+
+    /// Route incoming URLs. `.cue` files expand into virtual tracks via
+    /// `PlaylistManager.addCueSheet`; everything else falls through to `addURLs`.
+    @MainActor
+    private func handleOpenURLs(_ urls: [URL]) async {
+        var passthrough: [URL] = []
+        for url in urls {
+            if url.pathExtension.lowercased() == "cue" {
+                do {
+                    try await playlistManager.addCueSheet(url: url)
+                } catch {
+                    presentError(error, context: "Opening \(url.lastPathComponent)")
+                }
+            } else {
+                passthrough.append(url)
+            }
         }
+        if !passthrough.isEmpty {
+            await playlistManager.addURLs(passthrough)
+        }
+    }
+
+    private func presentError(_ error: Error, context: String) {
+        let alert = NSAlert()
+        alert.messageText = context
+        alert.informativeText = (error as NSError).localizedDescription
+        alert.alertStyle = .warning
+        alert.runModal()
     }
 
     // MARK: - Main Menu
@@ -263,7 +290,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.allowsMultipleSelection = true
         panel.begin { [weak self] response in
             guard response == .OK else { return }
-            Task { await self?.playlistManager.addURLs(panel.urls) }
+            Task { await self?.handleOpenURLs(panel.urls) }
         }
     }
 
