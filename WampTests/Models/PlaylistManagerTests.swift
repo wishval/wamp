@@ -228,6 +228,53 @@ struct PlaylistManagerTests {
         #expect(pm.tracks[1].title == "B")
     }
 
+    // MARK: - M3U import
+
+    @Test func addM3U_countsPresentAndMissing() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let wavURL = try makeSilentWav(in: dir, name: "one.wav")
+        _ = try makeSilentWav(in: dir, name: "two.wav")
+
+        let m3uURL = dir.appendingPathComponent("list.m3u8")
+        try """
+        #EXTM3U
+        #EXTINF:1,One
+        one.wav
+        #EXTINF:1,Two
+        two.wav
+        #EXTINF:1,Ghost
+        missing.wav
+        """.write(to: m3uURL, atomically: true, encoding: .utf8)
+
+        let pm = PlaylistManager()
+        let summary = try await pm.addM3U(url: m3uURL)
+        #expect(summary.imported == 2)
+        #expect(summary.missing == 1)
+        #expect(pm.tracks.count == 2)
+        #expect(pm.tracks.contains { $0.url.path == wavURL.path })
+    }
+
+    @Test func addM3U_appendsRatherThanReplaces() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        _ = try makeSilentWav(in: dir, name: "new.wav")
+
+        let m3uURL = dir.appendingPathComponent("list.m3u8")
+        try "new.wav\n".write(to: m3uURL, atomically: true, encoding: .utf8)
+
+        let pm = PlaylistManager()
+        pm.addTracks([makeTrack("existing")])
+        _ = try await pm.addM3U(url: m3uURL)
+        #expect(pm.tracks.count == 2)
+        #expect(pm.tracks[0].title == "existing")
+    }
+
     @Test func addCueSheet_missingAudioThrows() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(UUID().uuidString)

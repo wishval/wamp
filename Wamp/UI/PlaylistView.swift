@@ -722,14 +722,8 @@ class PlaylistView: NSView {
             return false
         }
         Task { @MainActor in
-            for url in items {
-                var isDir: ObjCBool = false
-                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-                if isDir.boolValue {
-                    await playlistManager?.addFolder(url)
-                } else {
-                    await playlistManager?.addURLs([url])
-                }
+            if let appDelegate = NSApp.delegate as? AppDelegate {
+                await appDelegate.handleOpenURLs(items)
             }
         }
         return true

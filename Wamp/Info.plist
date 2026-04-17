@@ -42,6 +42,21 @@
                 <string>public.audio</string>
             </array>
         </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>M3U Playlist</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>m3u</string>
+                <string>m3u8</string>
+            </array>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.m3u-playlist</string>
+            </array>
+        </dict>
     </array>
 </dict>
 </plist>

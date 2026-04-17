@@ -117,24 +117,58 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Route incoming URLs. `.cue` files expand into virtual tracks via
-    /// `PlaylistManager.addCueSheet`; everything else falls through to `addURLs`.
+    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8` playlists are appended
+    /// via `PlaylistManager.addM3U`, with a summary alert if any referenced
+    /// files are missing. Folders are recursively scanned. Everything else
+    /// falls through to `addURLs`. This method is the single routing entry
+    /// point — both `application(_:open:)` and drag-drop go through here.
     @MainActor
-    private func handleOpenURLs(_ urls: [URL]) async {
+    func handleOpenURLs(_ urls: [URL]) async {
         var passthrough: [URL] = []
+        var totalMissing = 0
         for url in urls {
-            if url.pathExtension.lowercased() == "cue" {
+            let ext = url.pathExtension.lowercased()
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            if exists && isDir.boolValue {
+                await playlistManager.addFolder(url)
+                continue
+            }
+            switch ext {
+            case "cue":
                 do {
                     try await playlistManager.addCueSheet(url: url)
                 } catch {
                     presentError(error, context: "Opening \(url.lastPathComponent)")
                 }
-            } else {
+            case "m3u", "m3u8":
+                do {
+                    let summary = try await playlistManager.addM3U(url: url)
+                    totalMissing += summary.missing
+                } catch {
+                    presentError(error, context: "Opening \(url.lastPathComponent)")
+                }
+            default:
                 passthrough.append(url)
             }
         }
         if !passthrough.isEmpty {
             await playlistManager.addURLs(passthrough)
         }
+        if totalMissing > 0 {
+            presentMissingFilesNotice(count: totalMissing)
+        }
+    }
+
+    @MainActor
+    private func presentMissingFilesNotice(count: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Some tracks couldn't be found"
+        alert.informativeText = count == 1
+            ? "1 entry in the playlist points to a file that no longer exists on disk."
+            : "\(count) entries in the playlist point to files that no longer exist on disk."
+        alert.alertStyle = .warning
+        alert.runModal()
     }
 
     private func presentError(_ error: Error, context: String) {
