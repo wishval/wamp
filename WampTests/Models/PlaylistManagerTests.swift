@@ -194,6 +194,40 @@ struct PlaylistManagerTests {
         #expect(pm.tracks[0].title == "A")
     }
 
+    @Test func addURLs_flacWithSiblingCueExpandsToVirtualTracks() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // The sibling cue refers to "song.wav" (a format AVFoundation can read).
+        let wavURL = dir.appendingPathComponent("song.wav")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        let file = try AVAudioFile(forWriting: wavURL, settings: format.settings)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44_100)!
+        buffer.frameLength = 44_100
+        try file.write(from: buffer)
+        // Place a zero-byte .flac beside it — the parser short-circuits to the sibling cue
+        // before touching the flac content, so no real FLAC bytes are required.
+        let flacURL = dir.appendingPathComponent("song.flac")
+        try Data().write(to: flacURL)
+        let cueURL = dir.appendingPathComponent("song.cue")
+        try """
+        FILE "song.wav" WAVE
+          TRACK 01 AUDIO
+            TITLE "A"
+            INDEX 01 00:00:00
+          TRACK 02 AUDIO
+            TITLE "B"
+            INDEX 01 00:00:30
+        """.write(to: cueURL, atomically: true, encoding: .utf8)
+
+        let pm = PlaylistManager()
+        await pm.addURLs([flacURL])
+        #expect(pm.tracks.count == 2)
+        #expect(pm.tracks[0].isCueVirtual)
+        #expect(pm.tracks[0].title == "A")
+        #expect(pm.tracks[1].title == "B")
+    }
+
     @Test func addCueSheet_missingAudioThrows() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(UUID().uuidString)

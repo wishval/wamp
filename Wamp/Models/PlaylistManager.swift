@@ -70,10 +70,37 @@ class PlaylistManager: ObservableObject {
         var newTracks: [Track] = []
         for url in urls {
             let ext = url.pathExtension.lowercased()
-            if Track.supportedExtensions.contains(ext) {
-                let track = await Track.fromURL(url)
-                newTracks.append(track)
+            guard Track.supportedExtensions.contains(ext) else { continue }
+
+            if ext == "flac" {
+                // External sibling .cue wins — it's the more explicit user action.
+                let siblingCue = url.deletingPathExtension().appendingPathExtension("cue")
+                if FileManager.default.fileExists(atPath: siblingCue.path) {
+                    do {
+                        try await self.addCueSheet(url: siblingCue)
+                        continue
+                    } catch {
+                        print("🟡 addURLs: sibling .cue failed (\(error)), falling through")
+                    }
+                }
+                // Embedded CUESHEET.
+                if let cueText = (try? FlacCueExtractor.extractCueSheet(from: url)) ?? nil,
+                   let cueData = cueText.data(using: .utf8) {
+                    do {
+                        let sheet = try CueSheetParser.parse(cueData)
+                        let resolved = try await CueResolver.resolveTracks(
+                            cue: sheet, cueDirectory: url.deletingLastPathComponent()
+                        )
+                        newTracks.append(contentsOf: resolved)
+                        continue
+                    } catch {
+                        print("🟡 addURLs: embedded CUESHEET unusable (\(error)), falling through")
+                    }
+                }
             }
+
+            let track = await Track.fromURL(url)
+            newTracks.append(track)
         }
         addTracks(newTracks)
     }
