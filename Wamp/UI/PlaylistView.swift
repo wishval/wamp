@@ -62,6 +62,7 @@ class PlaylistView: NSView {
         tableView.gridStyleMask = []
         tableView.onEnter = { [weak self] in self?.playSelectedRow() }
         tableView.onDelete = { [weak self] in self?.removeSelected() }
+        tableView.menuProvider = { [weak self] row in self?.contextMenu(for: row) }
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
@@ -566,6 +567,28 @@ class PlaylistView: NSView {
         return item
     }
 
+    /// Build a right-click context menu for a playlist row. Returns nil if no
+    /// row-specific actions apply (letting the table fall back to its default menu).
+    private func contextMenu(for row: Int) -> NSMenu? {
+        guard let pm = playlistManager, row >= 0, row < pm.tracks.count else { return nil }
+        let track = pm.tracks[row]
+        guard track.isCueVirtual else { return nil }
+
+        let menu = NSMenu()
+        let item = NSMenuItem(title: "Reveal Source File in Finder",
+                              action: #selector(revealCueSource(_:)),
+                              keyEquivalent: "")
+        item.target = self
+        item.representedObject = track.url
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func revealCueSource(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     @objc private func addFiles() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -852,6 +875,9 @@ extension PlaylistView: NSTableViewDataSource, NSTableViewDelegate {
 class PlaylistTableView: NSTableView {
     var onEnter: (() -> Void)?
     var onDelete: (() -> Void)?
+    /// Called with the clicked row index when the user right-clicks inside the table.
+    /// Returning a non-nil `NSMenu` shows it; returning `nil` suppresses the default menu.
+    var menuProvider: ((Int) -> NSMenu?)?
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 { // Return key
@@ -861,6 +887,15 @@ class PlaylistTableView: NSTableView {
         } else {
             super.keyDown(with: event)
         }
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let pointInView = convert(event.locationInWindow, from: nil)
+        let clickedRow = row(at: pointInView)
+        if clickedRow >= 0, let provider = menuProvider {
+            return provider(clickedRow)
+        }
+        return super.menu(for: event)
     }
 }
 
