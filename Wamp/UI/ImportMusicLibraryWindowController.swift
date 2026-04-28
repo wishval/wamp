@@ -111,10 +111,11 @@ final class ImportMusicLibraryWindowController: NSWindowController, NSWindowDele
         tableView.intercellSpacing = NSSize(width: 0, height: 2)
         tableView.backgroundColor = .textBackgroundColor
         tableView.gridStyleMask = []
+        tableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         let column = NSTableColumn(identifier: .init("row"))
         column.title = ""
-        column.width = 440
         column.minWidth = 200
+        column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.dataSource = self
         tableView.delegate = self
