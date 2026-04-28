@@ -616,54 +616,8 @@ class MainPlayerView: NSView {
     }
 
     private func showWindowMenu() {
-        let menu = NSMenu()
-
-        // Helper: build an item dispatched through the responder chain.
-        func item(_ title: String, _ selectorName: String, state: NSControl.StateValue = .off) -> NSMenuItem {
-            let mi = NSMenuItem(title: title, action: Selector((selectorName)), keyEquivalent: "")
-            mi.target = nil
-            mi.state = state
-            return mi
-        }
-
-        menu.addItem(item("About Wamp", "showAboutPanel"))
-        menu.addItem(.separator())
-
-        // File
-        menu.addItem(item("Open File…", "openFileAction"))
-        menu.addItem(item("Open Folder…", "openFolderAction"))
-        menu.addItem(.separator())
-
-        // Controls
-        menu.addItem(item("Play / Pause", "togglePlayPause"))
-        menu.addItem(item("Stop", "stopAction"))
-        menu.addItem(item("Next", "nextAction"))
-        menu.addItem(item("Previous", "prevAction"))
-        menu.addItem(.separator())
-        menu.addItem(item("Shuffle", "toggleShuffle"))
-        menu.addItem(item("Repeat", "toggleRepeat"))
-        menu.addItem(.separator())
-
-        // View
-        menu.addItem(item("Show Equalizer", "toggleEQ",
-                          state: isEQActive ? .on : .off))
-        menu.addItem(item("Show Playlist", "togglePL",
-                          state: isPLActive ? .on : .off))
-        menu.addItem(item("Always on Top", "toggleAlwaysOnTop",
-                          state: (window?.level == .floating) ? .on : .off))
-        menu.addItem(item("Double Size", "toggleDoubleSize",
-                          state: WinampTheme.scale > WinampTheme.baseScale + 0.01 ? .on : .off))
-        menu.addItem(.separator())
-
-        // Skin
-        menu.addItem(item("Load Skin…", "loadSkinAction"))
-        menu.addItem(item("Unload Skin", "unloadSkinAction"))
-        menu.addItem(.separator())
-
-        menu.addItem(NSMenuItem(title: "Quit Wamp",
-                                action: #selector(NSApplication.terminate(_:)),
-                                keyEquivalent: ""))
-
+        guard let delegate = NSApp.delegate as? AppDelegate else { return }
+        let menu = delegate.buildCornerPopupMenu()
         let anchor = NSPoint(x: titleBar.frame.minX, y: titleBar.frame.minY)
         menu.popUp(positioning: nil, at: anchor, in: self)
     }

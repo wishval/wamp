@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Multi-select in the playlist.** Standard macOS selection now works:
+  Shift-click extends a contiguous range, Cmd-click toggles individual
+  rows, and Cmd+A selects every track. Backspace removes the entire
+  selection at once. Double-click-to-play is unaffected.
+
+- **Angular playlist scroller in unskinned mode.** The native AppKit
+  `.legacy` scrollbar's rounded corners clashed with the rest of Wamp's
+  pixel-perfect chrome. A custom `AngularLegacyScroller` now draws a flat
+  rectangular knob with a 1-px chiseled border using the existing button
+  palette, so the scrollbar matches the frame. Skinned mode is unchanged —
+  the sprite-based `PlaylistSkinScroller` overlay still draws on top.
+
+- **Default Always-on-Top is now OFF for fresh installs.** Previous default
+  pinned the player above other apps on first launch, which most users find
+  intrusive. Existing users keep their last-session choice — only the
+  initial default changed.
+
+- **SF Symbol icons in the menu bar and corner popup.** Every menu item now
+  carries a contextual SF Symbol — `playpause.fill` next to Play/Pause,
+  `magnifyingglass` next to Jump to File, and so on. Faster visual scanning,
+  consistent with macOS native apps.
+
+- **Title-bar corner menu mirrors the menu bar.** The popup that appears when
+  you click the top-left corner of the player is now built from the same
+  factory as the menu bar, so it always carries the full action set —
+  including Jump to File…, Import from Music Library…, and Select All.
+  Previously the two menus were hand-rolled separately and drifted apart.
+
 ### Added
 
 - **Import from Music Library** — new File → Import from Music Library…

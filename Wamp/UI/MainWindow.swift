@@ -25,7 +25,7 @@ class MainWindow: NSWindow {
         }
     }
 
-    var alwaysOnTop: Bool = true {
+    var alwaysOnTop: Bool = false {
         didSet {
             level = alwaysOnTop ? .floating : .normal
         }
@@ -48,7 +48,7 @@ class MainWindow: NSWindow {
         )
 
         isMovableByWindowBackground = false
-        level = .floating
+        level = .normal
         backgroundColor = WinampTheme.frameBackground
         isOpaque = true
         hasShadow = true

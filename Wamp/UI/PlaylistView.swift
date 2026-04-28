@@ -60,6 +60,8 @@ class PlaylistView: NSView {
         tableView.target = self
         tableView.selectionHighlightStyle = .regular
         tableView.gridStyleMask = []
+        tableView.allowsMultipleSelection = true
+        tableView.allowsEmptySelection = true
         tableView.onEnter = { [weak self] in self?.playSelectedRow() }
         tableView.onDelete = { [weak self] in self?.removeSelected() }
         tableView.menuProvider = { [weak self] row in self?.contextMenu(for: row) }
@@ -929,6 +931,9 @@ final class AlwaysVisibleScrollView: NSScrollView {
     }
 
     override func tile() {
+        if !(verticalScroller is AngularLegacyScroller) {
+            verticalScroller = AngularLegacyScroller(frame: .zero)
+        }
         super.tile()
         verticalScroller?.isHidden = false
     }
