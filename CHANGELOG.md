@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Multi-select in the playlist.** Standard macOS selection now works:
+  Shift-click extends a contiguous range, Cmd-click toggles individual
+  rows, and Cmd+A selects every track. Backspace removes the entire
+  selection at once. Double-click-to-play is unaffected.
+
 - **Angular playlist scroller in unskinned mode.** The native AppKit
   `.legacy` scrollbar's rounded corners clashed with the rest of Wamp's
   pixel-perfect chrome. A custom `AngularLegacyScroller` now draws a flat
