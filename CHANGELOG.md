@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Title-bar corner menu mirrors the menu bar.** The popup that appears when
+  you click the top-left corner of the player is now built from the same
+  factory as the menu bar, so it always carries the full action set —
+  including Jump to File…, Import from Music Library…, and Select All.
+  Previously the two menus were hand-rolled separately and drifted apart.
+
 ### Added
 
 - **Import from Music Library** — new File → Import from Music Library…

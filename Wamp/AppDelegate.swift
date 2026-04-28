@@ -180,116 +180,137 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Main Menu
-    private func setupMainMenu() {
-        let mainMenu = NSMenu()
 
-        // App menu
-        let appMenu = NSMenu()
-        let aboutItem = NSMenuItem(title: "About Wamp", action: #selector(showAboutPanel), keyEquivalent: "")
-        aboutItem.target = self
-        appMenu.addItem(aboutItem)
-        appMenu.addItem(.separator())
-        appMenu.addItem(NSMenuItem(title: "Quit Wamp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        let appMenuItem = NSMenuItem()
-        appMenuItem.submenu = appMenu
-        mainMenu.addItem(appMenuItem)
+    /// Captured state values consumed by the menu factory. Both the menu bar
+    /// (built once at launch) and the title-bar corner popup (rebuilt on every
+    /// click) call the same factory with the current state, so the two menus
+    /// can never drift apart in structure or contents.
+    struct AppMenuState {
+        var alwaysOnTop: Bool
+        var doubleSize: Bool
+        var eqVisible: Bool
+        var playlistVisible: Bool
+    }
 
-        // File menu
-        let fileMenu = NSMenu(title: "File")
-        let openFile = NSMenuItem(title: "Open File...", action: #selector(openFileAction), keyEquivalent: "o")
-        openFile.target = self
-        fileMenu.addItem(openFile)
-        let openFolder = NSMenuItem(title: "Open Folder...", action: #selector(openFolderAction), keyEquivalent: "O")
-        openFolder.target = self
+    /// Result of building one set of menu items. Callers wrap these into the
+    /// appropriate container (top-level submenus for the menu bar; one flat
+    /// popup for the corner click).
+    struct AppMenuItems {
+        let app: [NSMenuItem]
+        let file: [NSMenuItem]
+        let edit: [NSMenuItem]
+        let controls: [NSMenuItem]
+        let view: [NSMenuItem]
+        let alwaysOnTopItem: NSMenuItem
+        let doubleSizeItem: NSMenuItem
+    }
+
+    /// Single source of truth for application menu structure. Items use
+    /// `target = nil` so they dispatch through the responder chain — this
+    /// works for both the main menu bar and the title-bar popup, and reaches
+    /// AppDelegate via NSApp.delegate.
+    static func buildAppMenuItems(state: AppMenuState) -> AppMenuItems {
+        // App
+        let about = NSMenuItem(title: "About Wamp", action: #selector(showAboutPanel), keyEquivalent: "")
+        let quit = NSMenuItem(title: "Quit Wamp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        // File
+        let openFile = NSMenuItem(title: "Open File…", action: #selector(openFileAction), keyEquivalent: "o")
+        let openFolder = NSMenuItem(title: "Open Folder…", action: #selector(openFolderAction), keyEquivalent: "O")
         openFolder.keyEquivalentModifierMask = [.command, .shift]
-        fileMenu.addItem(openFolder)
-        fileMenu.addItem(.separator())
         let importMusic = NSMenuItem(title: "Import from Music Library…",
                                      action: #selector(importFromMusicLibraryAction),
                                      keyEquivalent: "")
-        importMusic.target = self
-        fileMenu.addItem(importMusic)
-        let fileMenuItem = NSMenuItem()
-        fileMenuItem.submenu = fileMenu
-        mainMenu.addItem(fileMenuItem)
 
-        // Controls menu
-        let controlsMenu = NSMenu(title: "Controls")
+        // Edit (just Select All — routed to NSTableView via responder chain)
+        let selectAll = NSMenuItem(title: "Select All",
+                                   action: #selector(NSResponder.selectAll(_:)),
+                                   keyEquivalent: "a")
+
+        // Controls
         let playPause = NSMenuItem(title: "Play/Pause", action: #selector(togglePlayPause), keyEquivalent: " ")
-        playPause.target = self
         playPause.keyEquivalentModifierMask = []
-        controlsMenu.addItem(playPause)
         let stop = NSMenuItem(title: "Stop", action: #selector(stopAction), keyEquivalent: ".")
-        stop.target = self
-        controlsMenu.addItem(stop)
-        let next = NSMenuItem(title: "Next", action: #selector(nextAction), keyEquivalent: String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)))
-        next.target = self
+        let next = NSMenuItem(title: "Next",
+                              action: #selector(nextAction),
+                              keyEquivalent: String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)))
         next.keyEquivalentModifierMask = [.command]
-        controlsMenu.addItem(next)
-        let prev = NSMenuItem(title: "Previous", action: #selector(prevAction), keyEquivalent: String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)))
-        prev.target = self
+        let prev = NSMenuItem(title: "Previous",
+                              action: #selector(prevAction),
+                              keyEquivalent: String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)))
         prev.keyEquivalentModifierMask = [.command]
-        controlsMenu.addItem(prev)
-        controlsMenu.addItem(.separator())
         let repeat_ = NSMenuItem(title: "Repeat", action: #selector(toggleRepeat), keyEquivalent: "r")
-        repeat_.target = self
-        controlsMenu.addItem(repeat_)
         let shuffle = NSMenuItem(title: "Shuffle", action: #selector(toggleShuffle), keyEquivalent: "s")
-        shuffle.target = self
-        controlsMenu.addItem(shuffle)
-        controlsMenu.addItem(.separator())
         let jump = NSMenuItem(title: "Jump to File…", action: #selector(presentJumpToFileWindow), keyEquivalent: "j")
-        jump.target = self
         jump.keyEquivalentModifierMask = [.command]
-        controlsMenu.addItem(jump)
-        let controlsMenuItem = NSMenuItem()
-        controlsMenuItem.submenu = controlsMenu
-        mainMenu.addItem(controlsMenuItem)
 
-        // View menu
-        let viewMenu = NSMenu(title: "View")
+        // View
         let showPlayer = NSMenuItem(title: "Show Player", action: #selector(showPlayerAction), keyEquivalent: "1")
-        showPlayer.target = self
-        viewMenu.addItem(showPlayer)
         let showEQ = NSMenuItem(title: "Show Equalizer", action: #selector(toggleEQ), keyEquivalent: "2")
-        showEQ.target = self
-        viewMenu.addItem(showEQ)
+        showEQ.state = state.eqVisible ? .on : .off
         let showPL = NSMenuItem(title: "Show Playlist", action: #selector(togglePL), keyEquivalent: "3")
-        showPL.target = self
-        viewMenu.addItem(showPL)
-
-        viewMenu.addItem(.separator())
-
-        // Always-on-top moved here from the (deleted) pin button in TitleBarView.
+        showPL.state = state.playlistVisible ? .on : .off
         let alwaysOnTop = NSMenuItem(title: "Always on Top", action: #selector(toggleAlwaysOnTop), keyEquivalent: "t")
         alwaysOnTop.keyEquivalentModifierMask = [.command, .shift]
-        alwaysOnTop.target = self
-        alwaysOnTop.state = mainWindow.alwaysOnTop ? .on : .off
-        self.alwaysOnTopMenuItem = alwaysOnTop
-        viewMenu.addItem(alwaysOnTop)
-
+        alwaysOnTop.state = state.alwaysOnTop ? .on : .off
         let doubleSize = NSMenuItem(title: "Double Size", action: #selector(toggleDoubleSize), keyEquivalent: "d")
         doubleSize.keyEquivalentModifierMask = [.command, .shift]
-        doubleSize.target = self
-        doubleSize.state = WinampTheme.scale > WinampTheme.baseScale + 0.01 ? .on : .off
-        self.doubleSizeMenuItem = doubleSize
-        viewMenu.addItem(doubleSize)
-
-        viewMenu.addItem(.separator())
-
-        let loadSkin = NSMenuItem(title: "Load Skin...", action: #selector(loadSkinAction), keyEquivalent: "S")
+        doubleSize.state = state.doubleSize ? .on : .off
+        let loadSkin = NSMenuItem(title: "Load Skin…", action: #selector(loadSkinAction), keyEquivalent: "S")
         loadSkin.keyEquivalentModifierMask = [.command, .shift]
-        loadSkin.target = self
-        viewMenu.addItem(loadSkin)
-
         let unloadSkin = NSMenuItem(title: "Unload Skin", action: #selector(unloadSkinAction), keyEquivalent: "")
-        unloadSkin.target = self
-        viewMenu.addItem(unloadSkin)
 
-        let viewMenuItem = NSMenuItem()
-        viewMenuItem.submenu = viewMenu
-        mainMenu.addItem(viewMenuItem)
+        return AppMenuItems(
+            app: [about, .separator(), quit],
+            file: [openFile, openFolder, .separator(), importMusic],
+            edit: [selectAll],
+            controls: [playPause, stop, next, prev, .separator(),
+                       repeat_, shuffle, .separator(), jump],
+            view: [showPlayer, showEQ, showPL, .separator(),
+                   alwaysOnTop, doubleSize, .separator(),
+                   loadSkin, unloadSkin],
+            alwaysOnTopItem: alwaysOnTop,
+            doubleSizeItem: doubleSize
+        )
+    }
 
+    private func currentMenuState() -> AppMenuState {
+        AppMenuState(
+            alwaysOnTop: mainWindow?.alwaysOnTop ?? false,
+            doubleSize: WinampTheme.scale > WinampTheme.baseScale + 0.01,
+            eqVisible: mainWindow?.showEqualizer ?? false,
+            playlistVisible: mainWindow?.showPlaylist ?? false
+        )
+    }
+
+    /// Build a fresh popup menu from the shared factory. Called by
+    /// `MainPlayerView.showWindowMenu()` for the title-bar corner click.
+    func buildCornerPopupMenu() -> NSMenu {
+        let items = AppDelegate.buildAppMenuItems(state: currentMenuState())
+        let menu = NSMenu()
+        let groups: [[NSMenuItem]] = [
+            items.app, items.file, items.edit, items.controls, items.view
+        ]
+        for (i, group) in groups.enumerated() {
+            if i > 0 { menu.addItem(.separator()) }
+            group.forEach { menu.addItem($0) }
+        }
+        return menu
+    }
+
+    private func setupMainMenu() {
+        let items = AppDelegate.buildAppMenuItems(state: currentMenuState())
+        self.alwaysOnTopMenuItem = items.alwaysOnTopItem
+        self.doubleSizeMenuItem = items.doubleSizeItem
+
+        let mainMenu = NSMenu()
+        for group in [items.app, items.file, items.edit, items.controls, items.view] {
+            let submenu = NSMenu()
+            group.forEach { submenu.addItem($0) }
+            let top = NSMenuItem()
+            top.submenu = submenu
+            mainMenu.addItem(top)
+        }
         NSApp.mainMenu = mainMenu
     }
 
