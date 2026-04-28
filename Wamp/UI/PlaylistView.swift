@@ -6,7 +6,7 @@ class PlaylistView: NSView {
     private static let internalRowType = NSPasteboard.PasteboardType("com.winampmac.playlist.row")
 
     private let titleBar = TitleBarView()
-    private let scrollView = NSScrollView()
+    private let scrollView = AlwaysVisibleScrollView()
     private let tableView = PlaylistTableView()
     private let searchField = NSTextField()
     private let addButton = WinampButton(title: "ADD", style: .action)
@@ -73,8 +73,6 @@ class PlaylistView: NSView {
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-
-        // Custom scroller appearance
         scrollView.verticalScroller?.controlSize = .small
         addSubview(scrollView)
 
@@ -343,6 +341,10 @@ class PlaylistView: NSView {
         let scrollH = scrollTop - bottomBarH - searchH - 2
         scrollView.frame = NSRect(x: pad, y: bottomBarH + searchH + 1, width: w - 2 * pad, height: scrollH)
 
+        // AlwaysVisibleScrollView locks legacy + autohidesScrollers=false, so
+        // the scroller permanently occupies its width on the right edge of the
+        // scroll view. Subtract that width so the column (and the duration
+        // label at its right edge) stays inside the contentView.
         let scrollerWidth = scrollView.verticalScroller?.frame.width ?? 15
         let newWidth = scrollView.frame.width - scrollerWidth - 2
         tableView.tableColumns.first?.width = newWidth
@@ -905,6 +907,30 @@ class WinampRowView: NSTableRowView {
     override func drawBackground(in dirtyRect: NSRect) {
         NSColor.black.setFill()
         bounds.fill()
+    }
+}
+
+// NSScrollView that locks scrollerStyle to .legacy and autohidesScrollers to
+// false. Both are exposed as Swift `var` properties backed by ObjC ivars; AppKit
+// internals sometimes read those ivars directly, so we override the setters to
+// route any incoming write through `super` with our locked constant — that
+// pushes the desired value into the ivar regardless of what the caller asked
+// for. Getters return the locked value too, so external Swift code sees a
+// consistent state.
+final class AlwaysVisibleScrollView: NSScrollView {
+    override var scrollerStyle: NSScroller.Style {
+        get { .legacy }
+        set { super.scrollerStyle = .legacy }
+    }
+
+    override var autohidesScrollers: Bool {
+        get { false }
+        set { super.autohidesScrollers = false }
+    }
+
+    override func tile() {
+        super.tile()
+        verticalScroller?.isHidden = false
     }
 }
 
