@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Default Always-on-Top is now OFF for fresh installs.** Previous default
+  pinned the player above other apps on first launch, which most users find
+  intrusive. Existing users keep their last-session choice — only the
+  initial default changed.
+
 - **SF Symbol icons in the menu bar and corner popup.** Every menu item now
   carries a contextual SF Symbol — `playpause.fill` next to Play/Pause,
   `magnifyingglass` next to Jump to File, and so on. Faster visual scanning,

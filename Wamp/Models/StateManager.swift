@@ -10,7 +10,7 @@ struct AppState: Codable {
     var showPlaylist: Bool = true
     var windowX: Double = 100
     var windowY: Double = 100
-    var alwaysOnTop: Bool = true
+    var alwaysOnTop: Bool = false
     var lastTrackIndex: Int = -1
     var lastPlaybackPosition: Double = 0
     var skinPath: String?
