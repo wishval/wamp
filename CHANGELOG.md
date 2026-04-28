@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Angular playlist scroller in unskinned mode.** The native AppKit
+  `.legacy` scrollbar's rounded corners clashed with the rest of Wamp's
+  pixel-perfect chrome. A custom `AngularLegacyScroller` now draws a flat
+  rectangular knob with a 1-px chiseled border using the existing button
+  palette, so the scrollbar matches the frame. Skinned mode is unchanged —
+  the sprite-based `PlaylistSkinScroller` overlay still draws on top.
+
 - **Default Always-on-Top is now OFF for fresh installs.** Previous default
   pinned the player above other apps on first launch, which most users find
   intrusive. Existing users keep their last-session choice — only the

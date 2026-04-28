@@ -929,6 +929,9 @@ final class AlwaysVisibleScrollView: NSScrollView {
     }
 
     override func tile() {
+        if !(verticalScroller is AngularLegacyScroller) {
+            verticalScroller = AngularLegacyScroller(frame: .zero)
+        }
         super.tile()
         verticalScroller?.isHidden = false
     }
