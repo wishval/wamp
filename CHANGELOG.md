@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **SF Symbol icons in the menu bar and corner popup.** Every menu item now
+  carries a contextual SF Symbol — `playpause.fill` next to Play/Pause,
+  `magnifyingglass` next to Jump to File, and so on. Faster visual scanning,
+  consistent with macOS native apps.
+
 - **Title-bar corner menu mirrors the menu bar.** The popup that appears when
   you click the top-left corner of the player is now built from the same
   factory as the menu bar, so it always carries the full action set —

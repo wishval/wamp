@@ -210,55 +210,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// works for both the main menu bar and the title-bar popup, and reaches
     /// AppDelegate via NSApp.delegate.
     static func buildAppMenuItems(state: AppMenuState) -> AppMenuItems {
+        func item(_ title: String, _ action: Selector, _ keyEquivalent: String, symbol: String) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+            mi.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            return mi
+        }
+
         // App
-        let about = NSMenuItem(title: "About Wamp", action: #selector(showAboutPanel), keyEquivalent: "")
-        let quit = NSMenuItem(title: "Quit Wamp", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let about = item("About Wamp", #selector(showAboutPanel), "", symbol: "info.circle")
+        let quit = item("Quit Wamp", #selector(NSApplication.terminate(_:)), "q", symbol: "power")
 
         // File
-        let openFile = NSMenuItem(title: "Open File…", action: #selector(openFileAction), keyEquivalent: "o")
-        let openFolder = NSMenuItem(title: "Open Folder…", action: #selector(openFolderAction), keyEquivalent: "O")
+        let openFile = item("Open File…", #selector(openFileAction), "o", symbol: "doc")
+        let openFolder = item("Open Folder…", #selector(openFolderAction), "O", symbol: "folder")
         openFolder.keyEquivalentModifierMask = [.command, .shift]
-        let importMusic = NSMenuItem(title: "Import from Music Library…",
-                                     action: #selector(importFromMusicLibraryAction),
-                                     keyEquivalent: "")
+        let importMusic = item("Import from Music Library…",
+                               #selector(importFromMusicLibraryAction),
+                               "",
+                               symbol: "music.note.list")
 
         // Edit (just Select All — routed to NSTableView via responder chain)
-        let selectAll = NSMenuItem(title: "Select All",
-                                   action: #selector(NSResponder.selectAll(_:)),
-                                   keyEquivalent: "a")
+        let selectAll = item("Select All",
+                             #selector(NSResponder.selectAll(_:)),
+                             "a",
+                             symbol: "checkmark.rectangle.stack")
 
         // Controls
-        let playPause = NSMenuItem(title: "Play/Pause", action: #selector(togglePlayPause), keyEquivalent: " ")
+        let playPause = item("Play/Pause", #selector(togglePlayPause), " ", symbol: "playpause.fill")
         playPause.keyEquivalentModifierMask = []
-        let stop = NSMenuItem(title: "Stop", action: #selector(stopAction), keyEquivalent: ".")
-        let next = NSMenuItem(title: "Next",
-                              action: #selector(nextAction),
-                              keyEquivalent: String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)))
+        let stop = item("Stop", #selector(stopAction), ".", symbol: "stop.fill")
+        let next = item("Next",
+                        #selector(nextAction),
+                        String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
+                        symbol: "forward.fill")
         next.keyEquivalentModifierMask = [.command]
-        let prev = NSMenuItem(title: "Previous",
-                              action: #selector(prevAction),
-                              keyEquivalent: String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)))
+        let prev = item("Previous",
+                        #selector(prevAction),
+                        String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
+                        symbol: "backward.fill")
         prev.keyEquivalentModifierMask = [.command]
-        let repeat_ = NSMenuItem(title: "Repeat", action: #selector(toggleRepeat), keyEquivalent: "r")
-        let shuffle = NSMenuItem(title: "Shuffle", action: #selector(toggleShuffle), keyEquivalent: "s")
-        let jump = NSMenuItem(title: "Jump to File…", action: #selector(presentJumpToFileWindow), keyEquivalent: "j")
+        let repeat_ = item("Repeat", #selector(toggleRepeat), "r", symbol: "repeat")
+        let shuffle = item("Shuffle", #selector(toggleShuffle), "s", symbol: "shuffle")
+        let jump = item("Jump to File…", #selector(presentJumpToFileWindow), "j", symbol: "magnifyingglass")
         jump.keyEquivalentModifierMask = [.command]
 
         // View
-        let showPlayer = NSMenuItem(title: "Show Player", action: #selector(showPlayerAction), keyEquivalent: "1")
-        let showEQ = NSMenuItem(title: "Show Equalizer", action: #selector(toggleEQ), keyEquivalent: "2")
+        let showPlayer = item("Show Player", #selector(showPlayerAction), "1", symbol: "play.rectangle")
+        let showEQ = item("Show Equalizer", #selector(toggleEQ), "2", symbol: "slider.horizontal.3")
         showEQ.state = state.eqVisible ? .on : .off
-        let showPL = NSMenuItem(title: "Show Playlist", action: #selector(togglePL), keyEquivalent: "3")
+        let showPL = item("Show Playlist", #selector(togglePL), "3", symbol: "list.bullet")
         showPL.state = state.playlistVisible ? .on : .off
-        let alwaysOnTop = NSMenuItem(title: "Always on Top", action: #selector(toggleAlwaysOnTop), keyEquivalent: "t")
+        let alwaysOnTop = item("Always on Top", #selector(toggleAlwaysOnTop), "t", symbol: "pin")
         alwaysOnTop.keyEquivalentModifierMask = [.command, .shift]
         alwaysOnTop.state = state.alwaysOnTop ? .on : .off
-        let doubleSize = NSMenuItem(title: "Double Size", action: #selector(toggleDoubleSize), keyEquivalent: "d")
+        let doubleSize = item("Double Size",
+                              #selector(toggleDoubleSize),
+                              "d",
+                              symbol: "arrow.up.left.and.arrow.down.right")
         doubleSize.keyEquivalentModifierMask = [.command, .shift]
         doubleSize.state = state.doubleSize ? .on : .off
-        let loadSkin = NSMenuItem(title: "Load Skin…", action: #selector(loadSkinAction), keyEquivalent: "S")
+        let loadSkin = item("Load Skin…", #selector(loadSkinAction), "S", symbol: "paintpalette")
         loadSkin.keyEquivalentModifierMask = [.command, .shift]
-        let unloadSkin = NSMenuItem(title: "Unload Skin", action: #selector(unloadSkinAction), keyEquivalent: "")
+        let unloadSkin = item("Unload Skin", #selector(unloadSkinAction), "", symbol: "paintpalette.fill")
 
         return AppMenuItems(
             app: [about, .separator(), quit],
