@@ -21,6 +21,9 @@ xcuserdata/
 # LLVM coverage profiling artifact dropped when running the app in Debug
 *.profraw
 
+# Packaged DMGs (scripts/create-dmg.sh)
+release/
+
 # App bundles & symbols
 *.app
 *.ipa
