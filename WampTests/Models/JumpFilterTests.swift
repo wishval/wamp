@@ -74,7 +74,14 @@ struct JumpFilterTests {
         #expect(result.isEmpty)
     }
 
-    @Test func performance_under16msFor10kTracks() {
+    // Wall-clock budget, meaningful on a developer machine only. Shared CI
+    // runners (Debug build, virtualized, noisy neighbours) miss it by a wide
+    // margin without any regression in the filter, so it is skipped when CI is
+    // set in the test process. xcodebuild only forwards TEST_RUNNER_* variables
+    // to the test host, so the workflow exports TEST_RUNNER_CI=true.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil,
+                   "wall-clock perf budget is not measured on CI"))
+    func performance_under16msFor10kTracks() {
         // Generate 10k synthetic tracks. Half of them contain "abc" somewhere.
         let cs: [JumpFilter.Candidate] = (0..<10_000).map { i in
             let display = i % 2 == 0

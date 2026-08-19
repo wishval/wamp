@@ -16,7 +16,7 @@ Run the test suite:
 xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' test
 ```
 
-No linter and no CI/CD are configured. Tests cover `Models/`, `CueSheet/`, and a persistence round-trip only — `AudioEngine`, UI views, `HotKeyManager`, and `Skinning/` rendering are deliberately out of scope (see `docs/superpowers/specs/2026-04-12-testing-design.md`). Test fixtures live in `WampTests/Fixtures/` (sample audio + cue files).
+No linter is configured. CI is `.github/workflows/build.yml`: every PR / push to `main` builds and runs the tests on a `macos-26` runner; a `v*` tag additionally builds Release, packages a DMG via `scripts/create-dmg.sh` and publishes a GitHub Release (version stamped from the tag into `MARKETING_VERSION`). Tests cover `Models/`, `CueSheet/`, and a persistence round-trip only — `AudioEngine`, UI views, `HotKeyManager`, and `Skinning/` rendering are deliberately out of scope (see `docs/superpowers/specs/2026-04-12-testing-design.md`). Test fixtures live in `WampTests/Fixtures/` (sample audio + cue files).
 
 ## Architecture
 

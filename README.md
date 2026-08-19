@@ -119,6 +119,23 @@ Plus hardware **media keys** (play/pause, next, previous) and the macOS
 
 ## 🚀 Getting started
 
+### Download
+
+Grab the latest `Wamp-<version>-macOS-arm64.dmg` from
+[**Releases**](https://github.com/wishval/wamp/releases), open it and drag
+Wamp to Applications. Requires macOS 26.3+ on Apple Silicon.
+
+The app is ad-hoc signed, not notarized, so the first launch is blocked with
+*"Apple could not verify Wamp is free of malware"*. Click **Done**, then go to
+**System Settings → Privacy & Security** and click **Open Anyway** — once.
+Terminal alternative:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Wamp.app
+```
+
+### Build from source
+
 **Requirements:** macOS 26.3+, Xcode 26+
 
 ```bash
@@ -137,6 +154,20 @@ Run the tests (they cover the models, CUE parsing, and persistence):
 ```bash
 xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' test
 ```
+
+### Cutting a release
+
+CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)) builds and
+tests every PR and push to `main`. To publish a DMG, push a version tag:
+
+```bash
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+The `release` job stamps the version from the tag, builds Release for arm64,
+runs `scripts/create-dmg.sh`, and creates a GitHub Release with the DMG
+attached. To package locally: build Release into `.build/DerivedData`, then
+`scripts/create-dmg.sh <version>`.
 
 ## 🛠 Tech stack
 

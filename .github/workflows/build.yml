@@ -1,0 +1,154 @@
+name: Build
+
+# Two jobs:
+#   test    — builds the Debug configuration and runs WampTests. Runs on every
+#             pull request, every push to main, and every v* tag.
+#   release — only on v* tags, after `test` passes. Builds Release (arm64,
+#             ad-hoc signed), packages a DMG via scripts/create-dmg.sh, uploads
+#             it as a workflow artifact and publishes a GitHub Release.
+#
+# The project is saved by Xcode 26.4 and targets macOS 26.3, so it needs the
+# macOS 26 SDK — hence the macos-26 runner (Xcode 26.x, default 26.6). No
+# third-party "setup-xcode" action is needed; the runner default is fine.
+#
+# The app is ad-hoc signed (no Developer ID, no notarization). macOS will
+# show "Apple could not verify…" on first launch; the release notes below tell
+# users how to open it. Proper signing needs a paid Apple Developer account
+# and secrets — out of scope for this workflow.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DERIVED_DATA: .build/DerivedData
+  # xcodebuild forwards TEST_RUNNER_* into the test host (prefix stripped), so
+  # tests can check ProcessInfo.environment["CI"] to skip machine-dependent
+  # assertions (e.g. wall-clock perf budgets) on shared runners.
+  TEST_RUNNER_CI: 'true'
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      - name: Build & test (Debug)
+        run: |
+          set -o pipefail
+          xcodebuild -project Wamp.xcodeproj \
+            -scheme Wamp \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            test 2>&1 | tee xcodebuild.log
+
+      - name: Surface errors
+        if: failure()
+        run: scripts/ci-surface-errors.sh xcodebuild.log
+
+      - name: Upload xcodebuild log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-test-log
+          path: xcodebuild.log
+          retention-days: 7
+
+  release:
+    name: Release DMG
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing Wamp $VERSION (build $GITHUB_RUN_NUMBER)"
+
+      - name: Build (Release, arm64, ad-hoc signed)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -o pipefail
+          xcodebuild -project Wamp.xcodeproj \
+            -scheme Wamp \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$DERIVED_DATA" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee xcodebuild.log
+
+      - name: Surface errors
+        if: failure()
+        run: scripts/ci-surface-errors.sh xcodebuild.log
+
+      - name: Verify bundle
+        run: |
+          APP="$DERIVED_DATA/Build/Products/Release/Wamp.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist"
+
+      - name: Package DMG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/create-dmg.sh "$VERSION"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wamp-${{ steps.version.outputs.version }}-macOS-arm64
+          path: release/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Install
+
+          1. Download the `.dmg` below, open it, drag **Wamp** to **Applications**.
+          2. The app is not notarized, so on first launch macOS will say
+             *"Apple could not verify Wamp is free of malware"*. Click **Done**,
+             then open **System Settings → Privacy & Security**, scroll down and
+             click **Open Anyway**. You only need to do this once.
+
+             Or, from Terminal: `xattr -dr com.apple.quarantine /Applications/Wamp.app`
+
+          Requires macOS 26.3 or later, Apple Silicon.
+
+          EOF
+          gh release create "$GITHUB_REF_NAME" release/*.dmg \
+            --title "Wamp $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --generate-notes
