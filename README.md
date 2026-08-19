@@ -58,10 +58,7 @@ A few classics to try live in [`skins/`](skins): *base-2.91*, *Blue Plasma*,
 
 <div align="center">
 
-<!-- PLACEHOLDER(skins-grid): 2×2 grid of screenshots — the same player wearing
-     each of the four bundled skins (base-2.91, Blue Plasma, OS8 AMP Aquamarine,
-     Radar_Amp). Equal sizes, ~400px wide each, captioned with the skin name. -->
-> 🖼️ *Skins showcase coming soon — same player, four very different outfits.*
+<img width="720" alt="The same player wearing the four bundled skins: base-2.91, Blue Plasma, OS8 AMP Aquamarine, Radar_Amp" src="docs/media/skins-grid.png" />
 
 </div>
 
