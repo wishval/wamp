@@ -12,8 +12,9 @@ name: Build
 # third-party "setup-xcode" action is needed; the runner default is fine.
 #
 # The app is ad-hoc signed (no Developer ID, no notarization). macOS will
-# show "Apple could not verify…" on first launch; the release notes below tell
-# users how to open it. Proper signing needs a paid Apple Developer account
+# show "Apple could not verify…" on first launch; scripts/release-notes.sh puts
+# the workaround at the top of every release, followed by the version's
+# CHANGELOG.md section. Proper signing needs a paid Apple Developer account
 # and secrets — out of scope for this workflow.
 
 on:
@@ -133,21 +134,12 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          cat > release-notes.md <<'EOF'
-          ## Install
-
-          1. Download the `.dmg` below, open it, drag **Wamp** to **Applications**.
-          2. The app is not notarized, so on first launch macOS will say
-             *"Apple could not verify Wamp is free of malware"*. Click **Done**,
-             then open **System Settings → Privacy & Security**, scroll down and
-             click **Open Anyway**. You only need to do this once.
-
-             Or, from Terminal: `xattr -dr com.apple.quarantine /Applications/Wamp.app`
-
-          Requires macOS 26.3 or later, Apple Silicon.
-
-          EOF
+          # Install blurb + this version's CHANGELOG.md section (falls back to
+          # [Unreleased]); --generate-notes appends the PR list / compare link.
+          scripts/release-notes.sh "$VERSION" > release-notes.md
+          cat release-notes.md
           gh release create "$GITHUB_REF_NAME" release/*.dmg \
             --title "Wamp $GITHUB_REF_NAME" \
             --notes-file release-notes.md \

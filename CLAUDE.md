@@ -120,7 +120,7 @@ View → Double Size (Cmd+Shift+D) scales the whole window via `WinampTheme.scal
 - All UI components are custom `NSView` subclasses — no Interface Builder usage
 - Playlist supports drag-and-drop (files from Finder), keyboard navigation (arrows, Return to play), search, and multi-select (Shift/Cmd-click + Cmd+A)
 - Non-goals (Spotify playback, Apple Music streaming, iCloud sync) are documented in `docs/non-goals.md` — read before proposing streaming features
-- Changelog is `CHANGELOG.md` (Keep a Changelog format); add an `[Unreleased]` entry per user-visible change
+- Changelog is `CHANGELOG.md` (Keep a Changelog format); add an `[Unreleased]` entry per user-visible change. At release time rename `[Unreleased]` → `[x.y.z] - date` before tagging: `scripts/release-notes.sh` feeds that section into the GitHub Release notes (falls back to `[Unreleased]`)
 
 ## Workflow
 
