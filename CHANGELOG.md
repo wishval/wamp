@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Downloadable DMG builds via GitHub Actions.** Pushing a `v*` tag now
+  builds a Release arm64 app, packages it with `scripts/create-dmg.sh`
+  and publishes a GitHub Release with `Wamp-<version>-macOS-arm64.dmg`
+  attached. Every pull request and push to `main` builds the app and runs
+  `WampTests`. The app is ad-hoc signed (not notarized) — release notes
+  explain the one-time "Open Anyway" step.
+
+- **App version comes from one place.** `MARKETING_VERSION` in the
+  project drives `CFBundleShortVersionString` and the About panel
+  (previously hard-coded in two places and out of sync); tagged CI
+  builds stamp the version from the tag.
+
 - **Mini-transport buttons in the skinned playlist are now interactive.**
   The five baked buttons (prev / play / pause / stop / next) in
   pledit.bmp's bottom-right corner now respond to clicks and route
