@@ -354,8 +354,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "Wamp",
-            .applicationVersion: "1.1.0",
-            .version: "",
+            .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            .version: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
             .credits: credits,
             NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "© 2026 Valerii Bakalenko."
         ])
