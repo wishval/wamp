@@ -8,11 +8,7 @@ No Electron. No web views. Just Swift, AppKit, and nostalgia.
 
 <br/>
 
-<img width="411" alt="Wamp main window — player, equalizer and playlist" src="https://github.com/user-attachments/assets/25b475ea-65ab-4307-a4ce-843adb048fa8" />
-
-<!-- PLACEHOLDER(hero-gif): replace the static shot above with a short GIF —
-     player running with the spectrum analyzer dancing, then Cmd+Shift+S
-     loads a .wsz skin and the whole UI reskins live. ~10s loop. -->
+<img width="420" alt="Wamp playing in Double Size — then base-2.91 and Blue Plasma skins load live, and Cmd+J jumps to a track" src="docs/media/hero.gif" />
 
 <br/>
 <br/>
