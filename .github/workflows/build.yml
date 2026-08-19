@@ -32,6 +32,10 @@ concurrency:
 
 env:
   DERIVED_DATA: .build/DerivedData
+  # xcodebuild forwards TEST_RUNNER_* into the test host (prefix stripped), so
+  # tests can check ProcessInfo.environment["CI"] to skip machine-dependent
+  # assertions (e.g. wall-clock perf budgets) on shared runners.
+  TEST_RUNNER_CI: 'true'
 
 jobs:
   test:
@@ -54,7 +58,19 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
-            test
+            test 2>&1 | tee xcodebuild.log
+
+      - name: Surface errors
+        if: failure()
+        run: scripts/ci-surface-errors.sh xcodebuild.log
+
+      - name: Upload xcodebuild log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-test-log
+          path: xcodebuild.log
+          retention-days: 7
 
   release:
     name: Release DMG
@@ -88,7 +104,11 @@ jobs:
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee xcodebuild.log
+
+      - name: Surface errors
+        if: failure()
+        run: scripts/ci-surface-errors.sh xcodebuild.log
 
       - name: Verify bundle
         run: |
