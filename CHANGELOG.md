@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-19
+
+### Fixed
+
+- **Menu bar titles read "NSMenuItem" instead of File / Edit / Controls / View.**
+  The top-level submenus were created untitled since the shared menu factory
+  refactor; the menu bar displays submenu titles, so it fell back to the
+  default. Affects v1.1.0.
+
+## [1.1.0] - 2026-08-19
+
+First downloadable release — everything below shipped between the initial
+April build and the first DMG.
+
 ### Added
 
 - **Downloadable DMG builds via GitHub Actions.** Pushing a `v*` tag now
@@ -32,11 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `NSOpenPanel` as `File ▸ Open File…` / Cmd+O.
 
 ### Fixed
-
-- **Menu bar titles read "NSMenuItem" instead of File / Edit / Controls / View.**
-  The top-level submenus were created untitled since the shared menu factory
-  refactor; the menu bar displays submenu titles, so it fell back to the
-  default. Affects v1.1.0.
 
 - **Loaded skin no longer forgotten after changing volume and quitting.**
   Debounced state saves rebuilt `state.json` from defaults, wiping
@@ -222,3 +231,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   substring, with the currently-playing track pre-selected on open. Enter
   plays the selection, Esc closes. Targets <16ms response on 10k-track
   playlists. ([feat/jump-to-file](docs/superpowers/plans/2026-04-17-jump-to-file.md))
+
+[Unreleased]: https://github.com/wishval/wamp/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/wishval/wamp/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/wishval/wamp/releases/tag/v1.1.0
