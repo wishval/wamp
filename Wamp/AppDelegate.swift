@@ -322,8 +322,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.doubleSizeMenuItem = items.doubleSizeItem
 
         let mainMenu = NSMenu()
-        for group in [items.app, items.file, items.edit, items.controls, items.view] {
-            let submenu = NSMenu()
+        // The menu bar shows each top-level submenu's title (the app menu is
+        // always shown as the app name), so the submenus must be titled —
+        // an untitled NSMenu() renders as "NSMenuItem".
+        let groups: [(String, [NSMenuItem])] = [
+            ("Wamp", items.app), ("File", items.file), ("Edit", items.edit),
+            ("Controls", items.controls), ("View", items.view)
+        ]
+        for (title, group) in groups {
+            let submenu = NSMenu(title: title)
             group.forEach { submenu.addItem($0) }
             let top = NSMenuItem()
             top.submenu = submenu
