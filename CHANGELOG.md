@@ -33,6 +33,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Menu bar titles read "NSMenuItem" instead of File / Edit / Controls / View.**
+  The top-level submenus were created untitled since the shared menu factory
+  refactor; the menu bar displays submenu titles, so it fell back to the
+  default. Affects v1.1.0.
+
 - **Loaded skin no longer forgotten after changing volume and quitting.**
   Debounced state saves rebuilt `state.json` from defaults, wiping
   `skinPath` (and window position fields) on every volume/EQ change.
