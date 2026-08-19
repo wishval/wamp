@@ -154,7 +154,11 @@ xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' te
 ### Cutting a release
 
 CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)) builds and
-tests every PR and push to `main`. To publish a DMG, push a version tag:
+tests every PR and push to `main`. To publish a DMG:
+
+1. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [1.2.0] - YYYY-MM-DD`
+   (and open a fresh empty `[Unreleased]` above it), commit.
+2. Tag and push:
 
 ```bash
 git tag v1.2.0 && git push origin v1.2.0
@@ -162,7 +166,9 @@ git tag v1.2.0 && git push origin v1.2.0
 
 The `release` job stamps the version from the tag, builds Release for arm64,
 runs `scripts/create-dmg.sh`, and creates a GitHub Release with the DMG
-attached. To package locally: build Release into `.build/DerivedData`, then
+attached. Release notes = install instructions + that version's section from
+`CHANGELOG.md` (`scripts/release-notes.sh`); if you skipped step 1 it falls
+back to whatever is under `[Unreleased]`. To package locally: build Release into `.build/DerivedData`, then
 `scripts/create-dmg.sh <version>`.
 
 ## 🛠 Tech stack
