@@ -4,7 +4,7 @@
 
 ### Classic Winamp 2.x, reborn as a native macOS app
 
-No Electron. No web views. No dependencies. Just Swift, AppKit, and nostalgia.
+No Electron. No web views. Just Swift, AppKit, and nostalgia.
 
 <br/>
 
@@ -20,7 +20,7 @@ No Electron. No web views. No dependencies. Just Swift, AppKit, and nostalgia.
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org)
 [![Platform](https://img.shields.io/badge/macOS-26.3+-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![UI](https://img.shields.io/badge/AppKit-100%25_programmatic-1d7dfa)](Wamp/UI)
-[![Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f)](#tech-stack)
+[![Dependencies](https://img.shields.io/badge/dependencies-1_(zip_reader)-2ea44f)](#tech-stack)
 
 </div>
 
@@ -179,7 +179,7 @@ attached. To package locally: build Release into `.build/DerivedData`, then
 | **DSP** | Accelerate (vDSP FFT for the spectrum analyzer) |
 | **Media keys** | MediaPlayer (`MPNowPlayingInfoCenter`) |
 | **State** | Combine + debounced JSON persistence |
-| **Dependencies** | None. Zero. Nada. |
+| **Dependencies** | One: [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) to unpack `.wsz` skins. Everything else is Apple frameworks. |
 
 ## 🏗 Architecture
 

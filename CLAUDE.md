@@ -20,7 +20,7 @@ No linter is configured. CI is `.github/workflows/build.yml`: every PR / push to
 
 ## Architecture
 
-Pure Swift/Cocoa (AppKit) macOS audio player replicating classic Winamp 2.x. No SwiftUI, no storyboards, no XIBs — all UI is programmatic. Zero external dependencies; uses only Apple frameworks (AVFoundation, Combine, Accelerate, MediaPlayer).
+Pure Swift/Cocoa (AppKit) macOS audio player replicating classic Winamp 2.x. No SwiftUI, no storyboards, no XIBs — all UI is programmatic. One external dependency — ZIPFoundation (SPM), used only by `Skinning/SkinParserUtils.swift` to unpack `.wsz` archives; everything else is Apple frameworks (AVFoundation, Combine, Accelerate, MediaPlayer).
 
 ### Project Structure
 
