@@ -73,7 +73,11 @@ A few classics to try live in [`skins/`](skins): *base-2.91*, *Blue Plasma*,
   missing files are skipped and counted
 - Skinned scrollbar, skin-correct row colors, live track-count/duration footer
 
+<div align="center">
+
 <img width="360" alt="Cmd+J opens Jump to File, typing filters the playlist instantly, Enter plays the match" src="docs/media/jump-to-file.gif" />
+
+</div>
 
 ## 💿 CUE sheets, done properly
 
