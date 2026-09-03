@@ -50,6 +50,9 @@ final class NavidromeSettingsWindowController: NSWindowController, NSWindowDeleg
         for f in [serverField, userField, passwordField] {
             f.translatesAutoresizingMaskIntoConstraints = false
             f.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
+            // NSSecureTextField reports a different intrinsic height than
+            // NSTextField; pin all three so the grid rows line up.
+            f.heightAnchor.constraint(equalToConstant: 22).isActive = true
         }
 
         let grid = NSGridView(views: [
