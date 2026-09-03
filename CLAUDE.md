@@ -40,6 +40,7 @@ Wamp/
 │   ├── SubsonicModels.swift     — Decodable song/album/artist/playlist models + envelope parser
 │   ├── NavidromeAccountStore.swift — server+user in UserDefaults, password in the login Keychain
 │   ├── StreamCache.swift        — actor: downloads tracks to ~/Library/Caches/Wamp/Navidrome (LRU)
+│   ├── LyricsSync.swift         — pure helpers: current synced line for a time, preferred lyrics block
 │   └── NavidromeService.swift   — owns credentials/client/cache; Track ⇄ SubsonicSong mapping
 ├── Models/
 │   ├── PlaylistManager.swift — track list, current index, shuffle, repeat, auto-advance,
@@ -69,13 +70,14 @@ Wamp/
 │   ├── ImportMusicLibraryWindowController.swift — sheet for picking Music.app sources to import
 │   ├── NavidromeBrowserWindowController.swift   — Cmd+L media-library window (browse/search/enqueue/play)
 │   ├── NavidromeSettingsWindowController.swift  — server/username/password sheet, pings before saving
+│   ├── LyricsWindowController.swift             — Cmd+Y lyrics window; synced lines follow AudioEngine.currentTime
 │   ├── WinampTheme.swift     — all design tokens (colors, sizes, fonts)
 │   └── Components/
 │       ├── TitleBarView.swift    — window title bar with pin/minimize/close buttons
 │       ├── TransportBar.swift    — play/pause/stop/prev/next buttons
 │       ├── LCDDisplay.swift      — retro LCD time display
 │       ├── SevenSegmentView.swift — seven-segment digit renderer
-│       ├── SpectrumView.swift    — real-time spectrum analyzer visualization
+│       ├── SpectrumView.swift    — main-window visualizer: analyzer / oscilloscope / off, click to cycle
 │       ├── EQResponseView.swift  — EQ frequency response curve
 │       ├── PlayStateIndicator.swift — play/pause/stop glyph next to the LCD
 │       ├── PlaylistSkinScroller.swift — custom NSScroller drawing the skinned thumb from `pledit.bmp`
@@ -111,7 +113,7 @@ View → Double Size (Cmd+Shift+D) scales the whole window via `WinampTheme.scal
 - **Nib-less bootstrap** — `AppDelegate` has an explicit `static func main()` because the default `@main` silently fails without a nib; `NSApp.setActivationPolicy(.regular)` is required
 - **State persistence** — `AppState` and `EQState` are `Codable` structs saved as JSON; `StateManager` debounces writes
 - **Track metadata** — `Track.fromURL(_:)` is `async` and uses `AVURLAsset` to load metadata (title, artist, album, genre, bitrate, sample rate, channels)
-- **Spectrum analyzer** — AudioEngine installs a tap on the audio graph, uses Accelerate FFT for 32-bin spectrum data published via `@Published`
+- **Spectrum analyzer / oscilloscope** — AudioEngine installs a tap on the audio graph, uses Accelerate FFT for 32-bin spectrum data published via `@Published`; the same tap publishes a 75-point `waveformData` for the scope. `SpectrumView` draws whichever `VisualizerMode` is active (persisted in `AppState.visualizerMode`)
 - **System tray** — `NSStatusItem` with menu for quick access
 - **HotKeyManager** — handles media keys and publishes Now Playing info to Control Center via `MPNowPlayingInfoCenter`
 - **WinampTheme** — centralizes all design tokens; retro palette uses grays, golds, and greens

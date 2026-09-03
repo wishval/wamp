@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Lyrics window (View → Lyrics, `⌘Y`).** Fetches lyrics from the connected
+  Navidrome server via the OpenSubsonic `songLyrics` extension. Synced
+  (LRC/SYLT) lyrics highlight the current line and keep it centred as the
+  track plays; plain lyrics show as text. Works for local files too via the
+  artist/title lookup when a server is connected. Colours follow the active
+  skin's playlist palette.
+- **Oscilloscope mode for the main-window visualizer.** Clicking the vis
+  area cycles spectrum analyzer → oscilloscope → off, exactly like Winamp
+  2.x. The scope uses the skin's `viscolors` 18–22 and the classic 16-row
+  grid. The chosen mode is remembered across launches.
+
 - **Stream from a Navidrome (Subsonic API) server.** File → Navidrome
   Library… (Cmd+L) opens a media-library window: browse by artist,
   playlist, recently added, random or starred, or search the whole server;

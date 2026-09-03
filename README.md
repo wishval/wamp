@@ -72,6 +72,8 @@ A few classics to try live in [`skins/`](skins): *base-2.91*, *Blue Plasma*,
   (via `ITLibrary`, with an `iTunes Music Library.xml` fallback); streaming-only and
   missing files are skipped and counted
 - Skinned scrollbar, skin-correct row colors, live track-count/duration footer
+- Click the visualizer to cycle spectrum analyzer → oscilloscope → off, both
+  drawn with the skin's `viscolors`
 
 <div align="center">
 
@@ -96,6 +98,9 @@ in a classic media-library window (`⌘L`):
   Keychain, and the server is pinged before anything is saved
 - Formats AVFoundation can't decode (Ogg, Opus, WMA…) are transcoded to MP3 by
   the server; everything else streams as the original file
+- **Lyrics** (`⌘Y`): synced lyrics from the server follow the track line by
+  line; plain lyrics show as text. Works for local files too when a server
+  is connected
 
 ## 💿 CUE sheets, done properly
 
@@ -120,7 +125,7 @@ Vorbis comment) and the album splits into individual virtual tracks:
 | `Return` | Play selected track | `⌘⇧S` | Load Skin… |
 | `↑` `↓` | Navigate playlist | `⌘O` / `⌘⇧O` | Open File / Folder |
 | `⌘J` | Jump to File… | `⌘A` | Select All |
-| `⌘L` | Navidrome Library… | | |
+| `⌘L` | Navidrome Library… | `⌘Y` | Lyrics |
 
 Plus hardware **media keys** (play/pause, next, previous) and the macOS
 **Now Playing** widget in Control Center.
