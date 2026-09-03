@@ -135,7 +135,7 @@ struct SubsonicClientTests {
     }
 
     @Test func normalizeServerURL_addsSchemeAndStripsRest() {
-        #expect(NavidromeAccountStore.normalizeServerURL("100.73.5.121:4533")?.absoluteString == "http://100.73.5.121:4533")
+        #expect(NavidromeAccountStore.normalizeServerURL("192.168.1.10:4533")?.absoluteString == "http://192.168.1.10:4533")
         #expect(NavidromeAccountStore.normalizeServerURL("https://m.example.com/rest/")?.absoluteString == "https://m.example.com")
         #expect(NavidromeAccountStore.normalizeServerURL("   ") == nil)
     }
