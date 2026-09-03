@@ -21,6 +21,14 @@ class MainPlayerView: NSView {
     private let titleBar = TitleBarView()
     private let timeDisplay = SevenSegmentView()
     private let spectrumView = SpectrumView()
+
+    /// Main-window visualizer mode (`VisualizerMode.rawValue`): clicking the
+    /// vis area cycles analyzer → oscilloscope → off, like Winamp 2.x.
+    var visualizerMode: Int {
+        get { spectrumView.mode.rawValue }
+        set { spectrumView.mode = VisualizerMode(rawValue: newValue) ?? .analyzer }
+    }
+    var onVisualizerModeChange: ((Int) -> Void)?
     private let lcdDisplay = LCDDisplay()
     private let seekSlider = WinampSlider(style: .seek)
     private let volumeSlider = WinampSlider(style: .volume)
@@ -111,6 +119,7 @@ class MainPlayerView: NSView {
 
         // Spectrum
         spectrumView.wantsLayer = true
+        spectrumView.onModeChange = { [weak self] mode in self?.onVisualizerModeChange?(mode.rawValue) }
         addSubview(spectrumView)
 
         // Right display panel
@@ -512,6 +521,10 @@ class MainPlayerView: NSView {
         audioEngine.$spectrumData
             .receive(on: DispatchQueue.main)
             .sink { [weak self] data in self?.spectrumView.spectrumData = data }
+            .store(in: &cancellables)
+        audioEngine.$waveformData
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] data in self?.spectrumView.waveformData = data }
             .store(in: &cancellables)
 
         // Track info

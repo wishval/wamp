@@ -142,4 +142,20 @@ struct StateManagerTests {
         #expect(loaded.map(\.title) == ["One", "Two"])
         #expect(loaded.map(\.duration) == [10, 20])
     }
+
+    @Test func appState_visualizerModeDefaultsToAnalyzerAndRoundTrips() {
+        let dir = makeTempDirectory()
+        defer { cleanup(dir) }
+        #expect(AppState().visualizerMode == 0)
+        var state = AppState()
+        state.visualizerMode = 1
+        StateManager(directory: dir).saveAppState(state)
+        #expect(StateManager(directory: dir).loadAppState().visualizerMode == 1)
+    }
+
+    @Test func appState_legacyJSONWithoutVisualizerModeDecodes() throws {
+        let json = #"{"volume":0.5,"balance":0,"repeatMode":0,"eqEnabled":true,"showEqualizer":true,"showPlaylist":true,"windowX":1,"windowY":2,"alwaysOnTop":false,"lastTrackIndex":-1,"lastPlaybackPosition":0}"#
+        let decoded = try JSONDecoder().decode(AppState.self, from: Data(json.utf8))
+        #expect(decoded.visualizerMode == 0)
+    }
 }

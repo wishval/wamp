@@ -91,6 +91,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow.showPlaylist = appState.showPlaylist
         mainWindow.alwaysOnTop = appState.alwaysOnTop
         mainWindow.equalizerView.autoMode = eqState.autoMode
+        mainWindow.mainPlayerView.visualizerMode = appState.visualizerMode
+        mainWindow.mainPlayerView.onVisualizerModeChange = { [weak self] mode in
+            guard let self else { return }
+            var state = self.stateManager.loadAppState()
+            state.visualizerMode = mode
+            self.stateManager.saveAppState(state)
+        }
 
         let windowOrigin = NSPoint(x: appState.windowX, y: appState.windowY)
         mainWindow.setFrameOrigin(windowOrigin)

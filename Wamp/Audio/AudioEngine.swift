@@ -47,6 +47,10 @@ class AudioEngine: ObservableObject {
     }
     @Published var preampGain: Float = 0 // dB, -12 to +12
     @Published var spectrumData: [Float] = Array(repeating: 0, count: 32)
+    /// Raw samples for the oscilloscope: 75 evenly spaced points from the
+    /// latest tap buffer (the classic main-window scope is 75px wide), -1...1.
+    @Published var waveformData: [Float] = Array(repeating: 0, count: AudioEngine.waveformPointCount)
+    static let waveformPointCount = 75
 
     // MARK: - EQ State
     @Published private(set) var eqBands: [Float] = Array(repeating: 0, count: 10) // dB per band
@@ -446,6 +450,14 @@ class AudioEngine: ObservableObject {
         // 32-bin output the mapping loop would form an empty range and trap.
         guard halfSize >= 32 else { return }
 
+        // Oscilloscope feed — decimate, don't average, so transients stay sharp.
+        let scopeCount = Self.waveformPointCount
+        var scope = [Float](repeating: 0, count: scopeCount)
+        let step = max(1, frameCount / scopeCount)
+        for i in 0..<scopeCount {
+            scope[i] = channelData[min(frameCount - 1, i * step)]
+        }
+
         guard let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return }
         defer { vDSP_destroy_fftsetup(fftSetup) }
 
@@ -486,6 +498,7 @@ class AudioEngine: ObservableObject {
 
                 DispatchQueue.main.async { [weak self] in
                     self?.spectrumData = spectrum
+                    self?.waveformData = scope
                 }
             }
         }

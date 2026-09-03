@@ -14,6 +14,31 @@ struct AppState: Codable {
     var lastTrackIndex: Int = -1
     var lastPlaybackPosition: Double = 0
     var skinPath: String?
+    /// Main-window visualizer: 0 = spectrum analyzer, 1 = oscilloscope, 2 = off.
+    var visualizerMode: Int = 0
+
+    init() {}
+
+    /// Lenient decoding: every key is optional and falls back to the default
+    /// above. Synthesized Decodable would reject a state.json written by an
+    /// older build the moment a new field is added — silently resetting the
+    /// user's volume, window position and skin on upgrade.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        volume = try c.decodeIfPresent(Float.self, forKey: .volume) ?? volume
+        balance = try c.decodeIfPresent(Float.self, forKey: .balance) ?? balance
+        repeatMode = try c.decodeIfPresent(Int.self, forKey: .repeatMode) ?? repeatMode
+        eqEnabled = try c.decodeIfPresent(Bool.self, forKey: .eqEnabled) ?? eqEnabled
+        showEqualizer = try c.decodeIfPresent(Bool.self, forKey: .showEqualizer) ?? showEqualizer
+        showPlaylist = try c.decodeIfPresent(Bool.self, forKey: .showPlaylist) ?? showPlaylist
+        windowX = try c.decodeIfPresent(Double.self, forKey: .windowX) ?? windowX
+        windowY = try c.decodeIfPresent(Double.self, forKey: .windowY) ?? windowY
+        alwaysOnTop = try c.decodeIfPresent(Bool.self, forKey: .alwaysOnTop) ?? alwaysOnTop
+        lastTrackIndex = try c.decodeIfPresent(Int.self, forKey: .lastTrackIndex) ?? lastTrackIndex
+        lastPlaybackPosition = try c.decodeIfPresent(Double.self, forKey: .lastPlaybackPosition) ?? lastPlaybackPosition
+        skinPath = try c.decodeIfPresent(String.self, forKey: .skinPath)
+        visualizerMode = try c.decodeIfPresent(Int.self, forKey: .visualizerMode) ?? visualizerMode
+    }
 }
 
 struct EQState: Codable {
