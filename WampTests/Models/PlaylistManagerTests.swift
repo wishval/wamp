@@ -452,4 +452,118 @@ struct PlaylistManagerTests {
             try await pm.addCueSheet(url: cueURL)
         }
     }
+
+    // MARK: - Remote (Navidrome) tracks
+
+    private func makeRemoteTrack(_ name: String, id: String) -> Track {
+        Track(
+            url: URL(string: "navidrome://host/Artist/Album/\(name).mp3")!,
+            title: name, artist: "A", album: "Alb", duration: 10,
+            remoteID: id
+        )
+    }
+
+    /// Poll until `condition` holds or ~2s elapse.
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
+        for _ in 0..<200 {
+            if condition() { return }
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
+
+    @Test func playTrack_remote_resolvesThenPrefetchesNext() async {
+        let pm = PlaylistManager()
+        pm.addTracks([makeRemoteTrack("a", id: "id-a"), makeRemoteTrack("b", id: "id-b")])
+        var resolved: [String] = []
+        var prefetched: [String] = []
+        pm.remoteTrackResolver = { track in
+            resolved.append(track.remoteID ?? "")
+            return URL(fileURLWithPath: "/tmp/\(track.remoteID ?? "").mp3")
+        }
+        pm.remoteTrackPrefetch = { track in prefetched.append(track.remoteID ?? "") }
+
+        pm.playTrack(at: 0)
+        #expect(pm.currentIndex == 0)
+        #expect(pm.isBuffering == true)
+        await waitUntil { !pm.isBuffering }
+
+        #expect(resolved == ["id-a"])
+        #expect(prefetched == ["id-b"])
+        #expect(pm.isBuffering == false)
+    }
+
+    @Test func playTrack_remote_staleResolutionIsIgnored() async {
+        let pm = PlaylistManager()
+        pm.addTracks([makeRemoteTrack("a", id: "id-a"), makeTrack("local")])
+        var prefetched: [String] = []
+        var release: CheckedContinuation<Void, Never>?
+        pm.remoteTrackResolver = { track in
+            await withCheckedContinuation { c in release = c }
+            return URL(fileURLWithPath: "/tmp/\(track.remoteID ?? "").mp3")
+        }
+        pm.remoteTrackPrefetch = { track in prefetched.append(track.remoteID ?? "") }
+
+        pm.playTrack(at: 0)
+        await waitUntil { release != nil }
+        // User moves on to a local track while the download is still pending.
+        pm.playTrack(at: 1)
+        #expect(pm.isBuffering == false)
+        #expect(pm.currentIndex == 1)
+
+        release?.resume()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        // The stale resolution must not touch state or prefetch anything.
+        #expect(pm.currentIndex == 1)
+        #expect(pm.isBuffering == false)
+        #expect(prefetched.isEmpty)
+    }
+
+    @Test func playTrack_remote_resolverFailure_publishesError() async {
+        struct Boom: Error {}
+        let pm = PlaylistManager()
+        pm.addTracks([makeRemoteTrack("a", id: "id-a")])
+        pm.remoteTrackResolver = { _ in throw Boom() }
+
+        pm.playTrack(at: 0)
+        await waitUntil { !pm.isBuffering }
+        #expect(pm.remotePlaybackError != nil)
+        #expect(pm.currentIndex == 0)
+    }
+
+    @Test func playTrack_remote_withoutResolver_doesNotBuffer() {
+        let pm = PlaylistManager()
+        pm.addTracks([makeRemoteTrack("a", id: "id-a")])
+        pm.playTrack(at: 0)
+        #expect(pm.isBuffering == false)
+        #expect(pm.remotePlaybackError != nil)
+    }
+
+    @Test func cancelPendingRemotePlayback_clearsBuffering() async {
+        let pm = PlaylistManager()
+        pm.addTracks([makeRemoteTrack("a", id: "id-a")])
+        var release: CheckedContinuation<Void, Never>?
+        pm.remoteTrackResolver = { track in
+            await withCheckedContinuation { c in release = c }
+            return URL(fileURLWithPath: "/tmp/x.mp3")
+        }
+        pm.playTrack(at: 0)
+        await waitUntil { release != nil }
+        pm.cancelPendingRemotePlayback()
+        #expect(pm.isBuffering == false)
+        release?.resume()
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        #expect(pm.isBuffering == false)
+    }
+
+    @Test func savePlaylistM3U_writesStreamURLForRemoteTracks() throws {
+        let pm = PlaylistManager()
+        pm.addTracks([makeTrack("local"), makeRemoteTrack("remote", id: "id-r")])
+        let out = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wamp-m3u-\(UUID().uuidString).m3u")
+        defer { try? FileManager.default.removeItem(at: out) }
+        pm.savePlaylistM3U(to: out)
+        let text = try String(contentsOf: out, encoding: .utf8)
+        #expect(text.contains("/tmp/local.m4a"))
+        #expect(text.contains("navidrome://host/Artist/Album/remote.mp3"))
+    }
 }

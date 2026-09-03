@@ -6,6 +6,30 @@ class PlaylistManager: ObservableObject {
     @Published var currentIndex: Int = -1
     @Published var searchQuery = ""
 
+    // MARK: - Remote (Navidrome) playback
+
+    /// Turns a remote track into a playable local file (the stream cache
+    /// downloads it). Injected by AppDelegate. When nil, remote tracks can't
+    /// be played and `remotePlaybackError` is set instead.
+    var remoteTrackResolver: ((Track) async throws -> URL)?
+    /// Fire-and-forget warm-up for the track that will play next, so the
+    /// auto-advance gap stays short. Optional.
+    var remoteTrackPrefetch: ((Track) -> Void)?
+    /// True while the current remote track is being fetched before playback.
+    @Published private(set) var isBuffering = false
+    /// Last remote playback failure, for the UI to surface. Cleared on the
+    /// next successful remote start.
+    @Published private(set) var remotePlaybackError: RemotePlaybackError?
+
+    struct RemotePlaybackError: Error {
+        let track: Track
+        let message: String
+    }
+
+    /// Bumped on every playTrack / cancel so a download that finishes after
+    /// the user has moved on is dropped instead of hijacking playback.
+    private var remotePlayGeneration = 0
+
     private var cancellables = Set<AnyCancellable>()
     private weak var audioEngine: AudioEngine?
 
@@ -274,6 +298,7 @@ class PlaylistManager: ObservableObject {
         if audioEngine?.isPlaying == true {
             audioEngine?.stop()
         }
+        cancelPendingRemotePlayback()
         tracks.removeAll()
         currentIndex = -1
     }
@@ -286,13 +311,61 @@ class PlaylistManager: ObservableObject {
         }
         print("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
         currentIndex = index
+        remotePlayGeneration += 1
         let track = tracks[index]
+        if track.isRemote {
+            playRemoteTrack(track, at: index)
+            return
+        }
+        isBuffering = false
         if let start = track.cueStart {
             audioEngine?.loadAndPlay(url: track.url, startTime: start, endTime: track.cueEnd)
         } else {
             audioEngine?.loadAndPlay(url: track.url)
         }
         prepareGaplessChain(after: index)
+    }
+
+    private func playRemoteTrack(_ track: Track, at index: Int) {
+        audioEngine?.stop()
+        guard let resolver = remoteTrackResolver else {
+            isBuffering = false
+            remotePlaybackError = RemotePlaybackError(
+                track: track, message: "Not connected to a Navidrome server."
+            )
+            return
+        }
+        let generation = remotePlayGeneration
+        isBuffering = true
+        Task { @MainActor [weak self] in
+            do {
+                let localURL = try await resolver(track)
+                guard let self, self.remotePlayGeneration == generation else { return }
+                self.isBuffering = false
+                self.remotePlaybackError = nil
+                self.audioEngine?.loadAndPlay(url: localURL)
+                self.prefetchRemote(after: index)
+            } catch {
+                guard let self, self.remotePlayGeneration == generation else { return }
+                self.isBuffering = false
+                self.remotePlaybackError = RemotePlaybackError(
+                    track: track, message: (error as NSError).localizedDescription
+                )
+            }
+        }
+    }
+
+    /// Forget any in-flight remote fetch so it can't start playback later.
+    /// Called when the user stops playback or clears the playlist.
+    func cancelPendingRemotePlayback() {
+        remotePlayGeneration += 1
+        isBuffering = false
+    }
+
+    private func prefetchRemote(after index: Int) {
+        guard let prefetch = remoteTrackPrefetch, index + 1 < tracks.count else { return }
+        let next = tracks[index + 1]
+        if next.isRemote { prefetch(next) }
     }
 
     /// If the *next* track in the playlist is on the same underlying audio file as the
@@ -420,7 +493,7 @@ class PlaylistManager: ObservableObject {
         var lines: [String] = ["#EXTM3U"]
         for track in tracks {
             lines.append("#EXTINF:\(Int(track.duration.rounded())),\(track.displayTitle)")
-            lines.append(track.url.path)
+            lines.append(track.isRemote ? track.url.absoluteString : track.url.path)
         }
         let text = lines.joined(separator: "\n") + "\n"
         try? text.write(to: fileURL, atomically: true, encoding: .utf8)
