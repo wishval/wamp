@@ -140,3 +140,32 @@ enum SubsonicResponseParser {
         return response
     }
 }
+
+// MARK: - Lyrics (OpenSubsonic `songLyrics` extension)
+
+struct SubsonicLyricsLine: Decodable, Equatable, Sendable {
+    /// Offset from the start of the song in milliseconds; nil for unsynced text.
+    let start: Int?
+    let value: String
+}
+
+struct SubsonicLyrics: Decodable, Equatable, Sendable {
+    let displayArtist: String?
+    let displayTitle: String?
+    let lang: String?
+    let synced: Bool?
+    let line: [SubsonicLyricsLine]?
+
+    var lines: [SubsonicLyricsLine] { line ?? [] }
+    /// Navidrome sets `synced`, but be defensive: treat lyrics as synced only
+    /// when every line actually carries a timestamp.
+    var isSynced: Bool {
+        guard !lines.isEmpty else { return false }
+        return (synced ?? true) && lines.allSatisfy { $0.start != nil }
+    }
+    var plainText: String { lines.map(\.value).joined(separator: "\n") }
+}
+
+struct SubsonicLyricsList: Decodable, Equatable, Sendable {
+    let structuredLyrics: [SubsonicLyrics]?
+}

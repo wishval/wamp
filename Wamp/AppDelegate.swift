@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var navidromeService: NavidromeService!
     private var navidromeBrowser: NavidromeBrowserWindowController?
     private var navidromeSettings: NavidromeSettingsWindowController?
+    private var lyricsWindow: LyricsWindowController?
     private var cancellables = Set<AnyCancellable>()
     private weak var alwaysOnTopMenuItem: NSMenuItem?
     private weak var doubleSizeMenuItem: NSMenuItem?
@@ -308,6 +309,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showEQ.state = state.eqVisible ? .on : .off
         let showPL = item("Show Playlist", #selector(togglePL), "3", symbol: "list.bullet")
         showPL.state = state.playlistVisible ? .on : .off
+        let lyrics = item("Lyrics", #selector(toggleLyricsWindow), "y", symbol: "text.quote")
+        lyrics.keyEquivalentModifierMask = [.command]
         let alwaysOnTop = item("Always on Top", #selector(toggleAlwaysOnTop), "t", symbol: "pin")
         alwaysOnTop.keyEquivalentModifierMask = [.command, .shift]
         alwaysOnTop.state = state.alwaysOnTop ? .on : .off
@@ -328,7 +331,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             edit: [selectAll],
             controls: [playPause, stop, next, prev, .separator(),
                        repeat_, shuffle, .separator(), jump],
-            view: [showPlayer, showEQ, showPL, .separator(),
+            view: [showPlayer, showEQ, showPL, lyrics, .separator(),
                    alwaysOnTop, doubleSize, .separator(),
                    loadSkin, unloadSkin],
             alwaysOnTopItem: alwaysOnTop,
@@ -642,6 +645,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func toggleLyricsWindow() {
+        if lyricsWindow == nil {
+            lyricsWindow = LyricsWindowController(
+                service: navidromeService, playlistManager: playlistManager, audioEngine: audioEngine
+            )
+        }
+        lyricsWindow?.toggle()
+    }
+
     @MainActor
     private func presentRemotePlaybackError(_ error: PlaylistManager.RemotePlaybackError) {
         let alert = NSAlert()
@@ -719,6 +731,8 @@ extension AppDelegate: NSMenuItemValidation {
             return importMusicController == nil
         case #selector(presentNavidromeSettings):
             return navidromeSettings == nil
+        case #selector(toggleLyricsWindow):
+            menuItem.state = (lyricsWindow?.window?.isVisible ?? false) ? .on : .off
         default:
             break
         }

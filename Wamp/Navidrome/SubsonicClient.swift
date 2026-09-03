@@ -147,6 +147,26 @@ struct SubsonicClient: Sendable {
         try SubsonicResponseParser.validated(data)
     }
 
+    /// Lyrics blocks for a song (OpenSubsonic `getLyricsBySongId`). Empty
+    /// when the server has none; throws only on transport/API failure.
+    func lyrics(songID: String) async throws -> [SubsonicLyrics] {
+        let data = try await get("getLyricsBySongId", [URLQueryItem(name: "id", value: songID)])
+        return try SubsonicResponseParser.decode(SubsonicLyricsList.self, from: data, key: "lyricsList")
+            .structuredLyrics ?? []
+    }
+
+    /// Legacy `getLyrics` lookup by artist/title — lets a connected server
+    /// supply lyrics for *local* files too. Returns nil when there are none.
+    func lyrics(artist: String, title: String) async throws -> String? {
+        struct Payload: Decodable { let value: String?; let artist: String?; let title: String? }
+        let data = try await get("getLyrics", [
+            URLQueryItem(name: "artist", value: artist),
+            URLQueryItem(name: "title", value: title),
+        ])
+        let text = try SubsonicResponseParser.decode(Payload.self, from: data, key: "lyrics").value ?? ""
+        return text.isEmpty ? nil : text
+    }
+
     /// URL that streams the song's bytes. `format: nil` asks for the original
     /// file (`format=raw`); pass e.g. `"mp3"` to have the server transcode.
     func streamURL(id: String, format: String? = nil, maxBitRate: Int? = nil) -> URL {

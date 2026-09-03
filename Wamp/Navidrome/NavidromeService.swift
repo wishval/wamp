@@ -37,6 +37,7 @@ final class NavidromeService: ObservableObject {
         client = nil
         for task in prefetchTasks.values { task.cancel() }
         prefetchTasks.removeAll()
+        lyricsCache.removeAll()
     }
 
     private func apply(_ credentials: SubsonicCredentials) {
@@ -51,6 +52,33 @@ final class NavidromeService: ObservableObject {
     func makeTrack(_ song: SubsonicSong) -> Track {
         let host = credentials?.displayHost ?? "navidrome"
         return Track.fromSubsonicSong(song, host: host)
+    }
+
+    // MARK: - Lyrics
+
+    private var lyricsCache: [String: SubsonicLyrics?] = [:]
+
+    /// Lyrics for any track. Remote tracks use the OpenSubsonic song-id
+    /// lookup (synced when the file has LRC/SYLT data); local tracks fall
+    /// back to the artist/title lookup. Nil when the server has none.
+    /// Results are memoised per track for the app's lifetime.
+    func lyrics(for track: Track) async throws -> SubsonicLyrics? {
+        guard let client else { throw SubsonicError.notConfigured }
+        let key = track.remoteID ?? "local|\(track.artist)|\(track.title)"
+        if let cached = lyricsCache[key] { return cached }
+        let result: SubsonicLyrics?
+        if let id = track.remoteID {
+            result = LyricsSync.preferred(try await client.lyrics(songID: id))
+        } else if let text = try await client.lyrics(artist: track.artist, title: track.title) {
+            result = SubsonicLyrics(
+                displayArtist: track.artist, displayTitle: track.title, lang: nil, synced: false,
+                line: text.components(separatedBy: .newlines).map { SubsonicLyricsLine(start: nil, value: $0) }
+            )
+        } else {
+            result = nil
+        }
+        lyricsCache[key] = result
+        return result
     }
 
     // MARK: - Playback resolution
