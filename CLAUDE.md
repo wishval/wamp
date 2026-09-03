@@ -16,7 +16,7 @@ Run the test suite:
 xcodebuild -project Wamp.xcodeproj -scheme Wamp -destination 'platform=macOS' test
 ```
 
-No linter is configured. CI is `.github/workflows/build.yml`: every PR / push to `main` builds and runs the tests on a `macos-26` runner; a `v*` tag additionally builds Release, packages a DMG via `scripts/create-dmg.sh` and publishes a GitHub Release (version stamped from the tag into `MARKETING_VERSION`). Tests cover `Models/`, `CueSheet/`, and a persistence round-trip only — `AudioEngine`, UI views, `HotKeyManager`, and `Skinning/` rendering are deliberately out of scope (see `docs/superpowers/specs/2026-04-12-testing-design.md`). Test fixtures live in `WampTests/Fixtures/` (sample audio + cue files).
+No linter is configured. CI is `.github/workflows/build.yml`: every PR / push to `main` builds and runs the tests on a `macos-26` runner; a `v*` tag additionally builds Release, packages a DMG via `scripts/create-dmg.sh` and publishes a GitHub Release (version stamped from the tag into `MARKETING_VERSION`). Tests cover `Models/`, `CueSheet/`, `Navidrome/` (client/parser/cache, no network) and a persistence round-trip only — `AudioEngine`, UI views, `HotKeyManager`, and `Skinning/` rendering are deliberately out of scope (see `docs/superpowers/specs/2026-04-12-testing-design.md`). Test fixtures live in `WampTests/Fixtures/` (sample audio + cue files). `WampTests/Navidrome/NavidromeLiveTests.swift` hits a real server and is skipped unless `TEST_RUNNER_WAMP_NAVIDROME_URL` / `_USER` / `_PASSWORD` are set in the environment.
 
 ## Architecture
 
@@ -35,8 +35,15 @@ Wamp/
 │   ├── CueDecoder.swift         — encoding detection (UTF-8, Shift-JIS, CP-1251, CP-1252)
 │   ├── FlacCueExtractor.swift   — pulls embedded CUESHEET from FLAC Vorbis comments
 │   └── CueResolver.swift        — expands a cue into virtual `Track`s pointing at the same file
+├── Navidrome/
+│   ├── SubsonicClient.swift     — Subsonic REST client (salted-token auth, browse/search/stream URLs)
+│   ├── SubsonicModels.swift     — Decodable song/album/artist/playlist models + envelope parser
+│   ├── NavidromeAccountStore.swift — server+user in UserDefaults, password in the login Keychain
+│   ├── StreamCache.swift        — actor: downloads tracks to ~/Library/Caches/Wamp/Navidrome (LRU)
+│   └── NavidromeService.swift   — owns credentials/client/cache; Track ⇄ SubsonicSong mapping
 ├── Models/
-│   ├── PlaylistManager.swift — track list, current index, shuffle, repeat, auto-advance
+│   ├── PlaylistManager.swift — track list, current index, shuffle, repeat, auto-advance,
+│   │                           remote-track resolution (download before play, prefetch next)
 │   ├── StateManager.swift    — JSON persistence to ~/Library/Application Support/Wamp/
 │   ├── Track.swift              — audio file model with metadata parsing via AVURLAsset
 │   ├── M3UParser.swift          — `.m3u` / `.m3u8` parser (EXTM3U/EXTINF, BOM, CRLF, Latin-1 vs UTF-8)
@@ -60,6 +67,8 @@ Wamp/
 │   ├── PlaylistView.swift    — table with drag-drop, search, keyboard nav, double-click-to-play
 │   ├── JumpToFileWindow.swift                — Cmd+J incremental search over the playlist
 │   ├── ImportMusicLibraryWindowController.swift — sheet for picking Music.app sources to import
+│   ├── NavidromeBrowserWindowController.swift   — Cmd+L media-library window (browse/search/enqueue/play)
+│   ├── NavidromeSettingsWindowController.swift  — server/username/password sheet, pings before saving
 │   ├── WinampTheme.swift     — all design tokens (colors, sizes, fonts)
 │   └── Components/
 │       ├── TitleBarView.swift    — window title bar with pin/minimize/close buttons
@@ -109,6 +118,7 @@ View → Double Size (Cmd+Shift+D) scales the whole window via `WinampTheme.scal
 - **CUE sheets** — external `.cue` next to a FLAC wins over an embedded CUESHEET; `CueResolver` produces virtual `Track`s sharing one underlying file. Gapless transitions between consecutive cue tracks rely on chained `AVAudioPlayerNode.scheduleSegment` calls in `AudioEngine`.
 - **Music.app import** — `AppleMusicLibrarySource` uses `iTunesLibrary` (`ITLibrary`); falls back to parsing `~/Music/iTunes/iTunes Music Library.xml` when ITLibrary is unavailable. Streaming-only and missing-file tracks are skipped with counts surfaced in a summary alert.
 - **Jump to File** — `JumpFilter` is pure (no UI deps), ranking prefix → word-boundary → substring; targets <16ms over 10k tracks. Window is presented from `AppDelegate` via Cmd+J.
+- **Navidrome streaming** — `Track.remoteID` marks a server track; its `url` is a descriptive `navidrome://host/<library path>` (keeps filename sort / Jump-to-File working) and is never fetched. `PlaylistManager.playTrack` hands remote tracks to `remoteTrackResolver` (→ `NavidromeService.resolve` → `StreamCache`), publishes `isBuffering`, and drops stale resolutions via a generation counter. `AudioEngine` only ever sees the cached local file, which is why EQ/spectrum work for streams. Unsupported suffixes (ogg/opus/wma) are server-transcoded to MP3; everything else streams `format=raw`. ATS allows cleartext HTTP (`Info.plist`) because self-hosted servers on a LAN/VPN are usually plain http.
 - **Skinning** — `.wsz` is a ZIP of bitmap sprites + INI files. `SkinManager` parses atomically (parse fully off-main, then publish); `SkinProvider` abstracts "no skin" vs "classic skin" so views always have something to draw. `BuiltInSkin` is the fallback when no skin is loaded.
 
 ## Conventions

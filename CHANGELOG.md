@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Stream from a Navidrome (Subsonic API) server.** File → Navidrome
+  Library… (Cmd+L) opens a media-library window: browse by artist,
+  playlist, recently added, random or starred, or search the whole server;
+  Play replaces the playlist, Enqueue appends, double-click plays. File →
+  Navidrome Server… holds the login (server, username, password — kept in
+  the login Keychain) and pings the server before saving it. Tracks are
+  downloaded into `~/Library/Caches/Wamp/Navidrome/` (4 GB LRU) and played
+  through the normal `AudioEngine` graph, so the equalizer and spectrum
+  analyzer work exactly as for local files; the next track is prefetched
+  while the current one plays. Formats AVFoundation can't decode (Ogg,
+  Opus, WMA…) are transcoded to MP3 by the server. Remote entries survive
+  in the saved playlist and restore on launch from the cache only.
+
 ## [1.1.1] - 2026-08-19
 
 ### Fixed

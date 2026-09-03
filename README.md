@@ -79,6 +79,24 @@ A few classics to try live in [`skins/`](skins): *base-2.91*, *Blue Plasma*,
 
 </div>
 
+## 🌐 Stream from your Navidrome server
+
+Point Wamp at any [Subsonic-API](https://www.subsonic.org/pages/api.jsp) server
+you run yourself — Navidrome, Airsonic, Gonic — and your whole library shows up
+in a classic media-library window (`⌘L`):
+
+- Browse by artist, playlist, recently added, random albums or starred; or
+  search everything at once
+- **Play** replaces the playlist, **Enqueue** appends, double-click plays now —
+  Winamp Media Library semantics
+- Tracks are fetched into a local cache and played through the same
+  `AudioEngine` graph as files on disk, so the **EQ and spectrum analyzer work
+  on streams**; the next track is prefetched while the current one plays
+- Login lives in **File → Navidrome Server…** — the password goes to the login
+  Keychain, and the server is pinged before anything is saved
+- Formats AVFoundation can't decode (Ogg, Opus, WMA…) are transcoded to MP3 by
+  the server; everything else streams as the original file
+
 ## 💿 CUE sheets, done properly
 
 Drop a `.cue` next to a FLAC (or open a FLAC with an embedded `CUESHEET`
@@ -102,6 +120,7 @@ Vorbis comment) and the album splits into individual virtual tracks:
 | `Return` | Play selected track | `⌘⇧S` | Load Skin… |
 | `↑` `↓` | Navigate playlist | `⌘O` / `⌘⇧O` | Open File / Folder |
 | `⌘J` | Jump to File… | `⌘A` | Select All |
+| `⌘L` | Navidrome Library… | | |
 
 Plus hardware **media keys** (play/pause, next, previous) and the macOS
 **Now Playing** widget in Control Center.
@@ -111,6 +130,8 @@ Plus hardware **media keys** (play/pause, next, previous) and the macOS
 | Audio | Playlists |
 |---|---|
 | MP3 · AAC · M4A · FLAC · WAV · AIFF | M3U · M3U8 · CUE (external & FLAC-embedded) |
+
+Plus anything on a Navidrome / Subsonic server (other formats are transcoded server-side).
 
 ## 🚀 Getting started
 
@@ -192,6 +213,7 @@ AppDelegate  (nib-less bootstrap, owns the singletons)
 ├── SkinManager        atomic .wsz load → publishes a SkinProvider
 │   └── SkinModel      sprites, regions, colors, bitmap fonts
 ├── CueSheet           parser + encoding detection + FLAC extractor
+├── Navidrome          Subsonic client, Keychain-backed login, LRU stream cache
 │   └── CueResolver    expands a cue into virtual Tracks
 └── MainWindow         275px-wide borderless stack
     ├── MainPlayerView     LCD, transport, sliders, spectrum

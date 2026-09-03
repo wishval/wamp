@@ -26,8 +26,21 @@ Wamp reads your local Music.app library. It does not sync with iCloud, does not 
 Local audio files. Specifically:
 
 - **Formats:** MP3, AAC, M4A, FLAC, WAV, AIFF, OGG
-- **Sources:** any file on disk, including tracks Apple Music stores locally (downloaded from the service for offline playback, or ripped from CD into your library)
+- **Sources:** any file on disk, including tracks Apple Music stores locally (downloaded from the service for offline playback, or ripped from CD into your library); any Subsonic-API server you run yourself (Navidrome et al. — see below)
 - **Playlist formats:** M3U, M3U8, CUE sheets
 - **Import:** one-way import from the Music.app local library (see [Apple Music import](#)); no write-back, no sync
 
-In short: if the bytes live on your disk, Wamp will play them with full DSP. If they live on someone else's server, they're out of scope.
+## What about Navidrome?
+
+Navidrome (and any other Subsonic-API server — Airsonic, Gonic, Ampache's
+Subsonic bridge) is **in** scope, and the reason is the same test applied
+above: the server hands Wamp the raw file bytes over HTTP. Wamp downloads
+each track into a local cache and plays it through the normal
+`AudioEngine` graph, so the EQ, the spectrum analyzer and the skin all see
+exactly what they'd see for a file on disk. That is the line: a service is
+supported when Wamp gets the audio bytes, not a remote control for
+someone else's player.
+
+In short: if Wamp can get the bytes — from your disk, or from your own
+server — it will play them with full DSP. If the audio has to flow through
+another vendor's player, it's out of scope.
