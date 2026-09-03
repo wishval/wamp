@@ -25,6 +25,15 @@ struct Track: Identifiable, Codable, Equatable {
 
     var isCueVirtual: Bool { cueStart != nil }
 
+    /// Subsonic/Navidrome song id for tracks that stream from a server.
+    /// For remote tracks `url` is a descriptive `navidrome://host/<library path>`
+    /// URL — it identifies the track (filename, sort order, dedupe) but is not
+    /// playable. `PlaylistManager.remoteTrackResolver` turns it into a local
+    /// file at play time.
+    var remoteID: String?
+
+    var isRemote: Bool { remoteID != nil }
+
     init(
         url: URL,
         title: String,
@@ -36,7 +45,8 @@ struct Track: Identifiable, Codable, Equatable {
         sampleRate: Int = 0,
         channels: Int = 2,
         cueStart: TimeInterval? = nil,
-        cueEnd: TimeInterval? = nil
+        cueEnd: TimeInterval? = nil,
+        remoteID: String? = nil
     ) {
         self.id = UUID()
         self.url = url
@@ -50,6 +60,7 @@ struct Track: Identifiable, Codable, Equatable {
         self.channels = channels
         self.cueStart = cueStart
         self.cueEnd = cueEnd
+        self.remoteID = remoteID
     }
 
     var displayTitle: String {
