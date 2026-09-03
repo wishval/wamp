@@ -525,6 +525,13 @@ class MainPlayerView: NSView {
             }
             .store(in: &cancellables)
 
+        // Remote tracks show a buffering banner in the LCD while downloading.
+        playlistManager.$isBuffering
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .sink { [weak self] _ in self?.updateTrackInfo() }
+            .store(in: &cancellables)
+
         // Seek slider
         audioEngine.$duration
             .receive(on: DispatchQueue.main)
@@ -571,7 +578,10 @@ class MainPlayerView: NSView {
             }
         }
         transportBar.onPause = { [weak audioEngine] in audioEngine?.pause() }
-        transportBar.onStop = { [weak audioEngine] in audioEngine?.stop() }
+        transportBar.onStop = { [weak audioEngine, weak playlistManager] in
+            playlistManager?.cancelPendingRemotePlayback()
+            audioEngine?.stop()
+        }
         transportBar.onNext = { [weak playlistManager] in playlistManager?.playNext() }
         transportBar.onEject = { [weak self] in self?.showOpenFilePanel() }
 
@@ -608,7 +618,8 @@ class MainPlayerView: NSView {
             return
         }
         let index = (playlistManager?.currentIndex ?? 0) + 1
-        lcdDisplay.text = "\(index). \(track.displayTitle) (\(track.formattedDuration))"
+        let buffering = playlistManager?.isBuffering == true ? "*** BUFFERING *** " : ""
+        lcdDisplay.text = "\(buffering)\(index). \(track.displayTitle) (\(track.formattedDuration))"
         bitrateLabel.stringValue = "\(track.bitrate > 0 ? "\(track.bitrate)" : "---")"
         bitrateLabel.textColor = WinampTheme.greenBright
         sampleRateLabel.stringValue = "\(track.sampleRate > 0 ? "\(track.sampleRate / 1000)" : "--")"

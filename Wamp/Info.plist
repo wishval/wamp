@@ -24,6 +24,14 @@
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
     <string></string>
+    <!-- Self-hosted Navidrome/Subsonic servers are routinely plain HTTP on a
+         LAN or VPN (Tailscale's 100.64/10 range isn't covered by
+         NSAllowsLocalNetworking), so ATS must allow cleartext. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
     <key>NSAppleMusicUsageDescription</key>
     <string>Wamp reads your Music library so it can import local tracks and playlists. Nothing is uploaded or streamed.</string>
     <key>CFBundleDocumentTypes</key>

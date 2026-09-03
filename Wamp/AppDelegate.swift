@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import UniformTypeIdentifiers
 
 @main
@@ -9,6 +10,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var mainWindow: MainWindow!
     var statusItem: NSStatusItem!
     var hotKeyManager: HotKeyManager!
+    var navidromeService: NavidromeService!
+    private var navidromeBrowser: NavidromeBrowserWindowController?
+    private var navidromeSettings: NavidromeSettingsWindowController?
+    private var cancellables = Set<AnyCancellable>()
     private weak var alwaysOnTopMenuItem: NSMenuItem?
     private weak var doubleSizeMenuItem: NSMenuItem?
     private var jumpToFileWindow: JumpToFileWindow?
@@ -30,6 +35,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         playlistManager.setAudioEngine(audioEngine)
 
+        // Navidrome: remote tracks resolve to cached local files at play time.
+        navidromeService = NavidromeService()
+        playlistManager.remoteTrackResolver = { [navidromeService] track in
+            try await navidromeService!.resolve(track)
+        }
+        playlistManager.remoteTrackPrefetch = { [navidromeService] track in
+            navidromeService?.prefetch(track)
+        }
+        playlistManager.$remotePlaybackError
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] error in self?.presentRemotePlaybackError(error) }
+            .store(in: &cancellables)
+
         // Restore state
         let appState = stateManager.loadAppState()
         audioEngine.volume = appState.volume
@@ -47,7 +66,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             playlistManager.addTracks(savedTracks)
             if appState.lastTrackIndex >= 0, appState.lastTrackIndex < savedTracks.count {
                 playlistManager.currentIndex = appState.lastTrackIndex
-                audioEngine.load(url: savedTracks[appState.lastTrackIndex].url)
+                let last = savedTracks[appState.lastTrackIndex]
+                if last.isRemote {
+                    // Only re-arm from the cache; never hit the network at launch.
+                    if let cached = navidromeService.cachedURL(for: last) {
+                        audioEngine.load(url: cached)
+                    }
+                } else {
+                    audioEngine.load(url: last.url)
+                }
             }
         }
 
@@ -229,6 +256,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                                #selector(importFromMusicLibraryAction),
                                "",
                                symbol: "music.note.list")
+        let navidromeLibrary = item("Navidrome Library…",
+                                    #selector(presentNavidromeBrowser),
+                                    "l",
+                                    symbol: "server.rack")
+        navidromeLibrary.keyEquivalentModifierMask = [.command]
+        let navidromeSettings = item("Navidrome Server…",
+                                     #selector(presentNavidromeSettings),
+                                     "",
+                                     symbol: "network")
 
         // Edit (just Select All — routed to NSTableView via responder chain)
         let selectAll = item("Select All",
@@ -280,7 +316,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         return AppMenuItems(
             app: [about, .separator(), quit],
-            file: [openFile, openFolder, .separator(), importMusic],
+            file: [openFile, openFolder, .separator(), importMusic,
+                   .separator(), navidromeLibrary, navidromeSettings],
             edit: [selectAll],
             controls: [playPause, stop, next, prev, .separator(),
                        repeat_, shuffle, .separator(), jump],
@@ -451,7 +488,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             audioEngine.togglePlayPause()
         }
     }
-    @objc private func stopAction() { audioEngine.stop() }
+    @objc private func stopAction() {
+        playlistManager.cancelPendingRemotePlayback()
+        audioEngine.stop()
+    }
     @objc private func nextAction() { playlistManager.playNext() }
     @objc private func prevAction() { playlistManager.playPrevious() }
 
@@ -543,6 +583,67 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow.applyRegionMaskFromCurrentSkin()
     }
 
+    // MARK: - Navidrome
+
+    @objc func presentNavidromeBrowser() {
+        if navidromeBrowser == nil {
+            let browser = NavidromeBrowserWindowController(service: navidromeService)
+            browser.onOpenSettings = { [weak self] in self?.presentNavidromeSettings() }
+            browser.onAddTracks = { [weak self] tracks, replace, play in
+                guard let self else { return }
+                if replace { self.playlistManager.clearPlaylist() }
+                let firstNew = self.playlistManager.tracks.count
+                self.playlistManager.addTracks(tracks)
+                if play { self.playlistManager.playTrack(at: firstNew) }
+            }
+            navidromeBrowser = browser
+        }
+        navidromeBrowser?.present()
+        if !navidromeService.isConfigured {
+            presentNavidromeSettings()
+        }
+    }
+
+    @objc func presentNavidromeSettings() {
+        guard navidromeSettings == nil else { return }
+        // Attach to the browser when it's open (it's where the user is);
+        // otherwise run as a plain window over the player.
+        let host: NSWindow? = navidromeBrowser?.window?.isVisible == true ? navidromeBrowser?.window : nil
+        let controller = NavidromeSettingsWindowController(existing: navidromeService.credentials)
+        navidromeSettings = controller
+        let dismiss = { [weak self] in
+            guard let self, let sheet = self.navidromeSettings?.window else { return }
+            if let host { host.endSheet(sheet) } else { sheet.orderOut(nil) }
+            self.navidromeSettings = nil
+        }
+        controller.onCancel = { dismiss() }
+        controller.onSave = { [weak self] creds in
+            self?.navidromeService.connect(creds)
+            dismiss()
+            self?.navidromeBrowser?.present()
+        }
+        controller.onDisconnect = { [weak self] in
+            self?.navidromeService.disconnect()
+            dismiss()
+        }
+        if let host, let sheet = controller.window {
+            host.beginSheet(sheet) { _ in }
+        } else {
+            controller.window?.center()
+            controller.showWindow(nil)
+            NSApp.activate()
+        }
+    }
+
+    @MainActor
+    private func presentRemotePlaybackError(_ error: PlaylistManager.RemotePlaybackError) {
+        let alert = NSAlert()
+        alert.messageText = "Couldn't stream “\(error.track.title)”"
+        alert.informativeText = error.message
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
+
     // MARK: - System Tray
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -609,6 +710,8 @@ extension AppDelegate: NSMenuItemValidation {
             menuItem.state = (WinampTheme.scale > WinampTheme.baseScale + 0.01) ? .on : .off
         case #selector(importFromMusicLibraryAction):
             return importMusicController == nil
+        case #selector(presentNavidromeSettings):
+            return navidromeSettings == nil
         default:
             break
         }

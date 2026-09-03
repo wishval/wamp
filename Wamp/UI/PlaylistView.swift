@@ -541,7 +541,12 @@ class PlaylistView: NSView {
         let alert = NSAlert()
         alert.messageText = t.displayTitle
         var lines: [String] = []
-        lines.append("File: \(t.url.path)")
+        if t.isRemote {
+            lines.append("Server: \(t.url.host ?? "")\(t.url.port.map { ":\($0)" } ?? "")")
+            lines.append("File: \(t.url.path)")
+        } else {
+            lines.append("File: \(t.url.path)")
+        }
         lines.append("Duration: \(t.formattedDuration)")
         if !t.album.isEmpty { lines.append("Album: \(t.album)") }
         if !t.genre.isEmpty { lines.append("Genre: \(t.genre)") }
