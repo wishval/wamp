@@ -12,8 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Navidrome server via the OpenSubsonic `songLyrics` extension. Synced
   (LRC/SYLT) lyrics highlight the current line and keep it centred as the
   track plays; plain lyrics show as text. Works for local files too via the
-  artist/title lookup when a server is connected. Colours follow the active
-  skin's playlist palette.
+  artist/title lookup when a server is connected. The window is a proper
+  Wamp panel, not a native Mac window: pledit.bmp chrome with the title
+  spelled in the skin's bitmap font when a skin is loaded, the built-in
+  title bar otherwise, text in the playlist palette and font, and it scales
+  with Double Size.
 - **Oscilloscope mode for the main-window visualizer.** Clicking the vis
   area cycles spectrum analyzer → oscilloscope → off, exactly like Winamp
   2.x. The scope uses the skin's `viscolors` 18–22 and the classic 16-row

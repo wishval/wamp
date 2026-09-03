@@ -1,10 +1,65 @@
 import AppKit
 import Combine
 
-/// Floating "Lyrics" window fed by the connected Navidrome server. Synced
+/// Borderless, skin-aware lyrics window (View → Lyrics, ⌘Y). Content bounds
+/// stay logical and the frame is scaled by `WinampTheme.scale`, exactly like
+/// `MainWindow`, so Double Size applies here too.
+final class LyricsWindow: NSWindow {
+    let panel = LyricsPanelView()
+
+    static let defaultLogicalSize = NSSize(width: WinampTheme.windowWidth, height: WinampTheme.playlistMinHeight)
+
+    init() {
+        let s = WinampTheme.scale
+        let size = Self.defaultLogicalSize
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: size.width * s, height: size.height * s),
+            styleMask: [.borderless, .miniaturizable, .resizable],
+            backing: .buffered, defer: false
+        )
+        isMovableByWindowBackground = false
+        title = "Lyrics" // not drawn (borderless) but named for accessibility / Window menu
+        backgroundColor = WinampTheme.frameBackground
+        isOpaque = true
+        hasShadow = true
+        isReleasedWhenClosed = false
+        collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        minSize = NSSize(width: 180 * s, height: 120 * s)
+        panel.wantsLayer = true
+        contentView = panel
+        applyScale()
+    }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    /// Keep `panel.bounds` in logical Winamp pixels for the current frame.
+    func applyScale() {
+        let s = WinampTheme.scale
+        let size = contentView?.frame.size ?? frame.size
+        panel.setBoundsSize(NSSize(width: size.width / s, height: size.height / s))
+        panel.needsLayout = true
+        panel.needsDisplay = true
+    }
+
+    /// Called from AppDelegate.toggleDoubleSize: rescale keeping the top-left corner put.
+    func recalculateSize() {
+        let s = WinampTheme.scale
+        let logical = panel.bounds.size
+        let newFrame = NSRect(
+            x: frame.origin.x,
+            y: frame.origin.y + frame.height - logical.height * s,
+            width: logical.width * s,
+            height: logical.height * s
+        )
+        setFrame(newFrame, display: true)
+        applyScale()
+    }
+}
+
+/// Feeds the lyrics window from the connected Navidrome server. Synced
 /// (LRC/SYLT) lyrics highlight the current line and keep it centred as the
-/// track plays; plain lyrics are shown as text. Colours follow the active
-/// skin's playlist palette so it sits next to the player naturally.
+/// track plays; plain lyrics are shown as text.
 @MainActor
 final class LyricsWindowController: NSWindowController, NSWindowDelegate {
 
@@ -19,27 +74,18 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
     private var loadGeneration = 0
     private var shownTrackID: UUID?
 
-    private let headerLabel = NSTextField(labelWithString: "")
-    private let statusLabel = NSTextField(labelWithString: "")
-    private let scrollView = NSScrollView()
-    private let textView = NSTextView()
+    private var lyricsWindow: LyricsWindow { window as! LyricsWindow }
+    private var panel: LyricsPanelView { lyricsWindow.panel }
 
     init(service: NavidromeService, playlistManager: PlaylistManager, audioEngine: AudioEngine) {
         self.service = service
         self.playlistManager = playlistManager
         self.audioEngine = audioEngine
-        let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 520),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered, defer: false
-        )
-        w.title = "Lyrics"
-        w.minSize = NSSize(width: 260, height: 240)
-        w.isReleasedWhenClosed = false
-        w.setFrameAutosaveName("Lyrics")
+        let w = LyricsWindow()
         super.init(window: w)
         w.delegate = self
-        buildLayout()
+        w.setFrameAutosaveName("Lyrics")
+        w.panel.onClose = { [weak self] in self?.window?.close() }
         bind()
     }
 
@@ -54,70 +100,23 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
 
     func present() {
         guard let window else { return }
-        if !window.isVisible, !window.setFrameUsingName("Lyrics") { window.center() }
+        if !window.isVisible, !window.setFrameUsingName("Lyrics") {
+            // First open: dock to the right of the main window, top-aligned.
+            if let main = NSApp.windows.first(where: { $0 is MainWindow }) {
+                let origin = NSPoint(x: main.frame.maxX, y: main.frame.maxY - window.frame.height)
+                window.setFrameOrigin(origin)
+            } else {
+                window.center()
+            }
+        }
+        lyricsWindow.applyScale()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         refresh(force: true)
     }
 
-    // MARK: - Layout
-
-    private func buildLayout() {
-        guard let contentView = window?.contentView else { return }
-
-        headerLabel.font = NSFont.boldSystemFont(ofSize: 13)
-        headerLabel.lineBreakMode = .byTruncatingTail
-        statusLabel.font = NSFont.systemFont(ofSize: 11)
-        statusLabel.lineBreakMode = .byWordWrapping
-        statusLabel.maximumNumberOfLines = 3
-
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.drawsBackground = true
-        textView.textContainerInset = NSSize(width: 14, height: 14)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-
-        scrollView.documentView = textView
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .noBorder
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = true
-
-        let top = NSStackView(views: [headerLabel, statusLabel])
-        top.orientation = .vertical
-        top.alignment = .leading
-        top.spacing = 2
-        top.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 6, right: 14)
-        top.translatesAutoresizingMaskIntoConstraints = false
-
-        contentView.addSubview(top)
-        contentView.addSubview(scrollView)
-        NSLayoutConstraint.activate([
-            top.topAnchor.constraint(equalTo: contentView.topAnchor),
-            top.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            top.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            headerLabel.widthAnchor.constraint(equalTo: top.widthAnchor, constant: -28),
-            statusLabel.widthAnchor.constraint(equalTo: top.widthAnchor, constant: -28),
-            scrollView.topAnchor.constraint(equalTo: top.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-        ])
-        applySkinColors()
-    }
-
-    private func applySkinColors() {
-        let style = WinampTheme.provider.playlistStyle
-        textView.backgroundColor = style.normalBG
-        scrollView.backgroundColor = style.normalBG
-        window?.backgroundColor = style.normalBG
-        headerLabel.textColor = style.current
-        statusLabel.textColor = style.normal.withAlphaComponent(0.7)
-        render()
+    func recalculateSize() {
+        lyricsWindow.recalculateSize()
     }
 
     // MARK: - Bindings
@@ -137,11 +136,6 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
             .receive(on: DispatchQueue.main)
             .dropFirst()
             .sink { [weak self] _ in self?.refresh(force: true) }
-            .store(in: &cancellables)
-
-        SkinManager.shared.$currentSkin
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.applySkinColors() }
             .store(in: &cancellables)
     }
 
@@ -171,8 +165,7 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
                 let result = try await service.lyrics(for: track)
                 guard generation == loadGeneration else { return }
                 if let result, !result.lines.isEmpty {
-                    let status = result.isSynced ? "Synced lyrics" : "Lyrics"
-                    show(lyrics: result, header: header, status: status)
+                    show(lyrics: result, header: header, status: result.isSynced ? "Synced lyrics" : "Lyrics")
                 } else {
                     show(lyrics: nil, header: header, status: "The server has no lyrics for this track.")
                 }
@@ -188,9 +181,14 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
         self.lyrics = lyrics
         lineStartsMs = (lyrics?.isSynced == true) ? lyrics!.lines.map { $0.start ?? 0 } : []
         currentLine = nil
-        headerLabel.stringValue = header
-        statusLabel.stringValue = status
-        render()
+        var lines: [LyricsDisplayLine] = [.header(header), .status(status)]
+        if let lyrics, !lyrics.lines.isEmpty {
+            lines.append(.blank)
+            lines += lyrics.lines.enumerated().map { .lyric(index: $0.offset, text: $0.element.value) }
+        }
+        panel.currentLine = nil
+        panel.lines = lines
+        panel.scrollToTop()
         follow(time: audioEngine.currentTime)
     }
 
@@ -199,70 +197,22 @@ final class LyricsWindowController: NSWindowController, NSWindowDelegate {
         let idx = LyricsSync.currentLineIndex(startsMs: lineStartsMs, time: time)
         guard idx != currentLine else { return }
         currentLine = idx
-        render()
-        scrollToCurrentLine()
-    }
-
-    // MARK: - Rendering
-
-    private func render() {
-        guard let storage = textView.textStorage else { return }
-        let style = WinampTheme.provider.playlistStyle
-        let fontSize: CGFloat = 14
-        let baseFont = NSFont(name: style.font, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
-        let boldFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .boldFontMask)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 4
-        paragraph.paragraphSpacing = 2
-
-        let out = NSMutableAttributedString()
-        guard let lyrics else {
-            storage.setAttributedString(out)
-            return
-        }
-        let synced = !lineStartsMs.isEmpty
-        for (i, line) in lyrics.lines.enumerated() {
-            let isCurrent = synced && i == currentLine
-            let dim = synced && currentLine != nil && !isCurrent
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: isCurrent ? boldFont : baseFont,
-                .foregroundColor: isCurrent ? style.current : style.normal.withAlphaComponent(dim ? 0.55 : 0.9),
-                .paragraphStyle: paragraph,
-            ]
-            let text = line.value.isEmpty ? " " : line.value
-            out.append(NSAttributedString(string: text + "\n", attributes: attrs))
-        }
-        storage.setAttributedString(out)
-    }
-
-    private func scrollToCurrentLine() {
-        guard let idx = currentLine, let lyrics, idx < lyrics.lines.count,
-              let layoutManager = textView.layoutManager,
-              let container = textView.textContainer else { return }
-        // Character offset of the line: lengths of all previous lines + newlines.
-        var location = 0
-        for i in 0..<idx {
-            let text = lyrics.lines[i].value.isEmpty ? " " : lyrics.lines[i].value
-            location += (text as NSString).length + 1
-        }
-        let text = lyrics.lines[idx].value.isEmpty ? " " : lyrics.lines[idx].value
-        let range = NSRange(location: location, length: (text as NSString).length)
-        let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-        var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: container)
-        rect.origin.y += textView.textContainerInset.height
-        let visible = scrollView.contentView.bounds
-        let targetY = max(0, rect.midY - visible.height / 2)
-        let maxY = max(0, textView.bounds.height - visible.height)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            scrollView.contentView.animator().setBoundsOrigin(NSPoint(x: 0, y: min(targetY, maxY)))
-        }
-        scrollView.reflectScrolledClipView(scrollView.contentView)
+        panel.currentLine = idx
+        panel.scrollToCurrentLine()
     }
 
     // MARK: - NSWindowDelegate
 
+    func windowDidResize(_ notification: Notification) {
+        lyricsWindow.applyScale()
+    }
+
     func windowDidBecomeKey(_ notification: Notification) {
+        panel.needsDisplay = true
         refresh(force: false)
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        panel.needsDisplay = true
     }
 }

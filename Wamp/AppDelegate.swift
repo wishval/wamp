@@ -536,6 +536,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isDouble = WinampTheme.scale > WinampTheme.baseScale + 0.01
         WinampTheme.scale = isDouble ? WinampTheme.baseScale : 2.0
         mainWindow.recalculateSize()
+        lyricsWindow?.recalculateSize()
 
         // Clamp the window to the current screen's visible frame so Double Size
         // can't push it off the edge when it was close to one.

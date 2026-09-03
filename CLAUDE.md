@@ -70,7 +70,7 @@ Wamp/
 │   ├── ImportMusicLibraryWindowController.swift — sheet for picking Music.app sources to import
 │   ├── NavidromeBrowserWindowController.swift   — Cmd+L media-library window (browse/search/enqueue/play)
 │   ├── NavidromeSettingsWindowController.swift  — server/username/password sheet, pings before saving
-│   ├── LyricsWindowController.swift             — Cmd+Y lyrics window; synced lines follow AudioEngine.currentTime
+│   ├── LyricsWindowController.swift             — Cmd+Y borderless, scale-aware LyricsWindow; synced lines follow AudioEngine.currentTime
 │   ├── WinampTheme.swift     — all design tokens (colors, sizes, fonts)
 │   └── Components/
 │       ├── TitleBarView.swift    — window title bar with pin/minimize/close buttons
@@ -80,6 +80,7 @@ Wamp/
 │       ├── SpectrumView.swift    — main-window visualizer: analyzer / oscilloscope / off, click to cycle
 │       ├── EQResponseView.swift  — EQ frequency response curve
 │       ├── PlayStateIndicator.swift — play/pause/stop glyph next to the LCD
+│       ├── LyricsPanelView.swift — lyrics chrome (pledit tiles + text.bmp title, or built-in TitleBarView) + LyricsContentView
 │       ├── PlaylistSkinScroller.swift — custom NSScroller drawing the skinned thumb from `pledit.bmp`
 │       ├── AngularLegacyScroller.swift — flat NSScroller for the unskinned playlist (matches angular chrome)
 │       ├── WinampButton.swift    — themed button component
