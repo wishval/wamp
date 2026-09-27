@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Recognize Russian Windows-1251 text in legacy MP3 ID3v1 and ID3v2 tags
+  while preserving standard Unicode and Western European metadata. Skinned
+  track-title displays use a native font when the skin lacks the required glyphs.
+
 ## [1.1.1] - 2026-08-19
 
 ### Fixed
