@@ -125,6 +125,14 @@ struct Track: Identifiable, Codable, Equatable {
             // Fallback: use filename as title
         }
 
+        if url.pathExtension.lowercased() == "mp3" {
+            let legacy = await Task.detached { LegacyID3Metadata.read(from: url) }.value
+            if let value = legacy["TIT2"] { title = value }
+            if let value = legacy["TPE1"] { artist = value }
+            if let value = legacy["TALB"] { album = value }
+            if let value = legacy["TCON"] { genre = value }
+        }
+
         return Track(
             url: url,
             title: title,

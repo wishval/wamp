@@ -112,6 +112,10 @@ Plus hardware **media keys** (play/pause, next, previous) and the macOS
 |---|---|
 | MP3 · AAC · M4A · FLAC · WAV · AIFF | M3U · M3U8 · CUE (external & FLAC-embedded) |
 
+Legacy MP3 ID3v1 and ID3v2 tags with Russian Windows-1251 text are detected
+automatically. Unicode titles also display with classic skins that lack the
+required bitmap glyphs.
+
 ## 🚀 Getting started
 
 ### Download

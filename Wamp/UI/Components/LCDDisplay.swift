@@ -47,16 +47,28 @@ class LCDDisplay: NSView {
     }
 
     private func textSize() -> NSSize {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: WinampTheme.trackTitleFont,
-            .foregroundColor: WinampTheme.greenBright
+        if canUseBitmapFont(for: text) {
+            return NSSize(width: TextSpriteRenderer.width(of: text), height: TextSpriteRenderer.glyphHeight)
+        }
+        return text.size(withAttributes: nativeTextAttributes)
+    }
+
+    private func canUseBitmapFont(for text: String) -> Bool {
+        WinampTheme.skinIsActive && WinampTheme.provider.textSheet != nil
+            && text.allSatisfy { TextSpriteRenderer.glyphRect(for: $0) != nil }
+    }
+
+    private var nativeTextAttributes: [NSAttributedString.Key: Any] {
+        let skinned = WinampTheme.skinIsActive
+        return [
+            .font: skinned ? NSFont.monospacedSystemFont(ofSize: 7, weight: .regular) : WinampTheme.trackTitleFont,
+            .foregroundColor: skinned ? WinampTheme.provider.playlistStyle.normal : WinampTheme.greenBright
         ]
-        return text.size(withAttributes: attrs)
     }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        if WinampTheme.skinIsActive {
+        if canUseBitmapFont(for: overlayText ?? text) {
             drawSkinned()
         } else {
             drawBuiltIn()
@@ -84,10 +96,7 @@ class LCDDisplay: NSView {
     }
 
     private func drawBuiltIn() {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: WinampTheme.trackTitleFont,
-            .foregroundColor: WinampTheme.greenBright
-        ]
+        let attrs = nativeTextAttributes
 
         if let overlay = overlayText {
             let size = overlay.size(withAttributes: attrs)
