@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Vertically resize the window to show more playlist rows, using the window
+  edges or the playlist's bottom-right grip. Player and equalizer panels retain
+  their size, and the playlist height is restored on launch.
+
 ## [1.1.1] - 2026-08-19
 
 ### Fixed

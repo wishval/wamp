@@ -34,6 +34,7 @@ struct StateManagerTests {
         state.lastTrackIndex = 7
         state.lastPlaybackPosition = 123.5
         state.skinPath = "/tmp/some-skin"
+        state.playlistHeight = 420
 
         StateManager(directory: dir).saveAppState(state)
         let loaded = StateManager(directory: dir).loadAppState()
@@ -50,6 +51,7 @@ struct StateManagerTests {
         #expect(loaded.lastTrackIndex == 7)
         #expect(loaded.lastPlaybackPosition == 123.5)
         #expect(loaded.skinPath == "/tmp/some-skin")
+        #expect(loaded.playlistHeight == 420)
     }
 
     @Test func saveState_preservesFieldsItDoesNotManage() {
@@ -63,6 +65,7 @@ struct StateManagerTests {
         prior.windowY = 444
         prior.alwaysOnTop = true
         prior.showEqualizer = false
+        prior.playlistHeight = 360
         sm.saveAppState(prior)
 
         // A debounced save (volume change etc.) must not wipe skin/window state.
@@ -74,6 +77,34 @@ struct StateManagerTests {
         #expect(loaded.windowY == 444)
         #expect(loaded.alwaysOnTop == true)
         #expect(loaded.showEqualizer == false)
+        #expect(loaded.playlistHeight == 360)
+    }
+
+    @Test func appState_withoutPlaylistHeight_preservesExistingSettings() throws {
+        var state = AppState()
+        state.volume = 0.42
+        state.windowX = 333
+        let encoded = try JSONEncoder().encode(state)
+        var json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        json.removeValue(forKey: "playlistHeight")
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try JSONDecoder().decode(AppState.self, from: legacyData)
+        #expect(decoded.volume == 0.42)
+        #expect(decoded.windowX == 333)
+        #expect(decoded.playlistHeight == nil)
+    }
+
+    @Test func saveWindowState_persistsPlaylistHeight() {
+        let dir = makeTempDirectory()
+        defer { cleanup(dir) }
+        let sm = StateManager(directory: dir)
+        sm.saveWindowState(
+            x: 300, y: 400, showEQ: true, showPlaylist: false, alwaysOnTop: false,
+            audioEngine: AudioEngine(), playlistManager: PlaylistManager(), playlistHeight: 420
+        )
+        let loaded = sm.loadAppState()
+        #expect(loaded.playlistHeight == 420)
+        #expect(loaded.showPlaylist == false)
     }
 
     @Test func loadAppState_missingFile_returnsDefaults() {

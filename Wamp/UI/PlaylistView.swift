@@ -16,6 +16,7 @@ class PlaylistView: NSView {
     private let listOptsButton = WinampButton(title: "LISTS", style: .action)
     private let infoLabel = NSTextField(labelWithString: "")
     private let skinScroller = PlaylistSkinScroller()
+    private let resizeHandle = PlaylistResizeHandle()
 
     private var cancellables = Set<AnyCancellable>()
     private var skinObserver: AnyCancellable?
@@ -31,6 +32,7 @@ class PlaylistView: NSView {
     var onMiniStop:  (() -> Void)?
     var onMiniNext:  (() -> Void)?
     var onMiniEject: (() -> Void)?
+    var onResize: ((CGFloat) -> Void)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -143,6 +145,9 @@ class PlaylistView: NSView {
                 self?.needsDisplay = true
             }
         applySkinVisibility()
+        resizeHandle.onResize = { [weak self] height in self?.onResize?(height) }
+        resizeHandle.toolTip = "Resize playlist vertically"
+        addSubview(resizeHandle)
     }
 
     /// Hides controls baked into pledit.bmp and controls that don't exist in
@@ -167,6 +172,7 @@ class PlaylistView: NSView {
         // Skinned playlists draw their own scroll thumb in the right-tile area.
         scrollView.hasVerticalScroller = !active
         skinScroller.isHidden = !active
+        resizeHandle.needsDisplay = true
         tableView.reloadData()
         needsLayout = true
     }
@@ -262,6 +268,7 @@ class PlaylistView: NSView {
 
     override func layout() {
         super.layout()
+        resizeHandle.frame = NSRect(x: bounds.width - 12, y: 0, width: 12, height: 12)
         if WinampTheme.skinIsActive {
             layoutSkinned()
             return
@@ -334,13 +341,13 @@ class PlaylistView: NSView {
         miscButton.frame = NSRect(x: pad + (btnW + gap) * 3, y: 2, width: btnW, height: btnH)
 
         let listOptsW: CGFloat = 36
-        listOptsButton.frame = NSRect(x: w - pad - listOptsW, y: 2, width: listOptsW, height: btnH)
+        listOptsButton.frame = NSRect(x: w - pad - listOptsW - 12, y: 2, width: listOptsW, height: btnH)
 
         let infoW: CGFloat = 80
         let infoFont = infoLabel.font ?? NSFont.systemFont(ofSize: 9)
         let infoTextH = infoFont.boundingRectForFont.height
         let infoY = round((bottomBarH - infoTextH) / 2)
-        infoLabel.frame = NSRect(x: w - pad - listOptsW - 4 - infoW, y: infoY, width: infoW, height: infoTextH)
+        infoLabel.frame = NSRect(x: listOptsButton.frame.minX - 4 - infoW, y: infoY, width: infoW, height: infoTextH)
 
         // Search
         searchField.frame = NSRect(x: pad, y: bottomBarH, width: w - 2 * pad, height: searchH)

@@ -62,6 +62,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow.playlistView.onMiniEject = { [weak self] in self?.openFileAction() }
         mainWindow.showEqualizer = appState.showEqualizer
         mainWindow.showPlaylist = appState.showPlaylist
+        if let height = appState.playlistHeight {
+            mainWindow.resizePlaylist(to: CGFloat(height))
+        }
         mainWindow.alwaysOnTop = appState.alwaysOnTop
         mainWindow.equalizerView.autoMode = eqState.autoMode
 
@@ -107,7 +110,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             showPlaylist: mainWindow.showPlaylist,
             alwaysOnTop: mainWindow.alwaysOnTop,
             audioEngine: audioEngine,
-            playlistManager: playlistManager
+            playlistManager: playlistManager,
+            playlistHeight: Double(mainWindow.playlistHeight)
         )
         stateManager.saveEQState(audioEngine: audioEngine, autoMode: mainWindow.equalizerView.autoMode)
         stateManager.savePlaylist(playlistManager: playlistManager)

@@ -64,6 +64,8 @@ A few classics to try live in [`skins/`](skins): *base-2.91*, *Blue Plasma*,
 
 ## 📜 Playlist
 
+- Resize the window vertically using its edges or the playlist's bottom-right
+  grip — only the playlist grows, and its height is restored on launch
 - Drag & drop files, folders, `.m3u`/`.m3u8` and `.cue` straight from Finder
 - Multi-select like a real Mac app — Shift-click ranges, Cmd-click toggles, `⌘A`, Backspace removes
 - Instant search box + **Jump to File** (`⌘J`) with prefix → word-boundary → substring ranking
