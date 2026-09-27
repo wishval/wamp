@@ -10,6 +10,7 @@ struct AppState: Codable {
     var showPlaylist: Bool = true
     var windowX: Double = 100
     var windowY: Double = 100
+    var playlistHeight: Double?
     var alwaysOnTop: Bool = false
     var lastTrackIndex: Int = -1
     var lastPlaybackPosition: Double = 0
@@ -95,13 +96,17 @@ class StateManager {
         write(trackData, to: "playlist.json")
     }
 
-    func saveWindowState(x: Double, y: Double, showEQ: Bool, showPlaylist: Bool, alwaysOnTop: Bool, audioEngine: AudioEngine, playlistManager: PlaylistManager) {
+    func saveWindowState(
+        x: Double, y: Double, showEQ: Bool, showPlaylist: Bool, alwaysOnTop: Bool,
+        audioEngine: AudioEngine, playlistManager: PlaylistManager, playlistHeight: Double? = nil
+    ) {
         var state = loadAppState()
         state.windowX = x
         state.windowY = y
         state.showEqualizer = showEQ
         state.showPlaylist = showPlaylist
         state.alwaysOnTop = alwaysOnTop
+        if let playlistHeight { state.playlistHeight = playlistHeight }
         state.volume = audioEngine.volume
         state.balance = audioEngine.balance
         state.repeatMode = audioEngine.repeatMode.rawValue

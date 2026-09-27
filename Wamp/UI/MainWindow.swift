@@ -2,12 +2,14 @@ import Cocoa
 import Combine
 import QuartzCore
 
-class MainWindow: NSWindow {
+class MainWindow: NSWindow, NSWindowDelegate {
     let mainPlayerView = MainPlayerView()
     let equalizerView = EqualizerView()
     let playlistView = PlaylistView()
     private var cancellables = Set<AnyCancellable>()
     private weak var audioEngine: AudioEngine?
+    private(set) var playlistHeight = WinampTheme.playlistMinHeight
+    private var isRecalculatingSize = false
 
     var showEqualizer: Bool = true {
         didSet {
@@ -42,7 +44,7 @@ class MainWindow: NSWindow {
         let rect = NSRect(x: 100, y: 100, width: scaledWidth, height: scaledHeight)
         super.init(
             contentRect: rect,
-            styleMask: [.borderless, .miniaturizable],
+            styleMask: [.borderless, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -54,6 +56,7 @@ class MainWindow: NSWindow {
         hasShadow = true
         isReleasedWhenClosed = false
         collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        delegate = self
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight))
         container.setBoundsSize(NSSize(width: WinampTheme.windowWidth, height: height))
@@ -63,8 +66,53 @@ class MainWindow: NSWindow {
         container.addSubview(mainPlayerView)
         container.addSubview(equalizerView)
         container.addSubview(playlistView)
+        playlistView.onResize = { [weak self] height in self?.resizePlaylist(to: height) }
 
+        updateResizeLimits()
         layoutSections()
+    }
+
+    private var fixedPanelsHeight: CGFloat {
+        mainPlayerView.desiredHeight + (showEqualizer ? equalizerView.desiredHeight : 0)
+    }
+
+    private func updateResizeLimits() {
+        let width = WinampTheme.windowWidth * WinampTheme.scale
+        let minimumHeight = (fixedPanelsHeight + (showPlaylist ? WinampTheme.playlistMinHeight : 0)) * WinampTheme.scale
+        minSize = NSSize(width: width, height: minimumHeight)
+        maxSize = NSSize(width: width, height: showPlaylist ? CGFloat.greatestFiniteMagnitude : minimumHeight)
+        if showPlaylist {
+            styleMask.insert(.resizable)
+        } else {
+            styleMask.remove(.resizable)
+        }
+    }
+
+    func resizePlaylist(to height: CGFloat) {
+        guard height.isFinite else { return }
+        playlistHeight = max(WinampTheme.playlistMinHeight, height)
+        recalculateSize()
+    }
+
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        NSSize(width: minSize.width, height: max(minSize.height, min(maxSize.height, frameSize.height)))
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard !isRecalculatingSize else { return }
+        if showPlaylist {
+            playlistHeight = max(WinampTheme.playlistMinHeight, frame.height / WinampTheme.scale - fixedPanelsHeight)
+        }
+        updateContentLayout()
+    }
+
+    private func updateContentLayout() {
+        contentView?.frame = NSRect(origin: .zero, size: frame.size)
+        let height = fixedPanelsHeight + (showPlaylist ? playlistHeight : 0)
+        contentView?.setBoundsSize(NSSize(width: WinampTheme.windowWidth, height: height))
+        layoutSections()
+        playlistView.needsLayout = true
+        playlistView.needsDisplay = true
     }
 
     private func layoutSections() {
@@ -92,9 +140,9 @@ class MainWindow: NSWindow {
     }
 
     func recalculateSize() {
-        var height: CGFloat = mainPlayerView.desiredHeight
-        if showEqualizer { height += equalizerView.desiredHeight }
-        if showPlaylist { height += WinampTheme.playlistMinHeight }
+        isRecalculatingSize = true
+        defer { isRecalculatingSize = false }
+        let height = fixedPanelsHeight + (showPlaylist ? playlistHeight : 0)
 
         let s = WinampTheme.scale
         let scaledWidth = WinampTheme.windowWidth * s
@@ -107,11 +155,9 @@ class MainWindow: NSWindow {
             width: scaledWidth,
             height: scaledHeight
         )
-        setFrame(newFrame, display: true, animate: true)
-
-        contentView?.frame = NSRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight)
-        contentView?.setBoundsSize(NSSize(width: WinampTheme.windowWidth, height: height))
-        layoutSections()
+        updateResizeLimits()
+        setFrame(newFrame, display: true)
+        updateContentLayout()
     }
 
     override func keyDown(with event: NSEvent) {
