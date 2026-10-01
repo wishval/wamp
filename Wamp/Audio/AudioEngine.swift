@@ -83,8 +83,7 @@ class AudioEngine: ObservableObject {
     private var pendingChain: (startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition)?
 
     private var effectiveVolume: Float {
-        // Preamp is folded in so volume/mute changes don't silently wipe it.
-        (isMuted ? 0 : volume) * pow(10, preampGain / 20)
+        isMuted ? 0 : volume
     }
 
     // MARK: - Spectrum FFT state (touched only from the tap thread)
@@ -124,7 +123,13 @@ class AudioEngine: ObservableObject {
     private func setupEQBands() {
         for (i, freq) in Self.eqFrequencies.enumerated() {
             let band = eq.bands[i]
-            band.filterType = .parametric
+            // Shelves on the outer bands so the 70 Hz / 16 kHz sliders lift
+            // or cut everything beyond them, not just a bell around the center.
+            switch i {
+            case 0: band.filterType = .lowShelf
+            case Self.eqFrequencies.count - 1: band.filterType = .highShelf
+            default: band.filterType = .parametric
+            }
             band.frequency = freq
             band.bandwidth = 1.0
             band.gain = 0
@@ -323,7 +328,9 @@ class AudioEngine: ObservableObject {
 
     func setPreamp(gain: Float) {
         preampGain = max(-12, min(12, gain))
-        engine.mainMixerNode.outputVolume = effectiveVolume
+        // Preamp lives on the EQ unit (like Winamp, it's bypassed with the EQ).
+        // Folding it into the mixer volume capped any boost at outputVolume 1.0.
+        eq.globalGain = preampGain
     }
 
     func setAllEQBands(_ gains: [Float]) {
