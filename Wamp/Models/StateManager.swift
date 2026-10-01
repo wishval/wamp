@@ -136,7 +136,7 @@ class StateManager {
             let data = try JSONEncoder().encode(value)
             try data.write(to: url, options: .atomic)
         } catch {
-            print("StateManager: failed to write \(filename): \(error)")
+            debugLog("failed to write \(filename): \(error)")
         }
     }
 

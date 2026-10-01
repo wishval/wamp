@@ -89,7 +89,7 @@ class PlaylistManager: ObservableObject {
                         newTracks.append(contentsOf: resolved)
                         continue
                     } catch {
-                        print("🟡 addURLs: sibling .cue failed (\(error)), falling through")
+                        debugLog("🟡 sibling .cue failed (\(error)), falling through")
                     }
                 }
                 // Embedded CUESHEET.
@@ -103,7 +103,7 @@ class PlaylistManager: ObservableObject {
                         newTracks.append(contentsOf: resolved)
                         continue
                     } catch {
-                        print("🟡 addURLs: embedded CUESHEET unusable (\(error)), falling through")
+                        debugLog("🟡 embedded CUESHEET unusable (\(error)), falling through")
                     }
                 }
             }
@@ -281,10 +281,10 @@ class PlaylistManager: ObservableObject {
     // MARK: - Playback Navigation
     func playTrack(at index: Int) {
         guard index >= 0, index < tracks.count else {
-            print("⚡ playTrack: invalid index \(index), tracks.count=\(tracks.count)")
+            debugLog("⚡ invalid index \(index), tracks.count=\(tracks.count)")
             return
         }
-        print("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
+        debugLog("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
         currentIndex = index
         let track = tracks[index]
         if let start = track.cueStart {
@@ -321,7 +321,7 @@ class PlaylistManager: ObservableObject {
     }
 
     func playNext() {
-        print("⚡ playNext: currentIndex=\(currentIndex), tracks.count=\(tracks.count)")
+        debugLog("⚡ currentIndex=\(currentIndex), tracks.count=\(tracks.count)")
         guard !tracks.isEmpty else { return }
 
         let nextIndex = currentIndex + 1
@@ -486,7 +486,7 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Private
     private func advanceToNext(engineChained: Bool = false) {
-        print("⚡ advanceToNext: repeatMode=\(String(describing: audioEngine?.repeatMode)), chained=\(engineChained)")
+        debugLog("⚡ repeatMode=\(String(describing: audioEngine?.repeatMode)), chained=\(engineChained)")
         guard audioEngine?.repeatMode != .track else { return }
         guard !tracks.isEmpty else { return }
 
