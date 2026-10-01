@@ -310,7 +310,7 @@ class PlaylistView: NSView {
         let trackTop = h - topH
         let trackBottom = bottomH
         let trackH = max(0, trackTop - trackBottom)
-        skinScroller.frame = NSRect(x: w - 20 + 6, y: trackBottom, width: 8, height: trackH)
+        skinScroller.frame = NSRect(x: w - 20 + 5, y: trackBottom, width: 8, height: trackH)
     }
 
     private func layoutUnskinned() {
