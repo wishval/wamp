@@ -179,9 +179,14 @@ class PlaylistView: NSView {
 
     private func drawSkinned() {
         let ctx = NSGraphicsContext.current
-        let prev = ctx?.imageInterpolation
+        let prevInterp = ctx?.imageInterpolation
+        let prevAA    = ctx?.shouldAntialias
         ctx?.imageInterpolation = .none
-        defer { if let prev = prev { ctx?.imageInterpolation = prev } }
+        ctx?.shouldAntialias    = false
+        defer {
+            if let v = prevInterp { ctx?.imageInterpolation = v }
+            if let v = prevAA    { ctx?.shouldAntialias    = v }
+        }
 
         let isActive = window?.isKeyWindow ?? true
         let w = bounds.width
@@ -189,27 +194,30 @@ class PlaylistView: NSView {
 
         // Top row: TL corner (25×20) + repeating top tiles + title bar centerpiece + TR corner
         if let tl = WinampTheme.sprite(.playlistTopLeftCorner(active: isActive)) {
-            tl.draw(in: NSRect(x: 0, y: h - 20, width: 25, height: 20))
+            tl.draw(in: backingAlignedRect(NSRect(x: 0, y: h - 20, width: 25, height: 20), options: .alignAllEdgesNearest))
         }
         if let tr = WinampTheme.sprite(.playlistTopRightCorner(active: isActive)) {
-            tr.draw(in: NSRect(x: w - 25, y: h - 20, width: 25, height: 20))
+            tr.draw(in: backingAlignedRect(NSRect(x: w - 25, y: h - 20, width: 25, height: 20), options: .alignAllEdgesNearest))
         }
         // Title centerpiece — fills the middle of the top row
         if let title = WinampTheme.sprite(.playlistTopTitleBar(active: isActive)) {
             let titleW: CGFloat = 100
-            let titleX = (w - titleW) / 2
-            title.draw(in: NSRect(x: titleX, y: h - 20, width: titleW, height: 20))
+            let titleRect = backingAlignedRect(NSRect(x: (w - titleW) / 2, y: h - 20, width: titleW, height: 20), options: .alignAllEdgesNearest)
+            title.draw(in: titleRect)
             // Tile the gap between corners and title with .playlistTopTile
             if let topTile = WinampTheme.sprite(.playlistTopTile(active: isActive)) {
                 var x: CGFloat = 25
-                while x < titleX {
-                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, titleX - x), height: 20))
-                    x += 25
+                while x < titleRect.minX {
+                    let end = min(x + 25, titleRect.minX)
+                    topTile.draw(in: backingAlignedRect(NSRect(x: x, y: h - 20, width: end - x, height: 20), options: .alignAllEdgesNearest))
+                    x = end
                 }
-                x = titleX + titleW
+                // Right gap: title end → TR corner start
+                x = titleRect.maxX
                 while x < w - 25 {
-                    topTile.draw(in: NSRect(x: x, y: h - 20, width: min(25, w - 25 - x), height: 20))
-                    x += 25
+                    let end = min(x + 25, w - 25)
+                    topTile.draw(in: backingAlignedRect(NSRect(x: x, y: h - 20, width: end - x, height: 20), options: .alignAllEdgesNearest))
+                    x = end
                 }
             }
         }
@@ -218,15 +226,17 @@ class PlaylistView: NSView {
         if let lt = WinampTheme.sprite(.playlistLeftTile) {
             var y: CGFloat = 38
             while y < h - 20 {
-                lt.draw(in: NSRect(x: 0, y: y, width: 12, height: min(29, h - 20 - y)))
-                y += 29
+                let end = min(y + 29, h - 20)
+                lt.draw(in: backingAlignedRect(NSRect(x: 0, y: y, width: 12, height: end - y), options: .alignAllEdgesNearest))
+                y = end
             }
         }
         if let rt = WinampTheme.sprite(.playlistRightTile) {
             var y: CGFloat = 38
             while y < h - 20 {
-                rt.draw(in: NSRect(x: w - 20, y: y, width: 20, height: min(29, h - 20 - y)))
-                y += 29
+                let end = min(y + 29, h - 20)
+                rt.draw(in: backingAlignedRect(NSRect(x: w - 20, y: y, width: 20, height: end - y), options: .alignAllEdgesNearest))
+                y = end
             }
         }
 

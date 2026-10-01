@@ -37,8 +37,8 @@ class MainWindow: NSWindow {
     init() {
         let height = mainPlayerView.desiredHeight + equalizerView.desiredHeight + WinampTheme.playlistMinHeight
         let s = WinampTheme.scale
-        let scaledWidth = WinampTheme.windowWidth * s
-        let scaledHeight = height * s
+        let scaledWidth = (WinampTheme.windowWidth * s).rounded()
+        let scaledHeight = (height * s).rounded()
         let rect = NSRect(x: 100, y: 100, width: scaledWidth, height: scaledHeight)
         super.init(
             contentRect: rect,
@@ -97,8 +97,8 @@ class MainWindow: NSWindow {
         if showPlaylist { height += WinampTheme.playlistMinHeight }
 
         let s = WinampTheme.scale
-        let scaledWidth = WinampTheme.windowWidth * s
-        let scaledHeight = height * s
+        let scaledWidth = (WinampTheme.windowWidth * s).rounded()
+        let scaledHeight = (height * s).rounded()
 
         let origin = frame.origin
         let newFrame = NSRect(
@@ -186,6 +186,7 @@ class MainWindow: NSWindow {
             let mask = CAShapeLayer()
             mask.path = region.cgPath
             mask.fillColor = NSColor.black.cgColor
+            mask.contentsScale = backingScaleFactor
             mainPlayerView.layer?.mask = mask
             isOpaque = false
             backgroundColor = .clear
