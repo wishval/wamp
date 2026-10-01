@@ -65,8 +65,13 @@ enum TextSpriteRenderer {
         defer { if let prev = prevInterpolation { ctx?.imageInterpolation = prev } }
 
         var x = origin.x
+        let sheetBounds = CGRect(x: 0, y: 0, width: cg.width, height: cg.height)
         for char in text {
             guard let rect = glyphRect(for: char) else {
+                x += glyphWidth
+                continue
+            }
+            guard sheetBounds.contains(rect) else {
                 x += glyphWidth
                 continue
             }
