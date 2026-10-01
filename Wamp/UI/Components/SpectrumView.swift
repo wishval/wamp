@@ -8,10 +8,15 @@ class SpectrumView: NSView {
             needsDisplay = true
         }
     }
-    var barCount: Int = 26
+    /// Bars that fit the view at 3px + 1px gap (19 skinned, 26 built-in).
+    /// AudioEngine computes exactly this many log-spaced bands.
+    var barCount: Int { Int(bounds.width / (Self.barWidth + Self.gap)) }
 
-    /// Winamp convention: 16 vertical rows, each painted with viscolors[2..17] bottom→top.
+    /// Winamp convention: 16 vertical rows, painted with viscolors[17...2]
+    /// bottom→top (viscolors[2] is the top/red row).
     private static let rowCount = 16
+    private static let barWidth: CGFloat = 3
+    private static let gap: CGFloat = 1
 
     /// Per-bar peak position (0...rowCount), decays 1 row per spectrumData update.
     private var peaks: [CGFloat] = []
@@ -29,11 +34,9 @@ class SpectrumView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func updatePeaks() {
-        if peaks.count != barCount { peaks = Array(repeating: 0, count: barCount) }
+        if peaks.count != spectrumData.count { peaks = Array(repeating: 0, count: spectrumData.count) }
         let rows = CGFloat(Self.rowCount)
-        for i in 0..<barCount {
-            let dataIndex = i < spectrumData.count ? i : 0
-            let amplitude = spectrumData.isEmpty ? Float(0) : min(1, spectrumData[dataIndex] * 10)
+        for (i, amplitude) in spectrumData.enumerated() {
             let barRows = CGFloat(amplitude) * rows
             if barRows >= peaks[i] {
                 peaks[i] = barRows
@@ -46,31 +49,26 @@ class SpectrumView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let barWidth: CGFloat = 3
-        let gap: CGFloat = 1
-        let totalBars = min(barCount, Int(bounds.width / (barWidth + gap)))
+        let totalBars = min(barCount, spectrumData.count)
         let rows = Self.rowCount
         let rowHeight = bounds.height / CGFloat(rows)
 
         let viscolors = WinampTheme.provider.viscolors
         guard viscolors.count >= 24 else { return }
 
-        // Row colors: viscolors[2..17], bottom → top.
         // Peak cap: viscolors[23] per Winamp convention.
         let peakColor = viscolors[23]
 
         for i in 0..<totalBars {
-            let dataIndex = i < spectrumData.count ? i : 0
-            let amplitude = spectrumData.isEmpty ? Float(0) : min(1, spectrumData[dataIndex] * 10)
-            let litRows = Int(CGFloat(amplitude) * CGFloat(rows))
-            let x = CGFloat(i) * (barWidth + gap)
+            let litRows = Int(CGFloat(spectrumData[i]) * CGFloat(rows))
+            let x = CGFloat(i) * (Self.barWidth + Self.gap)
 
             // Discrete 16-step bar
             for r in 0..<litRows {
-                viscolors[2 + r].setFill()
+                viscolors[17 - r].setFill()
                 NSRect(x: x,
                        y: CGFloat(r) * rowHeight,
-                       width: barWidth,
+                       width: Self.barWidth,
                        height: rowHeight).fill()
             }
 
@@ -81,7 +79,7 @@ class SpectrumView: NSView {
                     peakColor.setFill()
                     NSRect(x: x,
                            y: CGFloat(peakRow) * rowHeight,
-                           width: barWidth,
+                           width: Self.barWidth,
                            height: rowHeight).fill()
                 }
             }

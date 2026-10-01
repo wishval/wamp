@@ -348,6 +348,7 @@ class MainPlayerView: NSView {
         } else {
             layoutUnskinned()
         }
+        audioEngine?.spectrumBarCount = spectrumView.barCount
     }
 
     /// Exact Winamp 2.x pixel coordinates, ported from Webamp's main-window.css.
