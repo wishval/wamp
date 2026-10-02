@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+Many of these changes come from Simone Karin Lehmann's fork
+([lisanet/McAmp](https://github.com/lisanet/McAmp)) — thank you!
+
+### Added
+
+- **Autoplay for opened files** ([#7](https://github.com/wishval/wamp/issues/7)).
+  Double-clicking a track in Finder, dropping it on the Dock icon or using
+  Open File now starts playing it instead of only adding it to the
+  playlist. Files dropped into an empty playlist start too; drops into a
+  non-empty list still just enqueue. Toggle with Controls ▸ Autoplay
+  Opened Files (on by default).
+- **`.pls` playlists open from Finder**, with `Title`/`Length` entries read.
+- **File ▸ New / Load / Save Playlist**, **Wamp ▸ Hide Wamp (⌘H)**, and
+  Stop / Repeat / Shuffle / Hide in the menu-bar ♪ menu.
+
+### Fixed
+
+- **Play no longer resumes a track that's gone from the playlist** (#7).
+  After loading a new list, Play (and the media keys) could start the
+  previous list's track. Play now starts the selected row, else the
+  current track, else the first one.
+- **Spectrum analyzer.** Bars follow a log frequency scale instead of
+  pinning at max in the bass, and skins' viscolors are no longer drawn
+  upside down. FFT buffers are reused, cutting CPU use.
+- **Scrolling title** is pre-rendered and wraps seamlessly, with a short
+  pause before it starts — much lower CPU with skins.
+- **EQ preamp boost works.** Positive preamp had no effect at full volume;
+  the 70 Hz and 16 kHz bands are now shelves.
+- **Skin rendering:** transport button widths, Eject position, all 28 EQ
+  slider backgrounds, playlist scrollbar thumb (position and refresh on skin
+  change), seams in the playlist frame, accented letters (é, ñ, ü…) in
+  skinned text, and no more CoreGraphics warnings on truncated skins.
+- **Settings survive upgrades:** a `state.json` from an older version no
+  longer resets every setting when a new option is added.
+
 ## [1.1.1] - 2026-08-19
 
 ### Fixed
