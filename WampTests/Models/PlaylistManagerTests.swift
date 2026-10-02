@@ -246,6 +246,51 @@ struct PlaylistManagerTests {
         #expect(engine.playState == .stopped)
     }
 
+    // MARK: - Autoplay on open
+
+    @Test func openResponse_finderOpenWithAutoPlay_playsEvenIfListWasNotEmpty() {
+        // Issue #7: double-clicking a file in Finder should start it.
+        #expect(PlaylistManager.openResponse(autoPlay: true, interrupt: true,
+                                             firstNewIndex: 5, hasCurrentTrack: true) == .play)
+    }
+
+    @Test func openResponse_dropIntoNonEmptyList_enqueuesWithoutInterrupting() {
+        #expect(PlaylistManager.openResponse(autoPlay: true, interrupt: false,
+                                             firstNewIndex: 3, hasCurrentTrack: true) == .none)
+    }
+
+    @Test func openResponse_dropIntoEmptyList_plays() {
+        #expect(PlaylistManager.openResponse(autoPlay: true, interrupt: false,
+                                             firstNewIndex: 0, hasCurrentTrack: false) == .play)
+    }
+
+    @Test func openResponse_autoPlayOff_onlySelectsWhenNothingIsCurrent() {
+        #expect(PlaylistManager.openResponse(autoPlay: false, interrupt: true,
+                                             firstNewIndex: 0, hasCurrentTrack: false) == .makeCurrent)
+        #expect(PlaylistManager.openResponse(autoPlay: false, interrupt: true,
+                                             firstNewIndex: 2, hasCurrentTrack: true) == .none)
+    }
+
+    @Test func didOpenTracks_autoPlay_startsFirstOpenedTrack() {
+        let (pm, _) = makeStoppedManager(["a", "b", "c", "d"], current: 0)
+        pm.autoPlay = true
+        pm.didOpenTracks(startingAt: 2, interrupt: true)
+        #expect(pm.currentIndex == 2)
+    }
+
+    @Test func didOpenTracks_autoPlayOff_makesFirstTrackCurrent() {
+        let (pm, _) = makeStoppedManager(["a", "b"], current: -1)
+        pm.autoPlay = false
+        pm.didOpenTracks(startingAt: 0, interrupt: true)
+        #expect(pm.currentIndex == 0)
+    }
+
+    @Test func didOpenTracks_nothingAdded_isNoOp() {
+        let (pm, _) = makeStoppedManager(["a"], current: 0)
+        pm.didOpenTracks(startingAt: 1, interrupt: true)
+        #expect(pm.currentIndex == 0)
+    }
+
     @Test func addURLs_mixedBatchPreservesInputOrder() async throws {
         // A FLAC with a sibling cue inside a batch must expand *in place*,
         // not jump ahead of files listed before it.

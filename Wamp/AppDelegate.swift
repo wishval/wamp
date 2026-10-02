@@ -36,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         audioEngine.balance = appState.balance
         audioEngine.repeatMode = RepeatMode(rawValue: appState.repeatMode) ?? .off
         audioEngine.eqEnabled = appState.eqEnabled
+        playlistManager.autoPlay = appState.autoPlay
 
 
         let eqState = stateManager.loadEQState()
@@ -114,7 +115,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        Task { await handleOpenURLs(urls) }
+        Task { await handleOpenURLs(urls, interrupt: true) }
     }
 
     /// Route incoming URLs. `.cue` files expand into virtual tracks via
@@ -123,8 +124,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// files are missing. Folders are recursively scanned. Everything else
     /// falls through to `addURLs`. This method is the single routing entry
     /// point — both `application(_:open:)` and drag-drop go through here.
+    /// `interrupt` marks explicit opens (Finder/Dock, Open File) that autoplay
+    /// the new tracks; drops only autoplay into an empty playlist.
     @MainActor
-    func handleOpenURLs(_ urls: [URL]) async {
+    func handleOpenURLs(_ urls: [URL], interrupt: Bool = false) async {
+        let firstNewIndex = playlistManager.tracks.count
+        defer { playlistManager.didOpenTracks(startingAt: firstNewIndex, interrupt: interrupt) }
         var passthrough: [URL] = []
         var totalMissing = 0
         for url in urls {
@@ -256,6 +261,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         prev.keyEquivalentModifierMask = [.command]
         let repeat_ = item("Repeat", #selector(toggleRepeat), "r", symbol: "repeat")
         let shuffle = item("Shuffle", #selector(toggleShuffle), "s", symbol: "shuffle")
+        let autoPlay = item("Autoplay Opened Files", #selector(toggleAutoPlay), "", symbol: "play.circle")
         let jump = item("Jump to File…", #selector(presentJumpToFileWindow), "j", symbol: "magnifyingglass")
         jump.keyEquivalentModifierMask = [.command]
 
@@ -283,7 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             file: [openFile, openFolder, .separator(), importMusic],
             edit: [selectAll],
             controls: [playPause, stop, next, prev, .separator(),
-                       repeat_, shuffle, .separator(), jump],
+                       repeat_, shuffle, autoPlay, .separator(), jump],
             view: [showPlayer, showEQ, showPL, .separator(),
                    alwaysOnTop, doubleSize, .separator(),
                    loadSkin, unloadSkin],
@@ -376,7 +382,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.allowsMultipleSelection = true
         panel.begin { [weak self] response in
             guard response == .OK else { return }
-            Task { await self?.handleOpenURLs(panel.urls) }
+            Task { await self?.handleOpenURLs(panel.urls, interrupt: true) }
         }
     }
 
@@ -474,6 +480,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         var state = stateManager.loadAppState()
         state.alwaysOnTop = mainWindow.alwaysOnTop
+        stateManager.saveAppState(state)
+    }
+
+    @objc private func toggleAutoPlay() {
+        playlistManager.autoPlay.toggle()
+        var state = stateManager.loadAppState()
+        state.autoPlay = playlistManager.autoPlay
         stateManager.saveAppState(state)
     }
 
@@ -604,6 +617,8 @@ extension AppDelegate: NSMenuItemValidation {
             menuItem.state = (mainWindow?.alwaysOnTop ?? false) ? .on : .off
         case #selector(toggleDoubleSize):
             menuItem.state = (WinampTheme.scale > WinampTheme.baseScale + 0.01) ? .on : .off
+        case #selector(toggleAutoPlay):
+            menuItem.state = (playlistManager?.autoPlay ?? false) ? .on : .off
         case #selector(importFromMusicLibraryAction):
             return importMusicController == nil
         default:

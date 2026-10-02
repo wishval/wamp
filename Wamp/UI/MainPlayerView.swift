@@ -625,18 +625,11 @@ class MainPlayerView: NSView {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
-        panel.begin { [weak self] response in
+        panel.begin { response in
             guard response == .OK else { return }
+            // Same routing (folders, autoplay) as File ▸ Open and Finder opens.
             Task { @MainActor in
-                for url in panel.urls {
-                    var isDir: ObjCBool = false
-                    FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-                    if isDir.boolValue {
-                        await self?.playlistManager?.addFolder(url)
-                    } else {
-                        await self?.playlistManager?.addURLs([url])
-                    }
-                }
+                await (NSApp.delegate as? AppDelegate)?.handleOpenURLs(panel.urls, interrupt: true)
             }
         }
     }

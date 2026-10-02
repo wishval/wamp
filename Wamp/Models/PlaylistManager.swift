@@ -9,6 +9,10 @@ class PlaylistManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private weak var audioEngine: AudioEngine?
 
+    /// Start playing files as they're opened (Finder/Dock, Open File, or a
+    /// drop into an empty playlist). Persisted in AppState.
+    var autoPlay = true
+
     var currentTrack: Track? {
         guard currentIndex >= 0, currentIndex < tracks.count else { return nil }
         return tracks[currentIndex]
@@ -277,6 +281,30 @@ class PlaylistManager: ObservableObject {
         }
         tracks.removeAll()
         currentIndex = -1
+    }
+
+    // MARK: - Opening files
+
+    enum OpenResponse: Equatable { case play, makeCurrent, none }
+
+    /// What to do after an open batch appended tracks at `firstNewIndex...`.
+    /// `interrupt` is true for explicit opens (Finder/Dock, Open File), which
+    /// start the new files like Winamp does; drops only start playback when
+    /// they land in an empty playlist. Without autoplay the first new track
+    /// just becomes current if nothing was, so Play starts there.
+    static func openResponse(autoPlay: Bool, interrupt: Bool, firstNewIndex: Int, hasCurrentTrack: Bool) -> OpenResponse {
+        if autoPlay && (interrupt || firstNewIndex == 0) { return .play }
+        return hasCurrentTrack ? .none : .makeCurrent
+    }
+
+    func didOpenTracks(startingAt firstNewIndex: Int, interrupt: Bool) {
+        guard tracks.indices.contains(firstNewIndex) else { return }
+        switch Self.openResponse(autoPlay: autoPlay, interrupt: interrupt,
+                                 firstNewIndex: firstNewIndex, hasCurrentTrack: currentTrack != nil) {
+        case .play: playTrack(at: firstNewIndex)
+        case .makeCurrent: currentIndex = firstNewIndex
+        case .none: break
+        }
     }
 
     // MARK: - Playback Navigation
