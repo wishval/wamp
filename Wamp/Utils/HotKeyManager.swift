@@ -15,8 +15,10 @@ class HotKeyManager {
     private func setupRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
 
+        // Route through PlaylistManager so a stopped engine starts the current
+        // track instead of resuming a file that may be gone from the list.
         center.playCommand.addTarget { [weak self] _ in
-            self?.audioEngine?.play()
+            self?.playlistManager?.play(preferring: nil)
             return .success
         }
 
@@ -26,7 +28,11 @@ class HotKeyManager {
         }
 
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.audioEngine?.togglePlayPause()
+            if self?.audioEngine?.isPlaying == true {
+                self?.audioEngine?.pause()
+            } else {
+                self?.playlistManager?.play(preferring: nil)
+            }
             return .success
         }
 

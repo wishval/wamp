@@ -271,14 +271,29 @@ class PlaylistManager: ObservableObject {
     func clearPlaylist() {
         // An orphaned playing track would otherwise finish into a dead state
         // (no reschedule), leaving play() a silent no-op afterwards.
-        if audioEngine?.isPlaying == true {
-            audioEngine?.stop()
+        // A paused one could otherwise be resumed by Play after the list is gone.
+        if let engine = audioEngine, engine.playState != .stopped {
+            engine.stop()
         }
         tracks.removeAll()
         currentIndex = -1
     }
 
     // MARK: - Playback Navigation
+    /// Play-button semantics shared by the transport, mini player, menu and
+    /// media keys. Paused → resume. Otherwise start `preferredIndex` (the
+    /// selected row), falling back to the current track, then the first one —
+    /// never the engine's leftover file, which may no longer be in the list.
+    func play(preferring preferredIndex: Int?) {
+        if audioEngine?.playState == .paused {
+            audioEngine?.play()
+            return
+        }
+        let candidates = [preferredIndex, currentIndex, 0].compactMap { $0 }
+        guard let index = candidates.first(where: { tracks.indices.contains($0) }) else { return }
+        playTrack(at: index)
+    }
+
     func playTrack(at index: Int) {
         guard index >= 0, index < tracks.count else {
             debugLog("⚡ invalid index \(index), tracks.count=\(tracks.count)")

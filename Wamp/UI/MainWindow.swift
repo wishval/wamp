@@ -149,16 +149,10 @@ class MainWindow: NSWindow {
         // main TransportBar — same play/pause/stop/prev/next semantics
         // as MainPlayerView, including "loadAndPlay if stopped".
         playlistView.onMiniPrev  = { [weak playlistManager] in playlistManager?.playPrevious() }
-        playlistView.onMiniPlay  = { [weak audioEngine, weak playlistManager] in
-            guard let engine = audioEngine else { return }
-            if engine.playState == .stopped, let pm = playlistManager, pm.currentTrack != nil {
-                // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-                // would play the whole album file) and re-arms gapless chaining.
-                pm.playTrack(at: pm.currentIndex)
-            } else {
-                engine.play()
-            }
+        playlistView.onMiniPlay  = { [weak playlistManager, weak playlistView = playlistView] in
+            playlistManager?.play(preferring: playlistView?.selectedTrackIndex)
         }
+        mainPlayerView.selectedTrackIndex = { [weak playlistView = playlistView] in playlistView?.selectedTrackIndex }
         playlistView.onMiniPause = { [weak audioEngine] in audioEngine?.pause() }
         playlistView.onMiniStop  = { [weak audioEngine] in audioEngine?.stop() }
         playlistView.onMiniNext  = { [weak playlistManager] in playlistManager?.playNext() }

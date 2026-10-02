@@ -189,6 +189,63 @@ struct PlaylistManagerTests {
         #expect(pm.currentIndex == -1)
     }
 
+    @Test func clearPlaylist_whilePaused_stopsEngine() {
+        // A paused, now-orphaned file must not be resumable by Play.
+        let engine = AudioEngine()
+        engine.playState = .paused
+        let pm = PlaylistManager()
+        pm.setAudioEngine(engine)
+        pm.addTracks([makeTrack("a")])
+        pm.currentIndex = 0
+        pm.clearPlaylist()
+        #expect(engine.playState == .stopped)
+    }
+
+    // MARK: - Play button
+
+    private func makeStoppedManager(_ names: [String], current: Int) -> (PlaylistManager, AudioEngine) {
+        let engine = AudioEngine()
+        let pm = PlaylistManager()
+        pm.setAudioEngine(engine)
+        pm.addTracks(names.map { makeTrack($0) })
+        pm.currentIndex = current
+        return (pm, engine)
+    }
+
+    @Test func play_whenStopped_startsPreferredRow() {
+        let (pm, _) = makeStoppedManager(["a", "b", "c"], current: 0)
+        pm.play(preferring: 2)
+        #expect(pm.currentIndex == 2)
+    }
+
+    @Test func play_whenStoppedWithoutSelection_startsCurrentTrack() {
+        let (pm, _) = makeStoppedManager(["a", "b", "c"], current: 1)
+        pm.play(preferring: nil)
+        #expect(pm.currentIndex == 1)
+    }
+
+    @Test func play_whenStoppedWithNoCurrentTrack_startsFirstTrack() {
+        // Issue #7: after loading a new list there is no current track, and
+        // Play used to resume the engine's leftover file from the old list.
+        let (pm, _) = makeStoppedManager(["a", "b"], current: -1)
+        pm.play(preferring: nil)
+        #expect(pm.currentIndex == 0)
+    }
+
+    @Test func play_whenPaused_resumesInsteadOfJumpingToSelection() {
+        let (pm, engine) = makeStoppedManager(["a", "b", "c"], current: 0)
+        engine.playState = .paused
+        pm.play(preferring: 2)
+        #expect(pm.currentIndex == 0)
+    }
+
+    @Test func play_emptyPlaylist_doesNothing() {
+        let (pm, engine) = makeStoppedManager([], current: -1)
+        pm.play(preferring: nil)
+        #expect(pm.currentIndex == -1)
+        #expect(engine.playState == .stopped)
+    }
+
     @Test func addURLs_mixedBatchPreservesInputOrder() async throws {
         // A FLAC with a sibling cue inside a batch must expand *in place*,
         // not jump ahead of files listed before it.

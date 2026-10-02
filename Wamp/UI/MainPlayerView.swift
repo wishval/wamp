@@ -7,6 +7,8 @@ class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
+    /// Model index of the playlist's selected row; Play starts there when stopped.
+    var selectedTrackIndex: (() -> Int?)?
 
     var isEQActive: Bool {
         get { eqButton.isActive }
@@ -561,15 +563,7 @@ class MainPlayerView: NSView {
         // Transport
         transportBar.onPrevious = { [weak playlistManager] in playlistManager?.playPrevious() }
         transportBar.onPlay = { [weak self] in
-            guard let self, let engine = self.audioEngine else { return }
-            if engine.playState == .stopped,
-               let pm = self.playlistManager, pm.currentTrack != nil {
-                // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-                // would play the whole album file) and re-arms gapless chaining.
-                pm.playTrack(at: pm.currentIndex)
-            } else {
-                engine.play()
-            }
+            self?.playlistManager?.play(preferring: self?.selectedTrackIndex?())
         }
         transportBar.onPause = { [weak audioEngine] in audioEngine?.pause() }
         transportBar.onStop = { [weak audioEngine] in audioEngine?.stop() }

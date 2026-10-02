@@ -429,6 +429,14 @@ class PlaylistView: NSView {
         }
     }
 
+    /// Model index of the topmost selected row (rows are search-filtered),
+    /// or nil when nothing is selected. Play starts here when stopped.
+    var selectedTrackIndex: Int? {
+        let tracks = displayedTracks
+        guard let row = tableView.selectedRowIndexes.first, row < tracks.count else { return nil }
+        return playlistManager?.tracks.firstIndex(where: { $0.id == tracks[row].id })
+    }
+
     private func removeSelected() {
         let tracks = displayedTracks
         let realIndices = tableView.selectedRowIndexes.compactMap { row -> Int? in

@@ -442,13 +442,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePlayPause() {
-        if !audioEngine.isPlaying && audioEngine.currentTime == 0 && audioEngine.duration == 0,
-           playlistManager.currentTrack != nil {
-            // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-            // would play the whole album file) and re-arms gapless chaining.
-            playlistManager.playTrack(at: playlistManager.currentIndex)
+        if audioEngine.isPlaying {
+            audioEngine.pause()
         } else {
-            audioEngine.togglePlayPause()
+            playlistManager.play(preferring: mainWindow?.playlistView.selectedTrackIndex)
         }
     }
     @objc private func stopAction() { audioEngine.stop() }
