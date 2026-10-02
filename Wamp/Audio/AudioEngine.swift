@@ -277,6 +277,9 @@ class AudioEngine: ObservableObject {
     }
 
     func pause() {
+        // Pausing a stopped engine would arm Play's "resume" path with
+        // whatever file was loaded last — possibly one no longer in the list.
+        guard playState == .playing else { return }
         playerNode.pause()
         isPlaying = false
         playState = .paused

@@ -246,6 +246,16 @@ struct PlaylistManagerTests {
         #expect(engine.playState == .stopped)
     }
 
+    @Test func pauseWhileStopped_staysStopped() {
+        // Found live: New Playlist → Pause → Play resumed the old list's
+        // track, because pause() flipped a stopped engine to .paused and
+        // Play then took the "resume" path with the leftover file.
+        let (pm, engine) = makeStoppedManager([], current: -1)
+        engine.pause()
+        pm.play(preferring: nil)
+        #expect(engine.playState == .stopped)
+    }
+
     // MARK: - Autoplay on open
 
     @Test func openResponse_finderOpenWithAutoPlay_playsEvenIfListWasNotEmpty() {
