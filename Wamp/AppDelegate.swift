@@ -119,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Route incoming URLs. `.cue` files expand into virtual tracks via
-    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8` playlists are appended
+    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8`/`.pls` playlists are appended
     /// via `PlaylistManager.addM3U`, with a summary alert if any referenced
     /// files are missing. Folders are recursively scanned. Everything else
     /// falls through to `addURLs`. This method is the single routing entry
@@ -147,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 } catch {
                     presentError(error, context: "Opening \(url.lastPathComponent)")
                 }
-            case "m3u", "m3u8":
+            case "m3u", "m3u8", "pls":
                 do {
                     let summary = try await playlistManager.addM3U(url: url)
                     totalMissing += summary.missing

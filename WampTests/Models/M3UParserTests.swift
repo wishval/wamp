@@ -224,4 +224,39 @@ struct M3UParserTests {
         #expect(entries[0].url.path == tmp.appendingPathComponent("sub/track.mp3").path)
         #expect(entries[0].duration == 120)
     }
+
+    // MARK: - PLS
+
+    @Test func pls_readsFileTitleLengthInEntryOrder() throws {
+        let text = """
+        [playlist]
+        File2=relative/two.mp3
+        Title2=Two
+        Length2=185
+        File1=/abs/one.flac
+        Title1=One
+        Length1=230
+        NumberOfEntries=2
+        Version=2
+        """
+        let entries = try M3UParser.parse(data: Data(text.utf8), baseURL: base, fileExtension: "pls")
+        #expect(entries.map(\.url.path) == ["/abs/one.flac", "/music/relative/two.mp3"])
+        #expect(entries.map(\.title) == ["One", "Two"])
+        #expect(entries.map(\.duration) == [230, 185])
+    }
+
+    @Test func pls_keysAreCaseInsensitiveAndMissingMetadataIsNil() throws {
+        let text = "[Playlist]\r\nfile1=/abs/a.mp3\r\nLENGTH1=-1\r\n"
+        let entries = try M3UParser.parse(data: Data(text.utf8), baseURL: base, fileExtension: "pls")
+        #expect(entries.count == 1)
+        #expect(entries[0].url.path == "/abs/a.mp3")
+        #expect(entries[0].title == nil)
+        #expect(entries[0].duration == nil)
+    }
+
+    @Test func pls_skipsStreamURLs() throws {
+        let text = "[playlist]\nFile1=http://radio.example/stream\nFile2=/abs/b.mp3\n"
+        let entries = try M3UParser.parse(data: Data(text.utf8), baseURL: base, fileExtension: "pls")
+        #expect(entries.map(\.url.path) == ["/abs/b.mp3"])
+    }
 }

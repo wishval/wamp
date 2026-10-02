@@ -24,7 +24,9 @@ enum M3UParser {
         fileExtension: String = "m3u8"
     ) throws -> [M3UEntry] {
         let text = try decode(data, fileExtension: fileExtension)
-        return parseText(text, baseURL: baseURL)
+        return fileExtension.lowercased() == "pls"
+            ? parsePLS(text, baseURL: baseURL)
+            : parseText(text, baseURL: baseURL)
     }
 
     // MARK: - Decoding
@@ -82,6 +84,39 @@ enum M3UParser {
             pendingTitle = nil
         }
         return entries
+    }
+
+    /// PLS is INI-style: `FileN=`, `TitleN=`, `LengthN=` keyed by entry
+    /// number (any order, case-insensitive). Entries come out sorted by N;
+    /// `Length` of -1 (unknown / stream) maps to nil.
+    private static func parsePLS(_ text: String, baseURL: URL) -> [M3UEntry] {
+        var files: [Int: String] = [:]
+        var titles: [Int: String] = [:]
+        var lengths: [Int: TimeInterval] = [:]
+
+        for rawLine in splitLines(text) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            let key = line[..<eq].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            guard !value.isEmpty else { continue }
+
+            func entryNumber(_ prefix: String) -> Int? {
+                key.hasPrefix(prefix) ? Int(key.dropFirst(prefix.count)) : nil
+            }
+            if let n = entryNumber("file") {
+                files[n] = value
+            } else if let n = entryNumber("title") {
+                titles[n] = value
+            } else if let n = entryNumber("length"), let d = Double(value), d >= 0 {
+                lengths[n] = d
+            }
+        }
+
+        return files.keys.sorted().compactMap { n in
+            guard let url = resolveURL(files[n]!, baseURL: baseURL) else { return nil }
+            return M3UEntry(url: url, duration: lengths[n], title: titles[n])
+        }
     }
 
     private static func parseExtInf(_ line: String) -> (TimeInterval?, String?) {
