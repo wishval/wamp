@@ -93,15 +93,15 @@ enum SpriteCoordinates {
 
         // MARK: cbuttons
         case .previous(let pressed):
-            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:   0, y: pressed ? 18 : 0, width: 23, height: 18))
+            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:   0, y: pressed ? 18 : 0, width: 22, height: 18))
         case .play(let pressed):
-            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  23, y: pressed ? 18 : 0, width: 23, height: 18))
+            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  23, y: pressed ? 18 : 0, width: 22, height: 18))
         case .pause(let pressed):
-            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  46, y: pressed ? 18 : 0, width: 23, height: 18))
+            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  46, y: pressed ? 18 : 0, width: 22, height: 18))
         case .stop(let pressed):
-            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  69, y: pressed ? 18 : 0, width: 23, height: 18))
+            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  69, y: pressed ? 18 : 0, width: 22, height: 18))
         case .next(let pressed):
-            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  92, y: pressed ? 18 : 0, width: pressed ? 22 : 23, height: 18))
+            return SpriteInfo(sheet: "cbuttons", rect: CGRect(x:  92, y: pressed ? 18 : 0, width: 22, height: 18))
         case .eject(let pressed):
             return SpriteInfo(sheet: "cbuttons", rect: CGRect(x: 114, y: pressed ? 16 : 0, width: 22, height: 16))
 
@@ -170,10 +170,11 @@ enum SpriteCoordinates {
         case .eqBackground:
             return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 0, y: 0, width: 275, height: 116))
         case .eqSliderBackground(let position):
-            // 14 pre-rendered slider tracks showing the authentic green→red
-            // gradient. Starts at x=13, packed every 15px. Thumb is drawn on top.
-            let p = max(0, min(13, position))
-            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 13 + p * 15, y: 164, width: 14, height: 63))
+            // 28 pre-rendered slider tracks showing the authentic green→red
+            // gradient, in two rows of 14 (row 0 at y=164, row 1 at y=229).
+            // Starts at x=13, packed every 15px. Thumb is drawn on top.
+            let p = max(0, min(27, position))
+            return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 13 + (p % 14) * 15, y: 164 + (p / 14) * 65, width: 14, height: 63))
         case .eqSliderThumb(let pressed):
             // Single thumb sprite stacked at x=0 (unpressed at y=164, pressed at y=176).
             return SpriteInfo(sheet: "eqmain", rect: CGRect(x: 0, y: pressed ? 176 : 164, width: 11, height: 11))

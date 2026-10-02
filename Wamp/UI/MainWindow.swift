@@ -37,8 +37,8 @@ class MainWindow: NSWindow {
     init() {
         let height = mainPlayerView.desiredHeight + equalizerView.desiredHeight + WinampTheme.playlistMinHeight
         let s = WinampTheme.scale
-        let scaledWidth = WinampTheme.windowWidth * s
-        let scaledHeight = height * s
+        let scaledWidth = (WinampTheme.windowWidth * s).rounded()
+        let scaledHeight = (height * s).rounded()
         let rect = NSRect(x: 100, y: 100, width: scaledWidth, height: scaledHeight)
         super.init(
             contentRect: rect,
@@ -97,8 +97,8 @@ class MainWindow: NSWindow {
         if showPlaylist { height += WinampTheme.playlistMinHeight }
 
         let s = WinampTheme.scale
-        let scaledWidth = WinampTheme.windowWidth * s
-        let scaledHeight = height * s
+        let scaledWidth = (WinampTheme.windowWidth * s).rounded()
+        let scaledHeight = (height * s).rounded()
 
         let origin = frame.origin
         let newFrame = NSRect(
@@ -149,16 +149,10 @@ class MainWindow: NSWindow {
         // main TransportBar — same play/pause/stop/prev/next semantics
         // as MainPlayerView, including "loadAndPlay if stopped".
         playlistView.onMiniPrev  = { [weak playlistManager] in playlistManager?.playPrevious() }
-        playlistView.onMiniPlay  = { [weak audioEngine, weak playlistManager] in
-            guard let engine = audioEngine else { return }
-            if engine.playState == .stopped, let pm = playlistManager, pm.currentTrack != nil {
-                // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-                // would play the whole album file) and re-arms gapless chaining.
-                pm.playTrack(at: pm.currentIndex)
-            } else {
-                engine.play()
-            }
+        playlistView.onMiniPlay  = { [weak playlistManager, weak playlistView = playlistView] in
+            playlistManager?.play(preferring: playlistView?.selectedTrackIndex)
         }
+        mainPlayerView.selectedTrackIndex = { [weak playlistView = playlistView] in playlistView?.selectedTrackIndex }
         playlistView.onMiniPause = { [weak audioEngine] in audioEngine?.pause() }
         playlistView.onMiniStop  = { [weak audioEngine] in audioEngine?.stop() }
         playlistView.onMiniNext  = { [weak playlistManager] in playlistManager?.playNext() }
@@ -186,6 +180,7 @@ class MainWindow: NSWindow {
             let mask = CAShapeLayer()
             mask.path = region.cgPath
             mask.fillColor = NSColor.black.cgColor
+            mask.contentsScale = backingScaleFactor
             mainPlayerView.layer?.mask = mask
             isOpaque = false
             backgroundColor = .clear

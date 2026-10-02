@@ -36,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         audioEngine.balance = appState.balance
         audioEngine.repeatMode = RepeatMode(rawValue: appState.repeatMode) ?? .off
         audioEngine.eqEnabled = appState.eqEnabled
+        playlistManager.autoPlay = appState.autoPlay
 
 
         let eqState = stateManager.loadEQState()
@@ -114,17 +115,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        Task { await handleOpenURLs(urls) }
+        Task { await handleOpenURLs(urls, interrupt: true) }
     }
 
     /// Route incoming URLs. `.cue` files expand into virtual tracks via
-    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8` playlists are appended
+    /// `PlaylistManager.addCueSheet`. `.m3u`/`.m3u8`/`.pls` playlists are appended
     /// via `PlaylistManager.addM3U`, with a summary alert if any referenced
     /// files are missing. Folders are recursively scanned. Everything else
     /// falls through to `addURLs`. This method is the single routing entry
     /// point — both `application(_:open:)` and drag-drop go through here.
+    /// `interrupt` marks explicit opens (Finder/Dock, Open File) that autoplay
+    /// the new tracks; drops only autoplay into an empty playlist.
     @MainActor
-    func handleOpenURLs(_ urls: [URL]) async {
+    func handleOpenURLs(_ urls: [URL], interrupt: Bool = false) async {
+        let firstNewIndex = playlistManager.tracks.count
+        defer { playlistManager.didOpenTracks(startingAt: firstNewIndex, interrupt: interrupt) }
         var passthrough: [URL] = []
         var totalMissing = 0
         for url in urls {
@@ -142,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 } catch {
                     presentError(error, context: "Opening \(url.lastPathComponent)")
                 }
-            case "m3u", "m3u8":
+            case "m3u", "m3u8", "pls":
                 do {
                     let summary = try await playlistManager.addM3U(url: url)
                     totalMissing += summary.missing
@@ -219,12 +224,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // App
         let about = item("About Wamp", #selector(showAboutPanel), "", symbol: "info.circle")
+        let hide = item("Hide Wamp", #selector(NSApplication.hide(_:)), "h", symbol: "eye.slash")
         let quit = item("Quit Wamp", #selector(NSApplication.terminate(_:)), "q", symbol: "power")
 
         // File
         let openFile = item("Open File…", #selector(openFileAction), "o", symbol: "doc")
         let openFolder = item("Open Folder…", #selector(openFolderAction), "O", symbol: "folder")
         openFolder.keyEquivalentModifierMask = [.command, .shift]
+        let newList = item("New Playlist", #selector(newListAction), "n", symbol: "doc.badge.plus")
+        let loadList = item("Load Playlist…", #selector(loadListAction), "l", symbol: "tray.and.arrow.up")
+        let saveList = item("Save Playlist…", #selector(saveListAction), "", symbol: "tray.and.arrow.down")
         let importMusic = item("Import from Music Library…",
                                #selector(importFromMusicLibraryAction),
                                "",
@@ -256,6 +265,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         prev.keyEquivalentModifierMask = [.command]
         let repeat_ = item("Repeat", #selector(toggleRepeat), "r", symbol: "repeat")
         let shuffle = item("Shuffle", #selector(toggleShuffle), "s", symbol: "shuffle")
+        let autoPlay = item("Autoplay Opened Files", #selector(toggleAutoPlay), "", symbol: "play.circle")
         let jump = item("Jump to File…", #selector(presentJumpToFileWindow), "j", symbol: "magnifyingglass")
         jump.keyEquivalentModifierMask = [.command]
 
@@ -279,11 +289,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let unloadSkin = item("Unload Skin", #selector(unloadSkinAction), "", symbol: "paintpalette.fill")
 
         return AppMenuItems(
-            app: [about, .separator(), quit],
-            file: [openFile, openFolder, .separator(), importMusic],
+            app: [about, .separator(), hide, quit],
+            file: [openFile, openFolder, .separator(),
+                   newList, loadList, saveList, .separator(), importMusic],
             edit: [selectAll],
             controls: [playPause, stop, next, prev, .separator(),
-                       repeat_, shuffle, .separator(), jump],
+                       repeat_, shuffle, autoPlay, .separator(), jump],
             view: [showPlayer, showEQ, showPL, .separator(),
                    alwaysOnTop, doubleSize, .separator(),
                    loadSkin, unloadSkin],
@@ -376,7 +387,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.allowsMultipleSelection = true
         panel.begin { [weak self] response in
             guard response == .OK else { return }
-            Task { await self?.handleOpenURLs(panel.urls) }
+            Task { await self?.handleOpenURLs(panel.urls, interrupt: true) }
         }
     }
 
@@ -442,16 +453,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePlayPause() {
-        if !audioEngine.isPlaying && audioEngine.currentTime == 0 && audioEngine.duration == 0,
-           playlistManager.currentTrack != nil {
-            // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-            // would play the whole album file) and re-arms gapless chaining.
-            playlistManager.playTrack(at: playlistManager.currentIndex)
+        if audioEngine.isPlaying {
+            audioEngine.pause()
         } else {
-            audioEngine.togglePlayPause()
+            playlistManager.play(preferring: mainWindow?.playlistView.selectedTrackIndex)
         }
     }
     @objc private func stopAction() { audioEngine.stop() }
+    @objc private func newListAction() { mainWindow.playlistView.listOptsNew() }
+    @objc private func loadListAction() { mainWindow.playlistView.listOptsLoad() }
+    @objc private func saveListAction() { mainWindow.playlistView.listOptsSave() }
     @objc private func nextAction() { playlistManager.playNext() }
     @objc private func prevAction() { playlistManager.playPrevious() }
 
@@ -477,6 +488,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         var state = stateManager.loadAppState()
         state.alwaysOnTop = mainWindow.alwaysOnTop
+        stateManager.saveAppState(state)
+    }
+
+    @objc private func toggleAutoPlay() {
+        playlistManager.autoPlay.toggle()
+        var state = stateManager.loadAppState()
+        state.autoPlay = playlistManager.autoPlay
         stateManager.saveAppState(state)
     }
 
@@ -549,20 +567,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.title = "♪"
 
         let menu = NSMenu()
-        let show = NSMenuItem(title: "Show Player", action: #selector(showPlayerAction), keyEquivalent: "")
-        show.target = self
-        menu.addItem(show)
+        func item(_ title: String, _ action: Selector) -> NSMenuItem {
+            let mi = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            mi.target = self
+            return mi
+        }
+        menu.addItem(item("Show Player", #selector(showPlayerAction)))
         menu.addItem(.separator())
-        let playPause = NSMenuItem(title: "Play/Pause", action: #selector(togglePlayPause), keyEquivalent: "")
-        playPause.target = self
-        menu.addItem(playPause)
-        let next = NSMenuItem(title: "Next Track", action: #selector(nextAction), keyEquivalent: "")
-        next.target = self
-        menu.addItem(next)
-        let prev = NSMenuItem(title: "Previous Track", action: #selector(prevAction), keyEquivalent: "")
-        prev.target = self
-        menu.addItem(prev)
+        menu.addItem(item("Play/Pause", #selector(togglePlayPause)))
+        menu.addItem(item("Stop", #selector(stopAction)))
+        menu.addItem(item("Next Track", #selector(nextAction)))
+        menu.addItem(item("Previous Track", #selector(prevAction)))
         menu.addItem(.separator())
+        menu.addItem(item("Repeat", #selector(toggleRepeat)))
+        menu.addItem(item("Shuffle", #selector(toggleShuffle)))
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Hide Wamp", action: #selector(NSApplication.hide(_:)), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
 
         statusItem.menu = menu
@@ -607,6 +627,8 @@ extension AppDelegate: NSMenuItemValidation {
             menuItem.state = (mainWindow?.alwaysOnTop ?? false) ? .on : .off
         case #selector(toggleDoubleSize):
             menuItem.state = (WinampTheme.scale > WinampTheme.baseScale + 0.01) ? .on : .off
+        case #selector(toggleAutoPlay):
+            menuItem.state = (playlistManager?.autoPlay ?? false) ? .on : .off
         case #selector(importFromMusicLibraryAction):
             return importMusicController == nil
         default:

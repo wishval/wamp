@@ -2,12 +2,28 @@ import Cocoa
 import Combine
 
 class LCDDisplay: NSView {
-    var text: String = "" { didSet { scrollOffset = 0; needsDisplay = true } }
+    var text: String = "" {
+        didSet {
+            guard text != oldValue else { return }
+            prepareScrolling()
+            needsDisplay = true
+        }
+    }
     var isScrolling = true
 
+    private var textSheet: NSImage?
+    private var renderedTitle: NSImage?
+    private var renderedCycle: NSImage?
     private var scrollOffset: CGFloat = 0
     private var scrollTimer: Timer?
+    private let framesPerSecond: TimeInterval = 30
     private let scrollSpeed: CGFloat = 0.5
+    private let separator = "   ***   "
+    private var titleWidth: CGFloat = 0
+    private var cycleText: String = ""
+    private var cycleWidth: CGFloat = 0
+    private var pauseTicksRemaining: Int = 0
+    private let initialPauseSeconds: CGFloat = 1.5
     private var skinObserver: AnyCancellable?
     private var overlayText: String?
     private var overlayClearTimer: Timer?
@@ -29,29 +45,77 @@ class LCDDisplay: NSView {
         startScrolling()
         skinObserver = SkinManager.shared.$currentSkin
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.needsDisplay = true }
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.prepareScrolling()
+                self.needsDisplay = true
+            }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private var builtInAttributes: [NSAttributedString.Key: Any] {
+        [.font: WinampTheme.trackTitleFont, .foregroundColor: WinampTheme.greenBright]
+    }
+
+    private func textWidth(_ str: String) -> CGFloat {
+        WinampTheme.skinIsActive
+            ? TextSpriteRenderer.width(of: str)
+            : str.size(withAttributes: builtInAttributes).width
+    }
+
+    private func renderSkinnedText(_ string: String, width: CGFloat, sheet: NSImage) -> NSImage {
+        let imageSize = NSSize(width: ceil(width), height: TextSpriteRenderer.glyphHeight)
+        let image = NSImage(size: imageSize)
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        NSGraphicsContext.current?.imageInterpolation = .none
+        TextSpriteRenderer.draw(string, at: .zero, sheet: sheet)
+        return image
+    }
+    
+    /// Measures the title once and, for skins, pre-renders it (and one
+    /// title+separator cycle) to bitmaps so each scroll tick is a blit
+    /// instead of a per-glyph sprite crop.
+    private func prepareScrolling() {
+        scrollOffset = 0
+        pauseTicksRemaining = Int(framesPerSecond * initialPauseSeconds)
+        textSheet = WinampTheme.provider.textSheet
+        
+        titleWidth = textWidth(text)
+        cycleText = text + separator
+        cycleWidth = textWidth(cycleText)
+
+        renderedTitle = nil
+        renderedCycle = nil
+        
+        if WinampTheme.skinIsActive, let sheet = textSheet, !text.isEmpty {
+            renderedTitle = renderSkinnedText(text, width: titleWidth, sheet: sheet)
+            renderedCycle = renderSkinnedText(cycleText, width: cycleWidth, sheet: sheet)
+        }
+        needsDisplay = true
+    }
+    
     private func startScrolling() {
-        scrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            guard let self = self, self.isScrolling, !self.text.isEmpty else { return }
+        let timer = Timer(timeInterval: 1.0 / framesPerSecond, repeats: true) { [weak self] _ in
+            guard let self = self, self.isScrolling, !self.text.isEmpty,
+                  self.overlayText == nil, self.titleWidth > self.bounds.width
+            else { return }
+
+            if self.pauseTicksRemaining > 0 {
+                self.pauseTicksRemaining -= 1
+                return
+            }
+
             self.scrollOffset += self.scrollSpeed
-            let textWidth = self.textSize().width + 30
-            if self.scrollOffset > textWidth {
-                self.scrollOffset = -self.bounds.width
+            if self.scrollOffset >= self.cycleWidth {
+                self.scrollOffset -= self.cycleWidth
             }
             self.needsDisplay = true
         }
-    }
-
-    private func textSize() -> NSSize {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: WinampTheme.trackTitleFont,
-            .foregroundColor: WinampTheme.greenBright
-        ]
-        return text.size(withAttributes: attrs)
+        RunLoop.main.add(timer, forMode: .common)
+        scrollTimer = timer
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -64,30 +128,29 @@ class LCDDisplay: NSView {
     }
 
     private func drawSkinned() {
-        guard let textSheet = WinampTheme.provider.textSheet else { return }
-        if let overlay = overlayText {
-            let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
-            TextSpriteRenderer.draw(overlay, at: NSPoint(x: 2, y: y), sheet: textSheet)
+        guard textSheet != nil else { return }
+        let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
+        if let overlay = overlayText, let sheet = textSheet {
+            TextSpriteRenderer.draw(overlay, at: NSPoint(x: 2, y: y), sheet: sheet)
             return
         }
-        guard !text.isEmpty else { return }
-        let textWidth = TextSpriteRenderer.width(of: text)
-        let y = (bounds.height - TextSpriteRenderer.glyphHeight) / 2
 
-        if textWidth <= bounds.width || !isScrolling {
-            TextSpriteRenderer.draw(text, at: NSPoint(x: 2, y: y), sheet: textSheet)
+        guard !text.isEmpty else { return }
+        NSGraphicsContext.current?.imageInterpolation = .none
+
+        if titleWidth <= bounds.width || !isScrolling {
+            renderedTitle?.draw(at: NSPoint(x: 2, y: y), from: .zero, operation: .sourceOver, fraction: 1.0)
         } else {
-            let separator = "   *   "
-            let combined = text + separator + text
-            TextSpriteRenderer.draw(combined, at: NSPoint(x: -scrollOffset, y: y), sheet: textSheet)
+            var startX = 2.0 - scrollOffset
+            while startX < bounds.width {
+                renderedCycle?.draw(at: NSPoint(x: startX, y: y), from: .zero, operation: .sourceOver, fraction: 1.0)
+                startX += cycleWidth
+            }
         }
     }
 
     private func drawBuiltIn() {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: WinampTheme.trackTitleFont,
-            .foregroundColor: WinampTheme.greenBright
-        ]
+        let attrs = builtInAttributes
 
         if let overlay = overlayText {
             let size = overlay.size(withAttributes: attrs)
@@ -95,16 +158,17 @@ class LCDDisplay: NSView {
             overlay.draw(at: NSPoint(x: 2, y: y), withAttributes: attrs)
             return
         }
+        guard !text.isEmpty else { return }
+        let y = (bounds.height - text.size(withAttributes: attrs).height) / 2
 
-        let size = text.size(withAttributes: attrs)
-        let y = (bounds.height - size.height) / 2
-
-        if size.width <= bounds.width || !isScrolling {
+        if titleWidth <= bounds.width || !isScrolling {
             text.draw(at: NSPoint(x: 2, y: y), withAttributes: attrs)
         } else {
-            // Scroll: draw text offset
-            let displayText = text + "   ★   " + text
-            displayText.draw(at: NSPoint(x: -scrollOffset, y: y), withAttributes: attrs)
+            var startX = 2.0 - scrollOffset
+            while startX < bounds.width {
+                cycleText.draw(at: NSPoint(x: startX, y: y), withAttributes: attrs)
+                startX += cycleWidth
+            }
         }
     }
 

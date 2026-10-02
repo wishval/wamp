@@ -70,14 +70,17 @@ class TransportBar: NSView {
         let btnW: CGFloat = 22
         let btnH: CGFloat = 18
         let gap: CGFloat = 1
-        let buttons = [prevButton!, playButton!, pauseButton!, stopButton!, nextButton!, ejectButton!]
+        let buttons = [prevButton!, playButton!, pauseButton!, stopButton!, nextButton!]
         for (i, btn) in buttons.enumerated() {
             btn.frame = NSRect(x: CGFloat(i) * (btnW + gap), y: 0, width: btnW, height: btnH)
         }
+        // Eject sits apart from the transport row, as in main.bmp: 120px right
+        // of Previous (x=136 vs 16) and 1px lower, with a 16px-tall sprite.
+        ejectButton!.frame = NSRect(x: 120, y: 1, width: 22, height: 16)
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 6 * 22 + 5, height: 18)
+        NSSize(width: 120 + 22, height: 18)
     }
 
     // MARK: - Icon Drawing

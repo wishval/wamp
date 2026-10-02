@@ -51,7 +51,7 @@ enum CueDecoder {
         if recognized != 0, let s = converted as String? {
             #if DEBUG
             if lossy.boolValue {
-                print("⚠️ CueDecoder: lossy conversion using \(String.Encoding(rawValue: recognized))")
+                debugLog("⚠️ lossy conversion using \(String.Encoding(rawValue: recognized))")
             }
             #endif
             return Result(text: s, encoding: String.Encoding(rawValue: recognized))
@@ -60,7 +60,7 @@ enum CueDecoder {
         // Last-resort lossy CP-1252.
         if let s = String(data: data, encoding: .windowsCP1252) {
             #if DEBUG
-            print("⚠️ CueDecoder: last-resort CP-1252 fallback")
+            debugLog("⚠️ last-resort CP-1252 fallback")
             #endif
             return Result(text: s, encoding: .windowsCP1252)
         }

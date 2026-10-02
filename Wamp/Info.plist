@@ -59,6 +59,20 @@
                 <string>public.m3u-playlist</string>
             </array>
         </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>PLS Playlist</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>pls</string>
+            </array>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.pls-playlist</string>
+            </array>
+        </dict>
     </array>
 </dict>
 </plist>

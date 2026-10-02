@@ -3,6 +3,7 @@
 // Replaces the native NSScroller when a Winamp skin is active.
 
 import AppKit
+import Combine
 
 final class PlaylistSkinScroller: NSView {
     private static let handleW: CGFloat = 8
@@ -12,10 +13,15 @@ final class PlaylistSkinScroller: NSView {
     private var pressed = false
     private var dragOffsetWithinHandle: CGFloat = 0
     private var observer: NSObjectProtocol?
+    private var skinObserver: AnyCancellable?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = false
+        skinObserver = SkinManager.shared.$currentSkin
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.needsDisplay = true
+            }
     }
     required init?(coder: NSCoder) { fatalError() }
 

@@ -52,6 +52,40 @@ struct StateManagerTests {
         #expect(loaded.skinPath == "/tmp/some-skin")
     }
 
+    @Test func appState_autoPlay_defaultsOnAndRoundTrips() {
+        let dir = makeTempDirectory()
+        defer { cleanup(dir) }
+
+        #expect(AppState().autoPlay == true)
+        var state = AppState()
+        state.autoPlay = false
+        StateManager(directory: dir).saveAppState(state)
+        #expect(StateManager(directory: dir).loadAppState().autoPlay == false)
+    }
+
+    @Test func loadAppState_legacyFileMissingNewKeys_keepsSavedFields() throws {
+        // A state.json written before a field existed must not decode-fail
+        // into all-defaults (wiping volume, window position, skin…).
+        let dir = makeTempDirectory()
+        defer { cleanup(dir) }
+
+        let legacy = """
+        {"volume":0.3,"balance":0,"repeatMode":1,"eqEnabled":true,
+         "showEqualizer":false,"showPlaylist":true,"windowX":250,"windowY":90,
+         "alwaysOnTop":true,"lastTrackIndex":4,"lastPlaybackPosition":0,
+         "skinPath":"/tmp/legacy.wsz"}
+        """
+        try Data(legacy.utf8).write(to: dir.appendingPathComponent("state.json"))
+
+        let loaded = StateManager(directory: dir).loadAppState()
+        #expect(loaded.volume == 0.3)
+        #expect(loaded.repeatMode == 1)
+        #expect(loaded.windowX == 250)
+        #expect(loaded.alwaysOnTop == true)
+        #expect(loaded.skinPath == "/tmp/legacy.wsz")
+        #expect(loaded.autoPlay == true)
+    }
+
     @Test func saveState_preservesFieldsItDoesNotManage() {
         let dir = makeTempDirectory()
         defer { cleanup(dir) }

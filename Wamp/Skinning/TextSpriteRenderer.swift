@@ -12,7 +12,7 @@ enum TextSpriteRenderer {
     /// Maps each character to its (row, column) in text.bmp.
     /// Lowercase is canonical — uppercase input is lowercased before lookup.
     /// Layout: 3 rows of 31 columns each. Row 0 = a-z + " @  ", row 1 = digits + punctuation,
-    /// row 2 = Å Ö Ä ? *. Ported verbatim from Webamp's FONT_LOOKUP.
+    /// row 2 = Å Ö Ä ? *. Ported from Webamp's FONT_LOOKUP.
     private static let lookup: [Character: (row: Int, col: Int)] = [
         "a": (0, 0),  "b": (0, 1),  "c": (0, 2),  "d": (0, 3),  "e": (0, 4),  "f": (0, 5),
         "g": (0, 6),  "h": (0, 7),  "i": (0, 8),  "j": (0, 9),  "k": (0, 10), "l": (0, 11),
@@ -29,18 +29,21 @@ enum TextSpriteRenderer {
         "/": (1, 21), "[": (1, 22), "]": (1, 23), "^": (1, 24), "&": (1, 25),
         "%": (1, 26), ",": (1, 27), "=": (1, 28), "$": (1, 29), "#": (1, 30),
 
-        "Å": (2, 0), "Ö": (2, 1), "Ä": (2, 2), "?": (2, 3), "*": (2, 4),
+        "å": (2, 0), "ö": (2, 1), "ä": (2, 2), "?": (2, 3), "*": (2, 4),
     ]
 
     /// Returns the rect inside text.bmp for `char`, or nil if unsupported.
     /// (Coordinates are in Winamp Y-down — y measured from top of the sheet.)
     static func glyphRect(for char: Character) -> CGRect? {
-        // Try as-is, then lowercased
-        if let pos = lookup[char] {
-            return rect(row: pos.row, col: pos.col)
-        }
-        if let lc = char.lowercased().first, let pos = lookup[lc] {
-            return rect(row: pos.row, col: pos.col)
+        // Try as-is, then lowercased, then with accents stripped (é → e,
+        // ñ → n, ü → u) so Latin-accented titles don't render as gaps.
+        let lowered = char.lowercased()
+        let candidates = [String(char), lowered,
+                          lowered.folding(options: .diacriticInsensitive, locale: nil)]
+        for candidate in candidates {
+            if candidate.count == 1, let c = candidate.first, let pos = lookup[c] {
+                return rect(row: pos.row, col: pos.col)
+            }
         }
         return nil
     }
@@ -65,8 +68,13 @@ enum TextSpriteRenderer {
         defer { if let prev = prevInterpolation { ctx?.imageInterpolation = prev } }
 
         var x = origin.x
+        let sheetBounds = CGRect(x: 0, y: 0, width: cg.width, height: cg.height)
         for char in text {
             guard let rect = glyphRect(for: char) else {
+                x += glyphWidth
+                continue
+            }
+            guard sheetBounds.contains(rect) else {
                 x += glyphWidth
                 continue
             }

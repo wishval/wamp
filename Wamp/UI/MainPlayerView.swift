@@ -7,6 +7,8 @@ class MainPlayerView: NSView {
     // Callbacks
     var onToggleEQ: (() -> Void)?
     var onTogglePL: (() -> Void)?
+    /// Model index of the playlist's selected row; Play starts there when stopped.
+    var selectedTrackIndex: (() -> Int?)?
 
     var isEQActive: Bool {
         get { eqButton.isActive }
@@ -348,6 +350,7 @@ class MainPlayerView: NSView {
         } else {
             layoutUnskinned()
         }
+        audioEngine?.spectrumBarCount = spectrumView.barCount
     }
 
     /// Exact Winamp 2.x pixel coordinates, ported from Webamp's main-window.css.
@@ -560,15 +563,7 @@ class MainPlayerView: NSView {
         // Transport
         transportBar.onPrevious = { [weak playlistManager] in playlistManager?.playPrevious() }
         transportBar.onPlay = { [weak self] in
-            guard let self, let engine = self.audioEngine else { return }
-            if engine.playState == .stopped,
-               let pm = self.playlistManager, pm.currentTrack != nil {
-                // playTrack honors CUE segment bounds (a bare loadAndPlay(url:)
-                // would play the whole album file) and re-arms gapless chaining.
-                pm.playTrack(at: pm.currentIndex)
-            } else {
-                engine.play()
-            }
+            self?.playlistManager?.play(preferring: self?.selectedTrackIndex?())
         }
         transportBar.onPause = { [weak audioEngine] in audioEngine?.pause() }
         transportBar.onStop = { [weak audioEngine] in audioEngine?.stop() }
@@ -630,18 +625,11 @@ class MainPlayerView: NSView {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
-        panel.begin { [weak self] response in
+        panel.begin { response in
             guard response == .OK else { return }
+            // Same routing (folders, autoplay) as File ▸ Open and Finder opens.
             Task { @MainActor in
-                for url in panel.urls {
-                    var isDir: ObjCBool = false
-                    FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-                    if isDir.boolValue {
-                        await self?.playlistManager?.addFolder(url)
-                    } else {
-                        await self?.playlistManager?.addURLs([url])
-                    }
-                }
+                await (NSApp.delegate as? AppDelegate)?.handleOpenURLs(panel.urls, interrupt: true)
             }
         }
     }

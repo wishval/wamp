@@ -29,8 +29,8 @@ final class BuiltInSkin: SkinProvider {
     var mainWindowRegion: NSBezierPath? { nil }
 
     /// 24-entry visualization palette for the built-in (no-skin) look.
-    /// Indices 2..17 interpolate from spectrumBarBottom to spectrumBarTop in 16 steps,
-    /// preserving the app's green→yellow identity. Index 0 is background, 1 is the
+    /// Indices 2..17 interpolate from spectrumBarTop down to spectrumBarBottom in 16
+    /// steps (Winamp order: 2 is the top row), preserving the app's green→yellow identity. Index 0 is background, 1 is the
     /// scale-line tint, 18..23 are peak/oscilloscope highlights (white → gray).
     private static let builtInViscolors: [NSColor] = {
         let bottom = WinampTheme.spectrumBarBottom
@@ -38,8 +38,8 @@ final class BuiltInSkin: SkinProvider {
         var colors: [NSColor] = []
         colors.append(.black)                                          // 0: bg
         colors.append(NSColor(srgbRed: 0.1, green: 0.13, blue: 0.16, alpha: 1)) // 1: scale line
-        for i in 0..<16 {                                              // 2..17: bars
-            let t = CGFloat(i) / 15.0
+        for i in 0..<16 {                                              // 2..17: bars, top → bottom
+            let t = CGFloat(15 - i) / 15.0
             colors.append(NSColor.interpolate(bottom, top, t: t))
         }
         // 18..23: peak/oscilloscope highlights, white → mid gray

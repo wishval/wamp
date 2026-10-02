@@ -46,7 +46,10 @@ class AudioEngine: ObservableObject {
         didSet { eq.bypass = !eqEnabled }
     }
     @Published var preampGain: Float = 0 // dB, -12 to +12
-    @Published var spectrumData: [Float] = Array(repeating: 0, count: 32)
+    @Published var spectrumData: [Float] = []
+    /// Number of analyzer bars the UI draws (19 skinned, 26 built-in). Set by
+    /// the view on layout; the tap reads it once per buffer.
+    var spectrumBarCount = 19
 
     // MARK: - EQ State
     @Published private(set) var eqBands: [Float] = Array(repeating: 0, count: 10) // dB per band
@@ -80,9 +83,27 @@ class AudioEngine: ObservableObject {
     private var pendingChain: (startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition)?
 
     private var effectiveVolume: Float {
-        // Preamp is folded in so volume/mute changes don't silently wipe it.
-        (isMuted ? 0 : volume) * pow(10, preampGain / 20)
+        isMuted ? 0 : volume
     }
+
+    // MARK: - Spectrum FFT state (touched only from the tap thread)
+    private var spectrumFFTSetup: FFTSetup?
+    private var spectrumFFTSize = 0
+    private var spectrumSampleRate: Float = 0
+    private var spectrumBars = 0
+    private var spectrumWindow: [Float] = []
+    private var spectrumWindowed: [Float] = []
+    private var spectrumReal: [Float] = []
+    private var spectrumImag: [Float] = []
+    private var spectrumPower: [Float] = []
+    /// FFT bin range per displayed bar, log-spaced between min/max frequency.
+    private var spectrumRanges: [Range<Int>] = []
+    private var spectrumNormalization: Float = 0
+    private static let spectrumMinFrequency: Float = 32
+    private static let spectrumMaxFrequency: Float = 16_000
+    /// pow(amplitude, x): 1.0 is linear, lower lifts quiet bands.
+    private static let spectrumCompression: Float = 0.5
+    private static let spectrumGain: Float = pow(10, 4.5 / 20) // +4.5 dB
 
     // MARK: - Init
     init() {
@@ -102,7 +123,13 @@ class AudioEngine: ObservableObject {
     private func setupEQBands() {
         for (i, freq) in Self.eqFrequencies.enumerated() {
             let band = eq.bands[i]
-            band.filterType = .parametric
+            // Shelves on the outer bands so the 70 Hz / 16 kHz sliders lift
+            // or cut everything beyond them, not just a bell around the center.
+            switch i {
+            case 0: band.filterType = .lowShelf
+            case Self.eqFrequencies.count - 1: band.filterType = .highShelf
+            default: band.filterType = .parametric
+            }
             band.frequency = freq
             band.bandwidth = 1.0
             band.gain = 0
@@ -120,27 +147,27 @@ class AudioEngine: ObservableObject {
         do {
             try loadFile(url: url)
         } catch {
-            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+            debugLog("🔴 failed to load \(url.lastPathComponent): \(error)")
         }
     }
 
     func loadAndPlay(url: URL) {
-        print("🔵 loadAndPlay: \(url.lastPathComponent), gen=\(playbackGeneration)")
+        debugLog("🔵 \(url.lastPathComponent), gen=\(playbackGeneration)")
         stop()
         playbackGeneration &+= 1
-        print("🔵 loadAndPlay: after stop, new gen=\(playbackGeneration)")
+        debugLog("🔵 after stop, new gen=\(playbackGeneration)")
 
         do {
             try loadFile(url: url)
 
             if !engine.isRunning {
                 try engine.start()
-                print("🔵 loadAndPlay: engine started")
+                debugLog("🔵 engine started")
             }
             installSpectrumTap()
             scheduleAndPlay()
         } catch {
-            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+            debugLog("🔴 failed to load \(url.lastPathComponent): \(error)")
         }
     }
 
@@ -185,7 +212,7 @@ class AudioEngine: ObservableObject {
     /// Used for CUE-derived virtual tracks. When playback reaches the end frame
     /// the completion handler posts `.trackDidFinish` exactly like a normal track.
     func loadAndPlay(url: URL, startTime: TimeInterval, endTime: TimeInterval?) {
-        print("🔵 loadAndPlay(range): \(url.lastPathComponent) [\(startTime), \(endTime as Any)]")
+        debugLog("🔵 \(url.lastPathComponent) [\(startTime), \(endTime as Any)]")
         stop()
         playbackGeneration &+= 1
 
@@ -205,7 +232,7 @@ class AudioEngine: ObservableObject {
             currentSegmentStartFrame = seekFrame
             scheduleSegment(endFrame: endFrame)
         } catch {
-            print("🔴 AudioEngine: failed to load \(url.lastPathComponent): \(error)")
+            debugLog("🔴 failed to load \(url.lastPathComponent): \(error)")
         }
     }
 
@@ -213,7 +240,7 @@ class AudioEngine: ObservableObject {
     private func loadFile(url: URL) throws {
         audioFile = try AVAudioFile(forReading: url)
         guard let file = audioFile else {
-            print("🔴 loadFile: audioFile is nil after init")
+            debugLog("🔴 audioFile is nil after init")
             return
         }
 
@@ -224,7 +251,7 @@ class AudioEngine: ObservableObject {
         needsScheduling = true
         currentSegmentStartFrame = 0
         currentSegmentEndFrame = 0
-        print("🔵 loadFile: file loaded, sampleRate=\(audioSampleRate), frames=\(audioLengthFrames), duration=\(duration)s")
+        debugLog("🔵 file loaded, sampleRate=\(audioSampleRate), frames=\(audioLengthFrames), duration=\(duration)s")
     }
 
     func play() {
@@ -245,11 +272,14 @@ class AudioEngine: ObservableObject {
             playState = .playing
             startTimeUpdates()
         } catch {
-            print("AudioEngine: failed to start: \(error)")
+            debugLog("failed to start: \(error)")
         }
     }
 
     func pause() {
+        // Pausing a stopped engine would arm Play's "resume" path with
+        // whatever file was loaded last — possibly one no longer in the list.
+        guard playState == .playing else { return }
         playerNode.pause()
         isPlaying = false
         playState = .paused
@@ -257,7 +287,7 @@ class AudioEngine: ObservableObject {
     }
 
     func stop() {
-        print("🟡 stop() called, gen=\(playbackGeneration), isPlaying=\(isPlaying)")
+        debugLog("🟡 stop() called, gen=\(playbackGeneration), isPlaying=\(isPlaying)")
         playerNode.stop()
         isPlaying = false
         playState = .stopped
@@ -301,7 +331,9 @@ class AudioEngine: ObservableObject {
 
     func setPreamp(gain: Float) {
         preampGain = max(-12, min(12, gain))
-        engine.mainMixerNode.outputVolume = effectiveVolume
+        // Preamp lives on the EQ unit (like Winamp, it's bypassed with the EQ).
+        // Folding it into the mixer volume capped any boost at outputVolume 1.0.
+        eq.globalGain = preampGain
     }
 
     func setAllEQBands(_ gains: [Float]) {
@@ -322,13 +354,13 @@ class AudioEngine: ObservableObject {
 
     private func scheduleSegment(endFrame: AVAudioFramePosition) {
         guard let file = audioFile else {
-            print("🔴 scheduleSegment: no audioFile")
+            debugLog("🔴 no audioFile")
             return
         }
         let framesToPlay = endFrame - seekFrame
-        print("🟢 scheduleSegment: framesToPlay=\(framesToPlay), seekFrame=\(seekFrame), endFrame=\(endFrame), gen=\(playbackGeneration)")
+        debugLog("🟢 framesToPlay=\(framesToPlay), seekFrame=\(seekFrame), endFrame=\(endFrame), gen=\(playbackGeneration)")
         guard framesToPlay > 0 else {
-            print("🔴 scheduleSegment: no frames to play, calling handleTrackCompletion")
+            debugLog("🔴 no frames to play, calling handleTrackCompletion")
             handleTrackCompletion()
             return
         }
@@ -360,9 +392,9 @@ class AudioEngine: ObservableObject {
     }
 
     private func handleTrackCompletion() {
-        print("🔴 handleTrackCompletion: isPlaying=\(isPlaying), repeatMode=\(repeatMode), gen=\(playbackGeneration)")
+        debugLog("🔴 isPlaying=\(isPlaying), repeatMode=\(repeatMode), gen=\(playbackGeneration)")
         guard isPlaying else {
-            print("🔴 handleTrackCompletion: NOT playing, ignoring")
+            debugLog("🔴 NOT playing, ignoring")
             return
         }
 
@@ -388,7 +420,7 @@ class AudioEngine: ObservableObject {
             currentSegmentStartFrame = pending.startFrame
             currentSegmentEndFrame = pending.endFrame
             pendingChain = nil
-            print("🟢 handleTrackCompletion: promoted chained segment [\(pending.startFrame), \(pending.endFrame)]")
+            debugLog("🟢 promoted chained segment [\(pending.startFrame), \(pending.endFrame)]")
             NotificationCenter.default.post(name: .trackDidFinish, object: nil,
                                             userInfo: [AudioEngine.gaplessChainedKey: true])
             return
@@ -397,7 +429,7 @@ class AudioEngine: ObservableObject {
         isPlaying = false
         playState = .stopped
         stopTimeUpdates()
-        print("🔴 handleTrackCompletion: posting .trackDidFinish")
+        debugLog("🔴 posting .trackDidFinish")
         NotificationCenter.default.post(name: .trackDidFinish, object: nil)
     }
 
@@ -433,65 +465,96 @@ class AudioEngine: ObservableObject {
         }
     }
 
+    /// (Re)builds the FFT setup, Hann window, scratch buffers and per-bar bin
+    /// ranges when the buffer size, sample rate or bar count changes — not on
+    /// every tap callback.
+    private func prepareSpectrumFFT(fftSize: Int, sampleRate: Float, bars: Int) -> FFTSetup? {
+        if let setup = spectrumFFTSetup, fftSize == spectrumFFTSize,
+           sampleRate == spectrumSampleRate, bars == spectrumBars {
+            return setup
+        }
+        if let setup = spectrumFFTSetup {
+            vDSP_destroy_fftsetup(setup)
+            spectrumFFTSetup = nil
+        }
+        let log2n = vDSP_Length(log2(Float(fftSize)))
+        guard let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return nil }
+
+        let halfSize = fftSize / 2
+        spectrumFFTSetup = setup
+        spectrumFFTSize = fftSize
+        spectrumSampleRate = sampleRate
+        spectrumBars = bars
+        spectrumWindow = [Float](repeating: 0, count: fftSize)
+        spectrumWindowed = [Float](repeating: 0, count: fftSize)
+        spectrumReal = [Float](repeating: 0, count: halfSize)
+        spectrumImag = [Float](repeating: 0, count: halfSize)
+        spectrumPower = [Float](repeating: 0, count: halfSize)
+        vDSP_hann_window(&spectrumWindow, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
+        vDSP_sve(spectrumWindow, 1, &spectrumNormalization, vDSP_Length(fftSize))
+
+        let hzPerBin = sampleRate / Float(fftSize)
+        let maxFrequency = min(Self.spectrumMaxFrequency, sampleRate / 2)
+        let ratio = pow(maxFrequency / Self.spectrumMinFrequency, 1 / Float(bars))
+        spectrumRanges = (0..<bars).map { i in
+            let lower = Self.spectrumMinFrequency * pow(ratio, Float(i))
+            let upper = Self.spectrumMinFrequency * pow(ratio, Float(i + 1))
+            let start = max(1, min(Int(lower / hzPerBin), halfSize - 1))
+            let end = max(start + 1, min(Int(upper / hzPerBin), halfSize))
+            return start..<end
+        }
+        return setup
+    }
+
     private func processSpectrumData(buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameCount = Int(buffer.frameLength)
-        guard frameCount > 0 else { return }
+        let bars = spectrumBarCount
+        guard frameCount > 0, bars > 0 else { return }
 
         // Use power-of-2 size for FFT
         let log2n = vDSP_Length(log2(Float(frameCount)))
-        let fftSize = Int(1 << log2n)
+        let fftSize = 1 << Int(log2n)
         let halfSize = fftSize / 2
         // The tap doesn't guarantee buffer sizes; with halfSize below the
-        // 32-bin output the mapping loop would form an empty range and trap.
-        guard halfSize >= 32 else { return }
+        // bar count the bin ranges would collapse.
+        guard halfSize >= bars,
+              let fftSetup = prepareSpectrumFFT(fftSize: fftSize, sampleRate: Float(buffer.format.sampleRate), bars: bars)
+        else { return }
 
-        guard let fftSetup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return }
-        defer { vDSP_destroy_fftsetup(fftSetup) }
+        vDSP_vmul(channelData, 1, spectrumWindow, 1, &spectrumWindowed, 1, vDSP_Length(fftSize))
 
-        // Apply Hann window
-        var windowed = [Float](repeating: 0, count: fftSize)
-        var window = [Float](repeating: 0, count: fftSize)
-        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
-        vDSP_vmul(channelData, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
-
-        // Split complex for FFT
-        var realPart = [Float](repeating: 0, count: halfSize)
-        var imagPart = [Float](repeating: 0, count: halfSize)
-        realPart.withUnsafeMutableBufferPointer { realBuf in
-            imagPart.withUnsafeMutableBufferPointer { imagBuf in
+        var spectrum = [Float](repeating: 0, count: bars)
+        spectrumReal.withUnsafeMutableBufferPointer { realBuf in
+            spectrumImag.withUnsafeMutableBufferPointer { imagBuf in
                 var splitComplex = DSPSplitComplex(realp: realBuf.baseAddress!, imagp: imagBuf.baseAddress!)
-                windowed.withUnsafeBytes { rawBuf in
+                spectrumWindowed.withUnsafeBytes { rawBuf in
                     let complexPtr = rawBuf.bindMemory(to: DSPComplex.self)
                     vDSP_ctoz(complexPtr.baseAddress!, 2, &splitComplex, 1, vDSP_Length(halfSize))
                 }
                 vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(FFT_FORWARD))
-
-                // Compute magnitudes
-                var magnitudes = [Float](repeating: 0, count: halfSize)
-                vDSP_zvmags(&splitComplex, 1, &magnitudes, 1, vDSP_Length(halfSize))
-
-                // Scale and map to 32 bins
-                let binCount = 32
-                var spectrum = [Float](repeating: 0, count: binCount)
-                let binsPerOutput = max(1, halfSize / binCount)
-
-                for i in 0..<binCount {
-                    let start = i * binsPerOutput
-                    let end = min(start + binsPerOutput, halfSize)
-                    var sum: Float = 0
-                    vDSP_sve(Array(magnitudes[start..<end]), 1, &sum, vDSP_Length(end - start))
-                    spectrum[i] = sqrt(sum / Float(end - start)) * 0.05
-                }
-
-                DispatchQueue.main.async { [weak self] in
-                    self?.spectrumData = spectrum
-                }
+                vDSP_zvmags(&splitComplex, 1, &spectrumPower, 1, vDSP_Length(halfSize))
             }
+        }
+
+        // Sum power over each bar's log-spaced bin range, then normalize by
+        // the window sum and compress so quiet bands still register.
+        spectrumPower.withUnsafeBufferPointer { power in
+            for (i, range) in spectrumRanges.enumerated() {
+                var bandPower: Float = 0
+                vDSP_sve(power.baseAddress! + range.lowerBound, 1, &bandPower, vDSP_Length(range.count))
+                let amplitude = sqrt(bandPower) / spectrumNormalization
+                spectrum[i] = min(1, pow(amplitude, Self.spectrumCompression) * Self.spectrumGain)
+            }
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.spectrumData = spectrum
         }
     }
 
     deinit {
+        if let setup = spectrumFFTSetup { vDSP_destroy_fftsetup(setup) }
         engine.mainMixerNode.removeTap(onBus: 0)
         engine.stop()
     }

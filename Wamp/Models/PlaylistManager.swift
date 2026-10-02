@@ -9,6 +9,10 @@ class PlaylistManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private weak var audioEngine: AudioEngine?
 
+    /// Start playing files as they're opened (Finder/Dock, Open File, or a
+    /// drop into an empty playlist). Persisted in AppState.
+    var autoPlay = true
+
     var currentTrack: Track? {
         guard currentIndex >= 0, currentIndex < tracks.count else { return nil }
         return tracks[currentIndex]
@@ -89,7 +93,7 @@ class PlaylistManager: ObservableObject {
                         newTracks.append(contentsOf: resolved)
                         continue
                     } catch {
-                        print("🟡 addURLs: sibling .cue failed (\(error)), falling through")
+                        debugLog("🟡 sibling .cue failed (\(error)), falling through")
                     }
                 }
                 // Embedded CUESHEET.
@@ -103,7 +107,7 @@ class PlaylistManager: ObservableObject {
                         newTracks.append(contentsOf: resolved)
                         continue
                     } catch {
-                        print("🟡 addURLs: embedded CUESHEET unusable (\(error)), falling through")
+                        debugLog("🟡 embedded CUESHEET unusable (\(error)), falling through")
                     }
                 }
             }
@@ -271,20 +275,59 @@ class PlaylistManager: ObservableObject {
     func clearPlaylist() {
         // An orphaned playing track would otherwise finish into a dead state
         // (no reschedule), leaving play() a silent no-op afterwards.
-        if audioEngine?.isPlaying == true {
-            audioEngine?.stop()
+        // A paused one could otherwise be resumed by Play after the list is gone.
+        if let engine = audioEngine, engine.playState != .stopped {
+            engine.stop()
         }
         tracks.removeAll()
         currentIndex = -1
     }
 
+    // MARK: - Opening files
+
+    enum OpenResponse: Equatable { case play, makeCurrent, none }
+
+    /// What to do after an open batch appended tracks at `firstNewIndex...`.
+    /// `interrupt` is true for explicit opens (Finder/Dock, Open File), which
+    /// start the new files like Winamp does; drops only start playback when
+    /// they land in an empty playlist. Without autoplay the first new track
+    /// just becomes current if nothing was, so Play starts there.
+    static func openResponse(autoPlay: Bool, interrupt: Bool, firstNewIndex: Int, hasCurrentTrack: Bool) -> OpenResponse {
+        if autoPlay && (interrupt || firstNewIndex == 0) { return .play }
+        return hasCurrentTrack ? .none : .makeCurrent
+    }
+
+    func didOpenTracks(startingAt firstNewIndex: Int, interrupt: Bool) {
+        guard tracks.indices.contains(firstNewIndex) else { return }
+        switch Self.openResponse(autoPlay: autoPlay, interrupt: interrupt,
+                                 firstNewIndex: firstNewIndex, hasCurrentTrack: currentTrack != nil) {
+        case .play: playTrack(at: firstNewIndex)
+        case .makeCurrent: currentIndex = firstNewIndex
+        case .none: break
+        }
+    }
+
     // MARK: - Playback Navigation
-    func playTrack(at index: Int) {
-        guard index >= 0, index < tracks.count else {
-            print("⚡ playTrack: invalid index \(index), tracks.count=\(tracks.count)")
+    /// Play-button semantics shared by the transport, mini player, menu and
+    /// media keys. Paused → resume. Otherwise start `preferredIndex` (the
+    /// selected row), falling back to the current track, then the first one —
+    /// never the engine's leftover file, which may no longer be in the list.
+    func play(preferring preferredIndex: Int?) {
+        if audioEngine?.playState == .paused {
+            audioEngine?.play()
             return
         }
-        print("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
+        let candidates = [preferredIndex, currentIndex, 0].compactMap { $0 }
+        guard let index = candidates.first(where: { tracks.indices.contains($0) }) else { return }
+        playTrack(at: index)
+    }
+
+    func playTrack(at index: Int) {
+        guard index >= 0, index < tracks.count else {
+            debugLog("⚡ invalid index \(index), tracks.count=\(tracks.count)")
+            return
+        }
+        debugLog("⚡ playTrack(at: \(index)) — \(tracks[index].url.lastPathComponent)")
         currentIndex = index
         let track = tracks[index]
         if let start = track.cueStart {
@@ -321,7 +364,7 @@ class PlaylistManager: ObservableObject {
     }
 
     func playNext() {
-        print("⚡ playNext: currentIndex=\(currentIndex), tracks.count=\(tracks.count)")
+        debugLog("⚡ currentIndex=\(currentIndex), tracks.count=\(tracks.count)")
         guard !tracks.isEmpty else { return }
 
         let nextIndex = currentIndex + 1
@@ -430,48 +473,22 @@ class PlaylistManager: ObservableObject {
     /// Returns an import summary (present vs missing entry count).
     @discardableResult
     func loadPlaylistM3U(from fileURL: URL) async -> M3UImportSummary {
-        let ext = fileURL.pathExtension.lowercased()
+        guard let entries = try? M3UParser.parse(url: fileURL) else {
+            return M3UImportSummary(imported: 0, missing: 0)
+        }
         var urls: [URL] = []
         var missing = 0
-        if ext == "pls" {
-            guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
-                return M3UImportSummary(imported: 0, missing: 0)
-            }
-            let baseDir = fileURL.deletingLastPathComponent()
-            for line in text.components(separatedBy: .newlines) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.lowercased().hasPrefix("file"),
-                      let eq = trimmed.firstIndex(of: "=") else { continue }
-                let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
-                let candidate = resolvePLSEntry(value, baseDir: baseDir)
-                if candidate.isFileURL, !FileManager.default.fileExists(atPath: candidate.path) {
-                    missing += 1
-                } else {
-                    urls.append(candidate)
-                }
-            }
-        } else {
-            guard let entries = try? M3UParser.parse(url: fileURL) else {
-                return M3UImportSummary(imported: 0, missing: 0)
-            }
-            for entry in entries {
-                if FileManager.default.fileExists(atPath: entry.url.path) {
-                    urls.append(entry.url)
-                } else {
-                    missing += 1
-                }
+        for entry in entries {
+            if FileManager.default.fileExists(atPath: entry.url.path) {
+                urls.append(entry.url)
+            } else {
+                missing += 1
             }
         }
         clearPlaylist()
         let before = tracks.count
         await addURLs(urls)
         return M3UImportSummary(imported: tracks.count - before, missing: missing)
-    }
-
-    private func resolvePLSEntry(_ entry: String, baseDir: URL) -> URL {
-        if let url = URL(string: entry), url.scheme != nil { return url }
-        if entry.hasPrefix("/") { return URL(fileURLWithPath: entry) }
-        return baseDir.appendingPathComponent(entry)
     }
 
     /// Decides whether auto-advance may simply promote `currentIndex` because
@@ -486,7 +503,7 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Private
     private func advanceToNext(engineChained: Bool = false) {
-        print("⚡ advanceToNext: repeatMode=\(String(describing: audioEngine?.repeatMode)), chained=\(engineChained)")
+        debugLog("⚡ repeatMode=\(String(describing: audioEngine?.repeatMode)), chained=\(engineChained)")
         guard audioEngine?.repeatMode != .track else { return }
         guard !tracks.isEmpty else { return }
 

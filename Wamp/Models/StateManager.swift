@@ -11,9 +11,36 @@ struct AppState: Codable {
     var windowX: Double = 100
     var windowY: Double = 100
     var alwaysOnTop: Bool = false
+    /// Start playback when files are opened from Finder/Dock or Open File.
+    var autoPlay: Bool = true
     var lastTrackIndex: Int = -1
     var lastPlaybackPosition: Double = 0
     var skinPath: String?
+}
+
+extension AppState {
+    /// Missing keys fall back to defaults instead of failing the whole decode,
+    /// so a state.json written before a field existed keeps everything else.
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) throws -> T {
+            try c.decodeIfPresent(T.self, forKey: key) ?? fallback
+        }
+        volume = try value(.volume, volume)
+        balance = try value(.balance, balance)
+        repeatMode = try value(.repeatMode, repeatMode)
+        eqEnabled = try value(.eqEnabled, eqEnabled)
+        showEqualizer = try value(.showEqualizer, showEqualizer)
+        showPlaylist = try value(.showPlaylist, showPlaylist)
+        windowX = try value(.windowX, windowX)
+        windowY = try value(.windowY, windowY)
+        alwaysOnTop = try value(.alwaysOnTop, alwaysOnTop)
+        autoPlay = try value(.autoPlay, autoPlay)
+        lastTrackIndex = try value(.lastTrackIndex, lastTrackIndex)
+        lastPlaybackPosition = try value(.lastPlaybackPosition, lastPlaybackPosition)
+        skinPath = try c.decodeIfPresent(String.self, forKey: .skinPath)
+    }
 }
 
 struct EQState: Codable {
@@ -136,7 +163,7 @@ class StateManager {
             let data = try JSONEncoder().encode(value)
             try data.write(to: url, options: .atomic)
         } catch {
-            print("StateManager: failed to write \(filename): \(error)")
+            debugLog("failed to write \(filename): \(error)")
         }
     }
 

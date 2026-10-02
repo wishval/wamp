@@ -105,15 +105,15 @@ class WinampSlider: NSView {
             }
 
         case .eqBand:
-            // Winamp bakes the green→red gradient directly into 14 background variants
-            // (position 0 = bottom/-12dB all green, 13 = top/+12dB all red).
-            let bgPos = Int((n * 13).rounded())
+            // Winamp bakes the green→red gradient directly into 28 background variants
+            // (position 0 = bottom/-12dB all green, 27 = top/+12dB all red).
+            let bgPos = Int((n * 27).rounded())
             if let bg = WinampTheme.sprite(.eqSliderBackground(position: bgPos)) {
                 bg.draw(in: bounds)
             }
             let thumbY = n * (bounds.height - 11)
             if let thumb = WinampTheme.sprite(.eqSliderThumb(pressed: isUserInteracting)) {
-                thumb.draw(in: NSRect(x: (bounds.width - 11) / 2, y: thumbY, width: 11, height: 11))
+                thumb.draw(in: NSRect(x: 1, y: thumbY, width: 11, height: 11))
             }
         }
     }
