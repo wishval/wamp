@@ -17,7 +17,8 @@ Many of these changes come from Simone Karin Lehmann's fork
   playlist. Files dropped into an empty playlist start too; drops into a
   non-empty list still just enqueue. Toggle with Controls ▸ Autoplay
   Opened Files (on by default).
-- **`.pls` playlists open from Finder**, with `Title`/`Length` entries read.
+- **`.pls` playlists open from Finder, the Dock and drag-and-drop** (they
+  used to work only through the playlist's Load List button).
 - **File ▸ New / Load / Save Playlist**, **Wamp ▸ Hide Wamp (⌘H)**, and
   Stop / Repeat / Shuffle / Hide in the menu-bar ♪ menu.
 
@@ -26,7 +27,8 @@ Many of these changes come from Simone Karin Lehmann's fork
 - **Play no longer resumes a track that's gone from the playlist** (#7).
   After loading a new list, Play (and the media keys) could start the
   previous list's track. Play now starts the selected row, else the
-  current track, else the first one.
+  current track, else the first one. Pressing Pause while stopped no
+  longer re-arms the old track either.
 - **Spectrum analyzer.** Bars follow a log frequency scale instead of
   pinning at max in the bass, and skins' viscolors are no longer drawn
   upside down. FFT buffers are reused, cutting CPU use.
