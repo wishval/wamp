@@ -205,6 +205,8 @@ class TitleBarView: NSView {
     // MARK: - Window dragging
     private var dragOrigin: NSPoint?
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let b = bounds

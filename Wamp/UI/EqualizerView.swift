@@ -404,6 +404,8 @@ class EqualizerView: NSView {
     }
 
     // MARK: - Window dragging (skinned mode)
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
         let point = convert(event.locationInWindow, from: nil)

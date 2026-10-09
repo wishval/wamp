@@ -99,6 +99,9 @@ class WinampButton: NSView {
         }
     }
 
+    // Click-through: act on the first click even while Wamp is in the background.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         isPressed = true
     }

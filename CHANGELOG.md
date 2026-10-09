@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-09
+
 Many of these changes come from Simone Karin Lehmann's fork
 ([lisanet/McAmp](https://github.com/lisanet/McAmp)) — thank you!
 
@@ -21,6 +23,13 @@ Many of these changes come from Simone Karin Lehmann's fork
   used to work only through the playlist's Load List button).
 - **File ▸ New / Load / Save Playlist**, **Wamp ▸ Hide Wamp (⌘H)**, and
   Stop / Repeat / Shuffle / Hide in the menu-bar ♪ menu.
+- **Click-through.** Buttons, sliders and the window drag areas respond to
+  the first click even while Wamp is in the background, like Winamp —
+  no more "click once to focus, again to press".
+- **Open dialogs remember music and skins separately.** Open File, Add
+  Folder and Load / Save List reopen where you last picked music (first
+  time: `~/Music`); Load Skin keeps its own folder, so choosing a skin no
+  longer sends the next Open File into your skins directory.
 
 ### Fixed
 
@@ -269,6 +278,7 @@ April build and the first DMG.
   plays the selection, Esc closes. Targets <16ms response on 10k-track
   playlists. ([feat/jump-to-file](docs/superpowers/plans/2026-04-17-jump-to-file.md))
 
-[Unreleased]: https://github.com/wishval/wamp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/wishval/wamp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wishval/wamp/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/wishval/wamp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/wishval/wamp/releases/tag/v1.1.0

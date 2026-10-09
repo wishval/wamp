@@ -78,6 +78,8 @@ final class PlaylistSkinScroller: NSView {
 
     // MARK: - Mouse interaction
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         guard let _ = scrollView, let handleY = currentHandleY() else { return }
         let p = convert(event.locationInWindow, from: nil)

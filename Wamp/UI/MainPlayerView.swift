@@ -625,8 +625,10 @@ class MainPlayerView: NSView {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
+        PanelDirectory.music.apply(to: panel)
         panel.begin { response in
             guard response == .OK else { return }
+            PanelDirectory.music.remember(panel.urls.first)
             // Same routing (folders, autoplay) as File ▸ Open and Finder opens.
             Task { @MainActor in
                 await (NSApp.delegate as? AppDelegate)?.handleOpenURLs(panel.urls, interrupt: true)
@@ -637,6 +639,8 @@ class MainPlayerView: NSView {
     // MARK: - Window dragging (skinned mode)
     // When skinned, TitleBarView is hidden so we handle dragging from the title
     // bar area (top 14px of the 116px skin) directly in MainPlayerView.
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
         guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
