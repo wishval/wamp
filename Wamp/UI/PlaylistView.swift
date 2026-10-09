@@ -717,6 +717,8 @@ class PlaylistView: NSView {
     private func skinnedMiniEjectRect() -> NSRect { NSRect(x: bounds.width -  97, y: 6, width: 10, height: 10) }
 
     // MARK: - Mouse handling (skinned mode: dragging + bottom buttons)
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
         let point = convert(event.locationInWindow, from: nil)

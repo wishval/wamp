@@ -638,6 +638,8 @@ class MainPlayerView: NSView {
     // When skinned, TitleBarView is hidden so we handle dragging from the title
     // bar area (top 14px of the 116px skin) directly in MainPlayerView.
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         guard WinampTheme.skinIsActive else { super.mouseDown(with: event); return }
         let point = convert(event.locationInWindow, from: nil)

@@ -21,6 +21,9 @@ Many of these changes come from Simone Karin Lehmann's fork
   used to work only through the playlist's Load List button).
 - **File ▸ New / Load / Save Playlist**, **Wamp ▸ Hide Wamp (⌘H)**, and
   Stop / Repeat / Shuffle / Hide in the menu-bar ♪ menu.
+- **Click-through.** Buttons, sliders and the window drag areas respond to
+  the first click even while Wamp is in the background, like Winamp —
+  no more "click once to focus, again to press".
 
 ### Fixed
 

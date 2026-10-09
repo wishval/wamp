@@ -243,6 +243,8 @@ class WinampSlider: NSView {
     }
 
     // MARK: - Mouse Handling
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         // Reset-to-center only makes sense where the midpoint is neutral
         // (balance 0, EQ band 0 dB). On seek/volume a double-click would yank
