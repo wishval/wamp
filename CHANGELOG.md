@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-09
+
 Many of these changes come from Simone Karin Lehmann's fork
 ([lisanet/McAmp](https://github.com/lisanet/McAmp)) — thank you!
 
@@ -276,6 +278,7 @@ April build and the first DMG.
   plays the selection, Esc closes. Targets <16ms response on 10k-track
   playlists. ([feat/jump-to-file](docs/superpowers/plans/2026-04-17-jump-to-file.md))
 
-[Unreleased]: https://github.com/wishval/wamp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/wishval/wamp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wishval/wamp/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/wishval/wamp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/wishval/wamp/releases/tag/v1.1.0
