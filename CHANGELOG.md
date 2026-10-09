@@ -24,6 +24,10 @@ Many of these changes come from Simone Karin Lehmann's fork
 - **Click-through.** Buttons, sliders and the window drag areas respond to
   the first click even while Wamp is in the background, like Winamp —
   no more "click once to focus, again to press".
+- **Open dialogs remember music and skins separately.** Open File, Add
+  Folder and Load / Save List reopen where you last picked music (first
+  time: `~/Music`); Load Skin keeps its own folder, so choosing a skin no
+  longer sends the next Open File into your skins directory.
 
 ### Fixed
 

@@ -630,8 +630,10 @@ class PlaylistView: NSView {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK else { return }
+            PanelDirectory.music.remember(panel.urls.first)
             Task { @MainActor in
                 await self?.playlistManager?.addURLs(panel.urls)
             }
@@ -658,8 +660,10 @@ class PlaylistView: NSView {
         panel.allowedContentTypes = [UTType(filenameExtension: "m3u"),
                                      UTType(filenameExtension: "m3u8"),
                                      UTType(filenameExtension: "pls")].compactMap { $0 }
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            PanelDirectory.music.remember(url)
             Task { @MainActor in
                 await self?.playlistManager?.loadPlaylistM3U(from: url)
             }
@@ -670,8 +674,10 @@ class PlaylistView: NSView {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "m3u")].compactMap { $0 }
         panel.nameFieldStringValue = "playlist.m3u"
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            PanelDirectory.music.remember(url)
             self?.playlistManager?.savePlaylistM3U(to: url)
         }
     }
@@ -681,8 +687,10 @@ class PlaylistView: NSView {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            PanelDirectory.music.remember(url)
             Task { @MainActor in
                 await self?.playlistManager?.addFolder(url)
             }

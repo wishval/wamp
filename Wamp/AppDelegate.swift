@@ -385,8 +385,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK else { return }
+            PanelDirectory.music.remember(panel.urls.first)
             Task { await self?.handleOpenURLs(panel.urls, interrupt: true) }
         }
     }
@@ -446,8 +448,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
+        PanelDirectory.music.apply(to: panel)
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            PanelDirectory.music.remember(url)
             Task { await self?.playlistManager.addFolder(url) }
         }
     }
@@ -531,8 +535,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
+        PanelDirectory.skins.apply(to: panel)
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        PanelDirectory.skins.remember(url)
 
         Task { @MainActor [weak self] in
             do {
